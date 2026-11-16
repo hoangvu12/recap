@@ -8,7 +8,7 @@ local format = require("@lib/format")
 local RecDot = require("@components/rec_dot")
 local Keycap = require("@components/keycap")
 
-local function bare_button(props: { id: string, label: string, color: string, on_click: () -> (), [number]: Child }): Node
+local function bare_button(props: { id: string, label: string, color: any, on_click: () -> (), [number]: Child }): Node
 	return ui.button {
 		id = props.id,
 		h = 28,
@@ -29,10 +29,33 @@ return function(): Node
 		local s = host.meeting:get().state
 		return s == "recording" or s == "paused"
 	end
+	local paused = function()
+		return host.meeting:get().state == "paused"
+	end
+	local notice = function(): string
+		return host.meeting:get().notice or ""
+	end
 	return ui.column {
 		id = "notes-footer",
 		w_full = true,
 		shrink = 0,
+		-- One line the user should know (a provider failed, the backup took
+		-- over); tertiary, as motion_spec §2.1's status row.
+		ui.show(
+			function()
+				return notice() ~= ""
+			end,
+			ui.text {
+				notice,
+				id = "notice",
+				w_full = true,
+				px = 20,
+				pb = 8,
+				truncate = true,
+				text_size = 11,
+				color = "$rc.text.tertiary",
+			}
+		),
 		ui.div { h = 1, w_full = true, bg = "$rc.stroke.hairline" },
 		ui.row {
 			h = 42,
@@ -51,21 +74,37 @@ return function(): Node
 				color = "$rc.text.secondary",
 				tabular = true,
 			},
-			ui.show(function()
-				return host.meeting:get().state == "paused"
-			end, ui.text { "Paused", text_size = 11, weight = 500, color = "$rc.text.tertiary" }),
+			ui.show(
+				paused,
+				ui.text { "Paused", id = "paused", text_size = 11, weight = 500, color = "$rc.text.tertiary" }
+			),
 			ui.div { grow = 1 },
+			-- Recording: Stop ↵. Paused: Resume ↵ first, Stop beside it.
 			ui.show(
 				live,
 				ui.row {
 					items = "center",
 					gap = 4,
+					ui.show(
+						paused,
+						bare_button {
+							id = "resume",
+							label = "Resume",
+							color = "$rc.text.primary",
+							on_click = actions.toggle_pause,
+							Keycap("↵"),
+						}
+					),
 					bare_button {
 						id = "stop",
 						label = "Stop",
-						color = "$rc.text.primary",
+						color = function()
+							return if paused() then "$rc.text.secondary" else "$rc.text.primary"
+						end,
 						on_click = actions.stop,
-						Keycap("↵"),
+						ui.show(function()
+							return not paused()
+						end, Keycap("↵")),
 					},
 					ui.div { w = 1, h = 16, mx = 4, bg = "$rc.stroke.hairline" },
 				}

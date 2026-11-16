@@ -23,6 +23,13 @@ local function line(back: number): Node
 		function()
 			return at() ~= nil
 		end,
+		ui.column {
+			w_full = true,
+			-- My line (my captions on): dimmed. Tests read this marker.
+			ui.show(function()
+				local l = at()
+				return l ~= nil and l.source == "me"
+			end, ui.div { id = `caption-{back}-me`, w = 0, h = 0, aria_hidden = true }),
 		ui.rich {
 			id = `caption-{back}`,
 			class = "caption",
@@ -53,6 +60,7 @@ local function line(back: number): Node
 				-- secondary and tertiary.
 				color = "#FFFFFF8C",
 			},
+		},
 		}
 	)
 end

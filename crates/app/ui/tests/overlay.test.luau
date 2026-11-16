@@ -27,6 +27,18 @@ test("a line that is all partial shows its words", function()
 	expect(win:text("#caption-0")).to_be("Okay, that works")
 end)
 
+test("with my captions on, my lines show among theirs, dimmed", function()
+	local app = mount()
+	local win = overlay(app, {
+		{ source = "them", final = "Then I'd suggest we launch on December first.", partial = "" },
+		{ source = "me", final = "Okay, that works for me.", partial = "" },
+		{ source = "them", final = "", partial = "Agreed" },
+	})
+	expect(win:text("#caption-1")).to_be("Okay, that works for me.")
+	expect(win:has("#caption-1-me")).to_be(true)
+	expect(win:has("#caption-0-me")).to_be(false)
+end)
+
 test("captions follow the host as words arrive", function()
 	local app = mount()
 	local win = overlay(app, { { source = "them", final = "", partial = "Agreed." } })

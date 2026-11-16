@@ -16,6 +16,15 @@ function M.stop()
 	end
 end
 
+-- The footer's primary action (↵): Stop while recording, Resume while paused.
+function M.primary()
+	if host.meeting:peek().state == "paused" then
+		host.invoke("resume")
+	else
+		M.stop()
+	end
+end
+
 function M.toggle_pause()
 	local s = host.meeting:peek().state
 	if s == "recording" then

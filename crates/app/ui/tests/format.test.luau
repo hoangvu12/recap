@@ -40,6 +40,11 @@ test("days read Today, Yesterday, then the date", function()
 	expect(format.day(local_ms(2026, 12, 31, 18, 0), local_ms(2027, 1, 1, 8, 0))).to_be("Yesterday")
 end)
 
+test("a pause reads 15:54 – 15:58", function()
+	expect(format.span(local_ms(2026, 11, 15, 15, 54), local_ms(2026, 11, 15, 15, 58))).to_be("15:54 – 15:58")
+	expect(format.span(local_ms(2026, 11, 15, 9, 5), local_ms(2026, 11, 15, 10, 0))).to_be("09:05 – 10:00")
+end)
+
 test("a time of day reads 4:12 PM", function()
 	expect(format.time(local_ms(2026, 11, 15, 16, 12))).to_be("4:12 PM")
 	expect(format.time(local_ms(2026, 11, 15, 0, 5))).to_be("12:05 AM")

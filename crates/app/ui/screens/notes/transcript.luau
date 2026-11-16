@@ -46,6 +46,10 @@ local function JumpPill(list: Ref): Node
 				on_click = function()
 					actions.jump_to_live(list:peek())
 				end,
+				-- New rows while away: an accent dot (motion_spec §2.2).
+				ui.show(function()
+					return unseen() > 0
+				end, ui.div { id = "jump-dot", w = 6, h = 6, rounded = 3, bg = "$rc.accent", aria_hidden = true }),
 				Icon { name = "arrow-down", size = 14 },
 				ui.text {
 					function()

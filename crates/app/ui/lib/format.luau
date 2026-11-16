@@ -33,6 +33,12 @@ local function local_time(epoch_ms: number): any
 	return os.date("*t", math.floor(epoch_ms / 1000))
 end
 
+-- From one local time to another, 24-hour (a pause marker): `15:54 – 15:58`.
+function M.span(from_ms: number, to_ms: number): string
+	local a, b = local_time(from_ms), local_time(to_ms)
+	return string.format("%02d:%02d – %02d:%02d", a.hour, a.min, b.hour, b.min)
+end
+
 -- A local time of day: `4:12 PM`.
 function M.time(epoch_ms: number): string
 	local t = local_time(epoch_ms)

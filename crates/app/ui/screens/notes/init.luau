@@ -49,7 +49,7 @@ return function(): Node
 				return true
 			end
 			if e.key == "Enter" and state.notes_tab:peek() ~= "notes" then
-				actions.stop()
+				actions.primary()
 				return true
 			end
 			return false

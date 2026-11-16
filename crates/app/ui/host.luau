@@ -9,8 +9,14 @@
 
 export type Source = "me" | "them"
 
+-- A pause in a meeting, wall clock (ms since the epoch).
+export type Pause = { paused_ms: number, resumed_ms: number }
+
 -- A live transcript row (a turn): its final text, then what is still partial.
+-- A pause marker row has `pause` and no text; a row whose words were taken
+-- back (an echo) has no text either.
 export type Row = {
+	pause: Pause?,
 	index: number,
 	source: Source,
 	start_ms: number,
@@ -31,8 +37,11 @@ export type Meeting = {
 	title: string,
 	-- When it started, ms since the epoch (0: not yet).
 	started_ms: number,
-	-- A stored meeting's id (read mode); "" while live.
+	-- The stored meeting's id ("" when it isn't saved).
 	id: string?,
+	-- What the user should know now: a provider failed, the backup took
+	-- over, the meeting can't be saved ("" or nil: nothing).
+	notice: string?,
 }
 
 export type MeetingStatus = "recording" | "processing" | "done"
@@ -66,6 +75,8 @@ export type Transcript = {
 	count: number,
 	-- The rows still partial, by index (as a string): only these change.
 	open: { [string]: Row },
+	-- Final rows sent again because they changed (an echo taken back).
+	revised: { [string]: Row }?,
 }
 
 export type CaptionLine = { source: Source, final: string, partial: string }
@@ -248,7 +259,8 @@ end
 
 -- Row `index` (from 1) of the live transcript.
 function M.row(index: number): Row?
-	local open = M.transcript:peek().open[tostring(index)]
+	local t = M.transcript:peek()
+	local open = t.open[tostring(index)] or (t.revised and t.revised[tostring(index)])
 	if open then
 		return open
 	end
