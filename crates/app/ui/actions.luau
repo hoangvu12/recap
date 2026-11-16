@@ -34,6 +34,42 @@ function M.toggle_pause()
 	end
 end
 
+-- The overlay ----------------------------------------------------------------
+
+function M.open_notes()
+	host.windows.notes:set(true)
+end
+
+-- Caption text `delta` points larger (−/+ in the overlay's toolbar), within
+-- Settings' 14–40.
+function M.caption_size(delta: number)
+	local size = host.settings:peek().caption_size
+	local next = math.clamp(size + delta, 14, 40)
+	if next ~= size then
+		host.invoke("set_settings", { caption_size = next })
+	end
+end
+
+-- Show my own lines in the captions, or no longer.
+function M.toggle_my_lines()
+	host.invoke("set_settings", { caption_my_speech = not host.settings:peek().caption_my_speech })
+end
+
+-- Keep the overlay above every window, or no longer.
+function M.toggle_pinned()
+	host.invoke("set_overlay_pinned", not host.overlay:peek().pinned)
+end
+
+-- Clicks go through the overlay (its hotkey does the same).
+function M.toggle_click_through()
+	host.invoke("toggle_click_through")
+end
+
+-- Caption with `choice` where the live engine failed ("Switch to Deepgram").
+function M.switch_live(choice: host.LiveChoice)
+	host.invoke("switch_live", { id = choice.id, name = choice.name })
+end
+
 -- The action panel (Ctrl K).
 function M.toggle_actions()
 	state.actions_open:set(not state.actions_open:peek())
