@@ -112,6 +112,23 @@ test("Ctrl K again closes the panel; the footer's Actions opens it too", functio
 	expect(app:state("actions_open")).to_be("home")
 end)
 
+-- Seen in the real app: a fresh Home (no meeting yet, one live) showed
+-- "Actions Ctrl K", which did nothing.
+test("an empty Home offers no Actions, and Ctrl K opens nothing", function()
+	local app = mount()
+	local win = home(app, {})
+	expect(win:has("#home-actions")).to_be(false)
+	expect(win:has("#open-meeting")).to_be(false)
+	win:key("ctrl+k")
+	expect(app:state("actions_open")).to_be("")
+	-- A meeting arrives (the live one saved): Actions shows and opens.
+	app:set_state("meetings", fx.home_meetings())
+	app:frames(2)
+	expect(win:has("#home-actions")).to_be(true)
+	win:click("#home-actions")
+	expect(app:state("actions_open")).to_be("home")
+end)
+
 test("typing filters the actions; Enter runs the one selected", function()
 	local app = mount()
 	local win = home(app)

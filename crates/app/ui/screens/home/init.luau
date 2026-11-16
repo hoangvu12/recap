@@ -89,6 +89,8 @@ local function Footer(selected: ReadOnlyState<string>): Node
 			Icon { name = "captions" },
 			ui.text { "Meetings", text_size = 13, color = "$rc.text.secondary" },
 			ui.div { grow = 1 },
+			-- Both act on the selected meeting: with none (an empty Home)
+			-- they don't show, rather than show and do nothing.
 			ui.show(
 				function()
 					return selected:get() ~= ""
@@ -104,17 +106,17 @@ local function Footer(selected: ReadOnlyState<string>): Node
 						Keycap("↵"),
 					},
 					ui.div { w = 1, h = 16, mx = 4, bg = "$rc.stroke.hairline" },
+					bare_button {
+						id = "home-actions",
+						label = "Actions",
+						color = "$rc.text.secondary",
+						on_click = function()
+							actions.toggle_actions("home")
+						end,
+						ui.row { gap = 4, Keycap("Ctrl"), Keycap("K") },
+					},
 				}
 			),
-			bare_button {
-				id = "home-actions",
-				label = "Actions",
-				color = "$rc.text.secondary",
-				on_click = function()
-					actions.toggle_actions("home")
-				end,
-				ui.row { gap = 4, Keycap("Ctrl"), Keycap("K") },
-			},
 		},
 	}
 end
