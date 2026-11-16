@@ -35,7 +35,7 @@ mod timeline;
 mod transcript;
 mod wav_source;
 
-pub use audio::{AudioFrame, AudioSource, FeedSource, FrameFeed, SAMPLE_RATE, SilenceSource};
+pub use audio::{AudioFrame, AudioSource, CaptureOptions, FeedSource, FrameFeed, SAMPLE_RATE, SilenceSource};
 #[cfg(windows)]
 pub use live_capture::{CaptureError, LiveCapture, microphones};
 pub use recorder::{Recorder, Recording};

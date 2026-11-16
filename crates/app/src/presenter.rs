@@ -163,6 +163,11 @@ impl Presenter {
         self.id = id.to_owned();
     }
 
+    /// The meeting's state; none before it starts.
+    pub fn state(&self) -> Option<MeetingState> {
+        self.state
+    }
+
     /// `meeting`.
     pub fn meeting(&self) -> Value {
         json!({

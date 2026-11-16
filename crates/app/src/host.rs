@@ -8,9 +8,12 @@
 //!          captions         { { source, final, partial } }, oldest first
 //!          meetings         { { id, title, started_ms, duration_ms, status } }, newest first
 //!          window.<id>      whether window <id> is open
+//!          overlay.click_through  whether the overlay lets clicks through (the
+//!                           overlay window applies it)
 //! function transcript_row(i)    Row i (from 1), or nil
 //!          meeting_detail(id)   { id, title, overview, started_ms, duration_ms, status, speakers }
 //! action   stop, pause, resume  the running meeting
+//!          toggle_click_through the overlay's click-through, flipped
 //!          open_meeting(id)     a stored meeting in the Notes window, read mode
 //!          start_notes          a new meeting (main.rs registers it)
 //! ```
@@ -21,7 +24,7 @@ use std::{
     rc::Rc,
 };
 
-use recap_engine::{EngineEvent, MeetingControl};
+use recap_engine::{EngineEvent, MeetingControl, MeetingState};
 use recap_storage::{MeetingId, Store};
 use zgx_script::{ScriptHost, Shared, Value};
 
@@ -54,6 +57,9 @@ pub struct Host {
     live: Rc<RefCell<Option<MeetingId>>>,
     /// Changes when Settings moves the storage folder.
     store: Rc<RefCell<Option<Store>>>,
+    click_through: Shared,
+    /// What waits for the live meeting to end (Quit while recording).
+    when_idle: Rc<RefCell<Vec<Box<dyn FnOnce()>>>>,
 }
 
 fn value(json: serde_json::Value) -> Value {
@@ -83,8 +89,12 @@ impl Host {
             control: Rc::default(),
             live: Rc::default(),
             store: Rc::new(RefCell::new(store)),
+            click_through: script.shared("overlay.click_through", false),
+            when_idle: Rc::default(),
             script,
         };
+        let flip = host.clone();
+        host.script.action("toggle_click_through", move |_| flip.toggle_click_through());
         let presenter = host.presenter.clone();
         host.script.function("transcript_row", move |arg| match arg {
             Value::Num(i) if i >= 1. => value(presenter.borrow().row(i as usize)),
@@ -130,6 +140,52 @@ impl Host {
     /// Open window `id` (`ui/windows.luau` declares it).
     pub fn open_window(&self, id: &str) {
         self.script.shared(&format!("window.{id}"), false).set(Value::Bool(true));
+    }
+
+    /// Whether window `id` is open (or asked to be).
+    pub fn window_open(&self, id: &str) -> bool {
+        self.script.shared(&format!("window.{id}"), false).with_untracked(Value::truthy)
+    }
+
+    /// Open window `id` if it is closed, close it if open.
+    pub fn toggle_window(&self, id: &str) {
+        let open = !self.window_open(id);
+        self.script.shared(&format!("window.{id}"), false).set(Value::Bool(open));
+    }
+
+    /// Flip the overlay's click-through.
+    pub fn toggle_click_through(&self) {
+        let on = self.click_through.with_untracked(Value::truthy);
+        self.click_through.set(Value::Bool(!on));
+    }
+
+    /// The meeting's state: the live one's, else the one shown (none yet).
+    pub fn state(&self) -> Option<MeetingState> {
+        self.presenter.borrow().state()
+    }
+
+    /// Stop the live meeting (nothing when none is).
+    pub fn stop(&self) {
+        if let Some(control) = &*self.control.borrow() {
+            control.stop();
+        }
+    }
+
+    /// Pause the live meeting, or resume it while paused.
+    pub fn toggle_pause(&self) {
+        let paused = self.state() == Some(MeetingState::Paused);
+        if let Some(control) = &*self.control.borrow() {
+            if paused { control.resume() } else { control.pause() }
+        }
+    }
+
+    /// Run `then` once no meeting is live: now, or when the live one ends.
+    pub fn when_idle(&self, then: impl FnOnce() + 'static) {
+        if self.is_live() {
+            self.when_idle.borrow_mut().push(Box::new(then));
+        } else {
+            then();
+        }
     }
 
     /// Tell the user `text` in the meeting's notice line.
@@ -231,6 +287,10 @@ impl Host {
             // Ended without Saved (no store, or it failed): not live either.
             host.control.borrow_mut().take();
             host.live.borrow_mut().take();
+            let waiting: Vec<_> = host.when_idle.borrow_mut().drain(..).collect();
+            for then in waiting {
+                then();
+            }
         }
     }
 
