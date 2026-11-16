@@ -1,0 +1,9 @@
+{
+	"languageMode": "strict",
+	"aliases": {
+		"components": "./components",
+		"lib": "./lib",
+		"screens": "./screens",
+		"theme": "./theme"
+	}
+}
