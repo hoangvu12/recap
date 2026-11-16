@@ -119,6 +119,12 @@ impl LiveTranscript {
         let row = &mut self.rows[index];
         row.end_ms = row.end_ms.max(segment.end_ms);
         if segment.is_final {
+            // A row's first final has the words' own times; its partials
+            // only guessed where it began (a provider's partials may carry
+            // no times).
+            if row.pieces.is_empty() {
+                row.start_ms = segment.start_ms;
+            }
             row.final_text = joined(&row.final_text, &segment.text);
             row.pieces.push((segment.id, segment.text.clone()));
             row.partial_text.clear();

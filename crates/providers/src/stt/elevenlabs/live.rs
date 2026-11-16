@@ -39,6 +39,18 @@ const MAX_BACKOFF: Duration = Duration::from_secs(8);
 /// A `committed_transcript` waits this long for its timed twin at the end.
 const TWIN_WAIT: Duration = Duration::from_millis(300);
 const KEEPALIVE_MS: u64 = 100;
+/// How far behind the audio a turn's first partial comes (stt_results: seen
+/// after ~0.7 s): where a partial's words likely began.
+const PARTIAL_LAG_MS: u64 = 700;
+
+/// Where a new partial starts: partials carry no word times, so not before
+/// the last final's end (`heard_to`) and about the lag behind the audio sent
+/// (`latest_ms`). With the last final's end alone, every next turn of the
+/// side started where the last one ended and joined its row: the real app's
+/// live transcript was one row for the whole meeting.
+fn partial_start(heard_to: u64, latest_ms: u64) -> u64 {
+    heard_to.max(latest_ms.saturating_sub(PARTIAL_LAG_MS))
+}
 
 /// Why a connection ended early.
 enum Failure {
@@ -277,7 +289,11 @@ impl Session {
         if text.is_empty() || self.open.as_ref().is_some_and(|open| open.text == text) {
             return;
         }
-        let start_ms = self.heard_to.unwrap_or(0);
+        // The turn's start is set by its first partial and kept.
+        let start_ms = match &self.open {
+            Some(open) => open.start_ms,
+            None => partial_start(self.heard_to.unwrap_or(0), self.latest_ms),
+        };
         let event = LiveEvent { text, is_final: false, start_ms, end_ms: self.latest_ms.max(start_ms) };
         self.open = Some(event.clone());
         let _ = self.events.send(event);
@@ -519,6 +535,18 @@ mod tests {
         assert_eq!(kind("rate_limited"), "retry Network");
         assert_eq!(kind("input_error"), "fatal Protocol");
         assert_eq!(kind("commit_throttled"), "other");
+    }
+
+    #[test]
+    fn a_new_partial_starts_about_the_lag_behind_the_audio_not_at_the_last_final() {
+        // The test meeting: Tom's turn ended at 9.4 s, Priya began at 11.04 s,
+        // her first partial came with ~11.9 s of audio sent.
+        let start = partial_start(9_400, 11_900);
+        assert_eq!(start, 11_200);
+        assert!(start > 9_400 + 400, "past the transcript's join gap: a row of its own");
+        // Speech that runs on through a commit: the partial follows at once.
+        assert_eq!(partial_start(9_400, 9_900), 9_400);
+        assert_eq!(partial_start(0, 300), 0);
     }
 
     #[test]

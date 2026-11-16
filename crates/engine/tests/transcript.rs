@@ -26,6 +26,15 @@ fn a_partial_opens_a_row_and_its_final_settles_it() {
 }
 
 #[test]
+fn a_rows_first_final_sets_where_it_began() {
+    // Partials without word times guess the start; the final knows it.
+    let mut t = LiveTranscript::default();
+    t.apply(&seg(1, Source::Them, 11_200, 11_900, "Thanks,", false));
+    t.apply(&seg(1, Source::Them, 11_040, 23_640, "Thanks, Tom.", true));
+    assert_eq!(t.row(0).unwrap().start_ms, 11_040);
+}
+
+#[test]
 fn the_next_sentence_of_the_same_side_continues_the_row() {
     let mut t = LiveTranscript::default();
     t.apply(&seg(1, Source::Them, 0, 900, "Thanks, Tom.", true));
