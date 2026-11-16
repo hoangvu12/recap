@@ -1,0 +1,51 @@
+# Recap: a headless meeting engine and the zgx desktop app on top of it.
+#
+#   crates/engine  recap-engine: events in, MeetingResult out. No UI, no zgx.
+#   crates/app     recap: the zgx host (Rust) and the Luau UI (crates/app/ui).
+
+[workspace]
+resolver = "3"
+members = ["crates/engine", "crates/app"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+[workspace.dependencies]
+recap-engine = { path = "crates/engine" }
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+futures = "0.3"
+# zgx is pinned by commit, at or after 24b3587 (earlier revisions leak a GDI
+# DC per DPI read and crash after 1-2 h). Keep every zgx line and the patch
+# block below on the same rev.
+zgx = { git = "https://github.com/zeronsh/zgx", rev = "24b3587265f02cf3a161bc680d1f3a13767c4b94" }
+zgx-desktop = { git = "https://github.com/zeronsh/zgx", rev = "24b3587265f02cf3a161bc680d1f3a13767c4b94" }
+zgx-script = { git = "https://github.com/zeronsh/zgx", rev = "24b3587265f02cf3a161bc680d1f3a13767c4b94" }
+
+# zgx's own patches (its root Cargo.toml): a git dependency does not bring
+# them, so every consumer repeats them.
+[patch.crates-io]
+wgpu-hal = { git = "https://github.com/zeronsh/zgx", rev = "24b3587265f02cf3a161bc680d1f3a13767c4b94" }
+winit = { git = "https://github.com/zeronsh/zgx", rev = "24b3587265f02cf3a161bc680d1f3a13767c4b94" }
+accesskit_macos = { git = "https://github.com/zeronsh/zgx", rev = "24b3587265f02cf3a161bc680d1f3a13767c4b94" }
+accesskit_consumer = { git = "https://github.com/zeronsh/zgx", rev = "24b3587265f02cf3a161bc680d1f3a13767c4b94" }
+accesskit_atspi_common = { git = "https://github.com/zeronsh/zgx", rev = "24b3587265f02cf3a161bc680d1f3a13767c4b94" }
+accesskit_unix = { git = "https://github.com/zeronsh/zgx", rev = "24b3587265f02cf3a161bc680d1f3a13767c4b94" }
+accesskit_windows = { git = "https://github.com/zeronsh/zgx", rev = "24b3587265f02cf3a161bc680d1f3a13767c4b94" }
+
+# zgx is slow unoptimized: optimize dependencies, keep our crates quick to build.
+[profile.dev.package."*"]
+opt-level = 3
+debug = "line-tables-only"
+
+[profile.dev.package.naga]
+opt-level = 1
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
