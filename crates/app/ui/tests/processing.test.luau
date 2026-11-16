@@ -137,6 +137,23 @@ test("once every step is done the card goes and the refined transcript shows its
 	expect(win:has("#hide")).to_be(false)
 end)
 
+-- Seen in the real app: the host sends every step done, then clears the
+-- steps at once; the card stayed for good, its rows blank.
+test("all done then cleared at once: the card holds its three checks, then goes", function()
+	local app = mount()
+	local win = stopped(app, steps("done", "done", "running"))
+	app:set_state("processing", steps("done", "done", "done"))
+	app:frames(1)
+	app:set_state("processing", { id = "", steps = {} })
+	app:frames(2)
+	-- Holding: the checks and labels are still there.
+	expect(win:has("#processing")).to_be(true)
+	expect(win:text("#step-3-label")).to_be("Writing summary")
+	expect(win:has("#step-3-done")).to_be(true)
+	expect(win:wait("#processing", { gone = true })).to_be(true)
+	expect(app:state("processing_holding")).to_be(false)
+end)
+
 test("a live meeting has no card and no speakers header", function()
 	local win = fx.live_meeting(mount())
 	expect(win:has("#processing")).to_be(false)

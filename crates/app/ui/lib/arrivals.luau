@@ -13,16 +13,18 @@ M.BATCH = 3
 -- How long a row counts as arriving (Wispr's "arriving" window).
 M.WINDOW_MS = 600
 
-local arriving: { [number]: boolean } = {}
+-- Row index -> until when it arrives (os.clock seconds). A deadline, not a
+-- timer: a timer started in the effect below would be stopped by its next
+-- run, and live partials run it many times a second.
+local arriving: { [number]: number } = {}
 local last_count = 0
 local last_generation = -1
 
-local function forget(indexes: { number })
-	ui.after(M.WINDOW_MS, function()
-		for _, i in indexes do
-			arriving[i] = nil
-		end
-	end)
+local function mark(indexes: { number })
+	local until_s = os.clock() + M.WINDOW_MS / 1000
+	for _, i in indexes do
+		arriving[i] = until_s
+	end
 end
 
 ui.effect(function()
@@ -35,10 +37,9 @@ ui.effect(function()
 	if live and generation == last_generation and count > last_count and count - last_count <= M.BATCH then
 		local new = {}
 		for i = last_count + 1, count do
-			arriving[i] = true
 			table.insert(new, i)
 		end
-		forget(new)
+		mark(new)
 	elseif generation ~= last_generation or count < last_count then
 		table.clear(arriving)
 	end
@@ -47,7 +48,15 @@ end)
 
 -- Is row `index` (from 1) arriving now?
 function M.arriving(index: number): boolean
-	return arriving[index] == true
+	local until_s = arriving[index]
+	if until_s == nil then
+		return false
+	end
+	if os.clock() >= until_s then
+		arriving[index] = nil
+		return false
+	end
+	return true
 end
 
 return M
