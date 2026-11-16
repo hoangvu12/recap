@@ -27,7 +27,32 @@ export type Row = {
 	-- rows have none (their chip is Me or Them).
 	speaker: string?,
 	speaker_n: number?,
+	-- Its id ("me", "S1"…): what a rename from its chip names.
+	speaker_id: string?,
 }
+
+-- A speaker in the Name speakers dialog (crates/app/src/speakers.rs).
+export type DialogSpeaker = {
+	id: string,
+	-- The engine's label ("Me", "Speaker 2"), the chip.
+	label: string,
+	-- Its place (from 1): the chip's hue.
+	n: number,
+	-- Its name ("" none).
+	name: string,
+	-- Me: the name is Settings'.
+	locked: boolean,
+	-- Two things it said, to tell it by.
+	quotes: { string },
+	-- A name the AI thought of but wasn't sure of ("" none).
+	suggest: string,
+}
+
+-- The Name speakers dialog's meeting (id "": none) and the known people.
+export type SpeakersDialog = { id: string, speakers: { DialogSpeaker }, people: { string } }
+
+-- What plays now: `key` as the UI asked ("line-3", "speaker-S2"; "" nothing).
+export type Playback = { key: string, duration_ms: number }
 
 export type MeetingState = "idle" | "recording" | "paused" | "stopped"
 
@@ -287,6 +312,12 @@ M.summary = ui.shared("summary", {
 	decisions = {},
 } :: Summary)
 
+-- The Name speakers dialog's state (name_speakers fills it).
+M.speakers_dialog = ui.shared("speakers_dialog", { id = "", speakers = {}, people = {} } :: SpeakersDialog)
+
+-- What plays (play, stop_playback).
+M.playback = ui.shared("playback", { key = "", duration_ms = 0 } :: Playback)
+
 -- The overlay's lines, oldest first: the last few rows it may show.
 M.captions = ui.shared("captions", {} :: { CaptionLine })
 
@@ -334,6 +365,7 @@ M.windows = {
 	notes = ui.shared("window.notes", false),
 	overlay = ui.shared("window.overlay", false),
 	settings = ui.shared("window.settings", false),
+	speakers = ui.shared("window.speakers", false),
 }
 
 -- Without a host: what the UI asked for, and the rows and details a test
@@ -341,6 +373,15 @@ M.windows = {
 M.calls = ui.state("calls", {} :: { Call })
 M.mock_rows = ui.state("mock_rows", {} :: { Row })
 M.mock_details = ui.state("mock_details", {} :: { [string]: MeetingDetail })
+M.mock_people = ui.state("mock_people", {} :: { string })
+
+-- The known people (rename suggestions), by name.
+function M.people(): { string }
+	if M.connected:peek() then
+		return ui.call_sync("people", nil) or {}
+	end
+	return M.mock_people:peek()
+end
 
 -- Meeting `id`'s detail pane.
 function M.detail(id: string): MeetingDetail?

@@ -6,6 +6,7 @@ local state = require("@app/state")
 local meetings = require("@lib/meetings")
 local providers = require("@lib/providers")
 local processing = require("@lib/processing")
+local speakers = require("@lib/speakers")
 
 local M = {}
 
@@ -38,8 +39,109 @@ function M.regenerate_summary()
 	end
 end
 
+-- Speakers and playback (screens/5, screens/6) ----------------------------
+
+-- The stored meeting the Notes window shows ("" when live or none).
+local function stored_id(): string
+	local m = host.meeting:peek()
+	return if m.state == "stopped" and m.id then m.id else ""
+end
+
+-- The Name speakers dialog for the meeting shown (its link, the action
+-- panel's "Name speakers…"). The host fills `speakers_dialog` and opens it.
+function M.name_speakers()
+	local id = stored_id()
+	if id ~= "" then
+		host.invoke("open_name_speakers", id)
+	end
+end
+
+-- Play what `key` names, or stop it when it plays already.
+local function toggle_play(key: string, arg: { [string]: any })
+	if host.playback:peek().key == key then
+		host.invoke("stop_playback")
+	else
+		host.invoke("play", arg)
+	end
+end
+
+-- Play row `index` (from 1) of the stored transcript from its start: a
+-- click on it, or Enter on the row last clicked. Again stops it.
+function M.play_line(index: number)
+	local id = stored_id()
+	local row = host.row(index)
+	if id == "" or row == nil then
+		return
+	end
+	state.selected_row:set(index)
+	local key = `line-{index}`
+	toggle_play(key, { id = id, key = key, from_ms = row.start_ms })
+end
+
+-- Play speaker `speaker`'s clip (the dialog's ▶); again stops it.
+function M.play_speaker(speaker: string)
+	local id = host.speakers_dialog:peek().id
+	if id ~= "" then
+		local key = `speaker-{speaker}`
+		toggle_play(key, { id = id, key = key, speaker = speaker })
+	end
+end
+
+-- Name meeting `id`'s speakers: speaker id -> name ("" unnames).
+function M.rename_speakers(id: string, names: { [string]: string })
+	if id ~= "" and next(names) ~= nil then
+		host.invoke("rename_speakers", { id = id, names = names })
+	end
+end
+
+-- Rename row `index`'s speaker inline (a click on its chip); Me's is
+-- Settings' name.
+function M.start_rename(index: number, speaker: string, current: string)
+	if speaker == "" or speaker == "me" or stored_id() == "" then
+		return
+	end
+	state.rename_text:set(current)
+	state.rename_pick:set(1)
+	state.renaming:set({ index = index, speaker = speaker })
+end
+
+function M.cancel_rename()
+	state.renaming:set({ index = 0, speaker = "" })
+	state.rename_text:set("")
+end
+
+-- The inline rename gives `name` to its speaker.
+function M.commit_rename(name: string)
+	local r = state.renaming:peek()
+	M.cancel_rename()
+	local typed = speakers.trim(name)
+	if r.speaker ~= "" and typed ~= "" then
+		M.rename_speakers(stored_id(), { [r.speaker] = typed })
+	end
+end
+
+-- Close the dialog without changing anything (Skip Esc).
+function M.close_name_speakers()
+	if host.playback:peek().key ~= "" then
+		host.invoke("stop_playback")
+	end
+	host.windows.speakers:set(false)
+end
+
+-- Keep the names typed in the dialog (`typed`: speaker id -> field), then
+-- close it (Save names Ctrl ↵).
+function M.save_names(typed: { [string]: string })
+	local d = host.speakers_dialog:peek()
+	local names = speakers.changed(d.speakers, typed)
+	if names then
+		M.rename_speakers(d.id, names)
+	end
+	M.close_name_speakers()
+end
+
 -- The footer's primary action (↵): Stop while recording, Resume while
--- paused, Retry when a processing step failed.
+-- paused, Retry when a processing step failed, else play the transcript
+-- from the row last clicked.
 function M.primary()
 	local s = host.meeting:peek().state
 	if s == "paused" then
@@ -48,6 +150,8 @@ function M.primary()
 		M.stop()
 	elseif processing.failed(host.processing:peek()) then
 		M.retry_processing()
+	elseif state.notes_tab:peek() == "transcript" and state.selected_row:peek() > 0 then
+		M.play_line(state.selected_row:peek())
 	end
 end
 

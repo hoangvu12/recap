@@ -11,6 +11,7 @@ local Home = require("@screens/home")
 local Notes = require("@screens/notes")
 local Overlay = require("@screens/overlay")
 local Settings = require("@screens/settings")
+local Speakers = require("@screens/speakers")
 
 ui.window {
 	id = "home",
@@ -40,6 +41,16 @@ ui.window {
 	height = 732,
 	frame_autosave = "settings",
 	Settings(),
+}
+
+ui.window {
+	id = "speakers",
+	title = "Name speakers",
+	open = host.windows.speakers,
+	width = 480,
+	height = 620,
+	frame_autosave = "speakers",
+	Speakers(),
 }
 
 ui.window {

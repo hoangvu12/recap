@@ -17,6 +17,7 @@
 //!          window.<id>     whether window <id> is open
 //! function transcript_row(i)    Row i (from 1), or nil
 //!          meeting_detail(id)   { id, title, overview, started_ms, duration_ms, status, speakers }
+//!          people()             the known people, by name (rename suggestions)
 //! action   stop, pause, resume  the running meeting
 //!          open_meeting(id)     a stored meeting in the Notes window, read mode; an
 //!                               unfinished one is processed again (Recover)
@@ -25,7 +26,7 @@
 //!                               summary again (meetings processed without them)
 //!          tick_next_step { id, index, done }  next step `index` (from 1) ticked or not
 //!          set_my_notes { id, text }  what the user typed (kept at Stop)
-//!          name_speakers(id)    the Name speakers dialog for meeting id (the
+//!          open_name_speakers(id)  the Name speakers dialog for meeting id (the
 //!                               action panel's "Name speakers" too)
 //!          rename_speakers { id, names = { S2 = "David", S1 = "" } }  names kept
 //!                               ("" unnames); views relabel, the summary is
@@ -231,8 +232,16 @@ impl Host {
                 eprintln!("recap: my notes of {id}: {error}");
             }
         });
+        let known = host.store.clone();
+        host.script.function("people", move |_| {
+            let store = known.borrow().clone();
+            match store.map(|s| s.people()) {
+                Some(Ok(people)) => value(serde_json::json!(people)),
+                _ => value(serde_json::json!([])),
+            }
+        });
         let namer = host.clone();
-        host.script.action("name_speakers", move |arg| {
+        host.script.action("open_name_speakers", move |arg| {
             if let Some(id) = meeting_id(&arg).or_else(|| namer.shown()) {
                 namer.name_speakers(&id);
             }

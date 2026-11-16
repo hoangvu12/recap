@@ -4,6 +4,7 @@
 -- right.
 local host = require("@app/host")
 local actions = require("@app/actions")
+local state = require("@app/state")
 local format = require("@lib/format")
 local processing = require("@lib/processing")
 local RecDot = require("@components/rec_dot")
@@ -137,6 +138,29 @@ return function(): Node
 							Keycap("↵"),
 						},
 					}),
+					ui.div { w = 1, h = 16, mx = 4, bg = "$rc.stroke.hairline" },
+				}
+			),
+			-- A stored transcript: Play from here ↵ (the line last clicked).
+			ui.show(
+				function()
+					return not live()
+						and not processing.active(host.processing:get())
+						and state.notes_tab:get() == "transcript"
+						and state.selected_row:get() > 0
+				end,
+				ui.row {
+					items = "center",
+					gap = 4,
+					bare_button {
+						id = "play-from-here",
+						label = "Play from here",
+						color = "$rc.text.primary",
+						on_click = function()
+							actions.play_line(state.selected_row:peek())
+						end,
+						Keycap("↵"),
+					},
 					ui.div { w = 1, h = 16, mx = 4, bg = "$rc.stroke.hairline" },
 				}
 			),
