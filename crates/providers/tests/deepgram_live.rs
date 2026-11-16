@@ -163,7 +163,7 @@ async fn the_test_meeting_gives_partials_then_finals_with_meeting_times() {
 #[tokio::test]
 async fn finals_of_one_utterance_join_until_speech_final_or_utterance_end() {
     let script = vec![
-        Step::AwaitAudio(10),
+        Step::AwaitAudio(16),
         interim(&[("We", 0.2, 0.4)]),
         results(&[("We", 0.2, 0.4), ("launch", 0.4, 0.7)], true, false),
         interim(&[("on", 0.8, 0.9)]),
@@ -177,12 +177,13 @@ async fn finals_of_one_utterance_join_until_speech_final_or_utterance_end() {
     ];
     let server = FakeListen::start(vec![script]).await;
     let mut session = start(&client(config(&server.base)), LiveOptions::default());
-    session.send((0..10).map(|i| frame(i, 0)));
+    // 1.6 s of audio: the words' times stay inside what was sent.
+    session.send((0..16).map(|i| frame(i, 0)));
     let events = session.until_finals(1).await;
     let texts: Vec<(&str, bool)> = events.iter().map(|e| (e.text.as_str(), e.is_final)).collect();
     assert_eq!(texts, [("We", false), ("We launch", false), ("We launch on", false), ("We launch on December 1.", true)]);
     assert_eq!((events[3].start_ms, events[3].end_ms), (200, 1_500));
-    session.send((10..30).map(|i| frame(i, 0)));
+    session.send((16..30).map(|i| frame(i, 0)));
     let events = session.until_finals(1).await;
     assert_eq!(events.last().unwrap(), &LiveEvent { text: "Agreed.".into(), is_final: true, start_ms: 2_000, end_ms: 2_400 });
     let (result, rest) = session.finish().await;

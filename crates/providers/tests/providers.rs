@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use recap_engine::{BatchStt, LiveStt, Llm, ProviderErrorKind};
+use recap_engine::{Llm, ProviderErrorKind};
 use recap_providers::{
     Draft, Group, Job, MemorySecrets, Providers, Registry, Secrets, Slot, fake, mask,
 };
