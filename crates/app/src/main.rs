@@ -22,6 +22,7 @@ use recap::{
     fonts,
     host::{self, Host},
     live::StartOptions,
+    overlay::OverlayHost,
     seed,
     session::{self, SessionConfig},
     settings::ProvidersHost,
@@ -97,6 +98,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             recap_engine::microphones().into_iter().map(|(id, name)| Microphone { id, name }).collect()
         });
         settings_host.connect_store(&host, home.clone(), now_ms);
+        // The overlay's window: capture exclusion, tool window, click-through
+        // (#15's hotkey: `overlay.toggle_click_through()`), pin, engine switch.
+        let overlay = OverlayHost::register(&host, &settings_host, providers.clone());
         // Start new notes: capture (or a dev replay), live captions, saved.
         let starter = {
             let (host, tasks, runtime) = (host.clone(), cx.tasks.clone(), engine.handle().clone());
@@ -108,6 +112,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         started_ms: now_ms(),
                         caption_me: settings.caption_my_speech,
                         live: settings.live_options(),
+                        live_choices: StartOptions::live_choices(&providers),
                     };
                     match options.source() {
                         Ok(source) => {
@@ -129,7 +134,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             eprintln!("recap: {error}");
         }
         cx.tasks.spawn(host.script.watch(Duration::from_millis(250)));
-        let follow = windows::follow(&host.script, cx, Quit::WhenNoneOpen, devtools);
+        let opened: windows::Opened = {
+            let overlay = overlay.clone();
+            Rc::new(move |id, title, wcx| {
+                if id == "overlay" {
+                    overlay.attach(title, wcx);
+                }
+            })
+        };
+        let follow = windows::follow(&host.script, cx, Quit::WhenNoneOpen, devtools, opened);
         let handle = cx.render(host.script.view());
         let server = devtools
             .then(|| {
@@ -153,11 +166,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         let saving = host.script.clone();
-        let keep = RefCell::new(Some((follow, server, host, providers_host, settings_host, engine)));
+        let keep = RefCell::new(Some((follow, server, host, providers_host, settings_host, overlay, engine)));
         cx.on_closed(move || {
             saving.save();
-            if let Some((follow, server, host, providers_host, settings_host, engine)) = keep.borrow_mut().take() {
-                drop((follow, server, host, providers_host, settings_host));
+            if let Some((follow, server, host, providers_host, settings_host, overlay, engine)) =
+                keep.borrow_mut().take()
+            {
+                drop((follow, server, host, providers_host, settings_host, overlay));
                 engine.shutdown_background();
             }
         });

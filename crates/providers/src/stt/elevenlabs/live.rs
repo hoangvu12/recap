@@ -18,7 +18,7 @@ use std::time::Duration;
 
 use base64::Engine;
 use futures::{SinkExt, StreamExt, stream::SplitSink};
-use recap_engine::{AudioFrame, LiveEvent, LiveOptions, ProviderError, ProviderErrorKind, SAMPLE_RATE};
+use recap_engine::{AudioFrame, LiveEvent, LiveOptions, LiveStatus, ProviderError, ProviderErrorKind, SAMPLE_RATE};
 use serde_json::{Value, json};
 use tokio::sync::mpsc;
 use tokio::time::{Instant, sleep_until, timeout};
@@ -445,8 +445,11 @@ pub(super) async fn run(
     options: LiveOptions,
     mut audio: mpsc::UnboundedReceiver<AudioFrame>,
     events: mpsc::UnboundedSender<LiveEvent>,
+    status: mpsc::UnboundedSender<LiveStatus>,
 ) -> Result<(), ProviderError> {
     let url = url(&inner, &options);
+    // A connection was lost and none has come back yet.
+    let mut reconnecting = false;
     let mut session = Session {
         events,
         unfinal: VecDeque::new(),
@@ -468,7 +471,12 @@ pub(super) async fn run(
         first = false;
         let mut conn = Conn::new(previous_text);
         let result = match connect(&inner, &url).await {
-            Ok(ws) => session.connection(&inner, ws, &mut audio, &mut conn).await,
+            Ok(ws) => {
+                if std::mem::take(&mut reconnecting) {
+                    let _ = status.send(LiveStatus::Connected);
+                }
+                session.connection(&inner, ws, &mut audio, &mut conn).await
+            }
             Err(failure) => Err(failure),
         };
         let error = match result {
@@ -476,6 +484,10 @@ pub(super) async fn run(
             Err(Failure::Fatal(error)) => return Err(error),
             Err(Failure::Retry(error)) => error,
         };
+        if !reconnecting && session.audio_open {
+            reconnecting = true;
+            let _ = status.send(LiveStatus::Reconnecting);
+        }
         if conn.heard {
             failures = 0;
         }

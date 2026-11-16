@@ -5,7 +5,8 @@
 //! shared   host.connected   true: the UI talks to this host, not its mocks
 //!          meeting          { state, elapsed_ms, title, started_ms, id, notice }
 //!          transcript       { count, open = { ["7"] = Row }, revised? = { ["2"] = Row } }
-//!          captions         { { source, final, partial } }, oldest first
+//!          captions         { { index, source, final, partial } }, oldest first
+//!          live             { status, provider, error, switch_to? = { id, name } }
 //!          meetings         { { id, title, started_ms, duration_ms, status } }, newest first
 //!          window.<id>      whether window <id> is open
 //! function transcript_row(i)    Row i (from 1), or nil
@@ -47,6 +48,7 @@ pub struct Host {
     meeting: Shared,
     transcript: Shared,
     captions: Shared,
+    live_captions: Shared,
     meetings: Shared,
     presenter: Rc<RefCell<Presenter>>,
     control: Rc<RefCell<Option<MeetingControl>>>,
@@ -78,6 +80,7 @@ impl Host {
             meeting: script.shared("meeting", value(presenter.meeting())),
             transcript: script.shared("transcript", value(presenter.transcript())),
             captions: script.shared("captions", value(presenter.captions())),
+            live_captions: script.shared("live", value(presenter.live())),
             meetings: script.shared("meetings", Value::from_json("[]").unwrap_or(Value::Nil)),
             presenter: Rc::new(RefCell::new(presenter)),
             control: Rc::default(),
@@ -183,7 +186,7 @@ impl Host {
         match loaded {
             Ok((Some(meeting), segments)) => {
                 *self.presenter.borrow_mut() = Presenter::stored(&meeting.info, &segments);
-                self.publish(Changed { meeting: true, transcript: true, captions: true });
+                self.publish(Changed::ALL);
                 self.open_window("notes");
             }
             Ok((None, _)) => eprintln!("recap: no meeting {id}"),
@@ -200,14 +203,16 @@ impl Host {
         session: LiveSession,
     ) -> impl std::future::Future<Output = ()> + 'static {
         let LiveSession { id, mut events, control } = session;
-        let mut presenter = Presenter::new(config.started_ms).with_my_captions(config.caption_me);
+        let mut presenter = Presenter::new(config.started_ms)
+            .with_my_captions(config.caption_me)
+            .with_live_choices(config.live_choices.clone());
         if let Some(id) = &id {
             presenter.saved_as(id.as_str());
         }
         *self.presenter.borrow_mut() = presenter;
         *self.control.borrow_mut() = Some(control);
         *self.live.borrow_mut() = id;
-        self.publish(Changed { meeting: true, transcript: true, captions: true });
+        self.publish(Changed::ALL);
         let host = self.clone();
         async move {
             while let Some(event) = events.recv().await {
@@ -234,8 +239,40 @@ impl Host {
         }
     }
 
+    /// The running meeting's controls, while one runs.
+    pub fn control(&self) -> Option<MeetingControl> {
+        self.control.borrow().clone()
+    }
+
+    /// Show my lines in the captions, or no longer, and caption my speech
+    /// in the running meeting accordingly.
+    pub fn set_my_captions(&self, on: bool) {
+        if let Some(control) = self.control() {
+            control.caption_me(on);
+        }
+        let changed = self.presenter.borrow_mut().set_my_captions(on);
+        self.publish(changed);
+    }
+
+    /// Caption the running meeting with `live` where its provider failed.
+    pub fn replace_live(&self, live: std::sync::Arc<dyn recap_engine::LiveStt>) {
+        if let Some(control) = self.control() {
+            control.replace_live(live);
+        }
+    }
+
+    /// A switch to `provider` failed before it began.
+    pub fn switch_failed(&self, provider: &str, message: &str) {
+        eprintln!("recap: {message}");
+        let changed = self.presenter.borrow_mut().switch_failed(provider, message);
+        self.publish(changed);
+    }
+
     fn publish(&self, changed: Changed) {
         let p = self.presenter.borrow();
+        if changed.live {
+            self.live_captions.set(value(p.live()));
+        }
         if changed.meeting {
             self.meeting.set(value(p.meeting()));
         }

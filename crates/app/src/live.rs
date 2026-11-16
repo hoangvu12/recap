@@ -19,6 +19,8 @@ use recap_engine::{
 use recap_providers::{Providers, elevenlabs};
 use tokio::sync::mpsc;
 
+use crate::presenter::LiveChoice;
+
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum Audio {
     /// The mic and the meeting audio.
@@ -95,18 +97,36 @@ impl StartOptions {
             Ok(job) => Arc::new(job),
             Err(error) => {
                 notify(format!("Live captions are off: {}", error.message));
-                Arc::new(Unavailable(error))
+                let name = providers
+                    .choice(recap_providers::Job::Live)
+                    .0
+                    .and_then(|id| providers.settings(&id))
+                    .map_or_else(|| "Live captions".to_owned(), |s| s.name);
+                Arc::new(Unavailable { name, error })
             }
         }
     }
+
+    /// The speech engines live captions could switch to, in the order
+    /// Settings lists them.
+    pub fn live_choices(providers: &Providers) -> Vec<LiveChoice> {
+        providers
+            .eligible(recap_providers::Job::Live)
+            .into_iter()
+            .filter_map(|id| providers.settings(&id).map(|s| LiveChoice { id, name: s.name }))
+            .collect()
+    }
 }
 
-/// No live captions: the job could not be built.
-struct Unavailable(ProviderError);
+/// No live captions: the job could not be built (named after its main).
+struct Unavailable {
+    name: String,
+    error: ProviderError,
+}
 
 impl LiveStt for Unavailable {
     fn name(&self) -> &str {
-        "Unavailable"
+        &self.name
     }
     fn capabilities(&self) -> Capabilities {
         Capabilities::default()
@@ -118,7 +138,7 @@ impl LiveStt for Unavailable {
         _audio: mpsc::UnboundedReceiver<AudioFrame>,
         _events: mpsc::UnboundedSender<LiveEvent>,
     ) -> BoxFuture<'static, Result<(), ProviderError>> {
-        let error = self.0.clone();
+        let error = self.error.clone();
         Box::pin(async move { Err(error) })
     }
 }

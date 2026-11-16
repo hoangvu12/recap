@@ -45,6 +45,6 @@ pub use fallback::{Fallback, FallbackNotice};
 pub use live_meeting::{Meeting, MeetingConfig, MeetingControl};
 pub use provider::{
     BatchRequest, BatchStt, BatchTranscript, BoxFuture, Capabilities, LiveEvent, LiveOptions,
-    LiveStt, Llm, ProviderError, ProviderErrorKind, Word,
+    LiveStatus, LiveStt, Llm, ProviderError, ProviderErrorKind, Word,
 };
 pub use transcript::{LiveTranscript, Row, RowChange};

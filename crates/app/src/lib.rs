@@ -11,11 +11,14 @@
 //! - [`settings`]: Settings' host side: the providers, their jobs and Test.
 //! - [`user_settings`]: the other Settings pages: `Settings` (recap-storage)
 //!   saved, published and watched; storage folder and audio retention applied.
+//! - [`overlay`]: the caption overlay's window: hidden from capture, a tool
+//!   window, click-through and pin; switching the live engine.
 
 pub mod fonts;
 pub mod home;
 pub mod host;
 pub mod live;
+pub mod overlay;
 pub mod presenter;
 pub mod seed;
 pub mod session;

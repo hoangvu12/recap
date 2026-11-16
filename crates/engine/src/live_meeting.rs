@@ -7,7 +7,7 @@ use tokio::task::JoinHandle;
 
 use crate::echo::{ECHO_WINDOW_MS, Spoken, is_echo};
 use crate::{
-    AudioFrame, AudioSource, EngineEvent, LiveEvent, LiveOptions, LiveStt, LiveTranscript,
+    AudioFrame, AudioSource, EngineEvent, LiveEvent, LiveOptions, LiveStatus, LiveStt, LiveTranscript,
     MeetingResult, MeetingState, PauseMark, Recorder, Segment, SegmentId, Source,
 };
 
@@ -58,6 +58,10 @@ enum Control {
     Pause,
     Resume,
     Stop,
+    /// Caption the sides whose provider failed with this one.
+    Live(Arc<dyn LiveStt>),
+    /// Caption my own speech too, or no longer.
+    CaptionMe(bool),
 }
 
 /// Pause, resume or stop a running meeting from anywhere (the UI thread, a
@@ -76,6 +80,15 @@ impl MeetingControl {
     /// `Finished` follow.
     pub fn stop(&self) {
         let _ = self.0.send(Control::Stop);
+    }
+    /// Caption with `live` from now on, on the sides whose provider failed
+    /// ("Switch to Deepgram"); the others keep theirs.
+    pub fn replace_live(&self, live: Arc<dyn LiveStt>) {
+        let _ = self.0.send(Control::Live(live));
+    }
+    /// Caption my own speech too (`true`), or stop (`false`), mid-meeting.
+    pub fn caption_me(&self, on: bool) {
+        let _ = self.0.send(Control::CaptionMe(on));
     }
 }
 
@@ -138,6 +151,98 @@ fn read_source(mut source: Box<dyn AudioSource>, audio: mpsc::Sender<AudioFrame>
 struct Side {
     audio: Option<mpsc::UnboundedSender<AudioFrame>>,
     task: JoinHandle<Result<(), crate::ProviderError>>,
+    /// Which start of the side this is (a side may be started again).
+    generation: u64,
+}
+
+/// What a side's session tells the engine.
+enum Heard {
+    Event(LiveEvent),
+    Status(LiveStatus),
+}
+
+/// The sides being captioned live, and how to start one.
+struct Sides {
+    live: Arc<dyn LiveStt>,
+    options: LiveOptions,
+    /// The sides that should be captioned (Them always; Me with my
+    /// captions on).
+    wanted: Vec<Source>,
+    running: HashMap<Source, Side>,
+    heard: mpsc::UnboundedSender<(Source, Heard)>,
+    /// A side's session ended (by its generation).
+    ended: mpsc::UnboundedSender<(Source, u64)>,
+    generations: u64,
+}
+
+impl Sides {
+    /// Caption `source` with the current provider, from now on.
+    fn start(&mut self, source: Source, engine: &Engine) {
+        let (audio_tx, audio_rx) = mpsc::unbounded_channel();
+        let (event_tx, mut event_rx) = mpsc::unbounded_channel();
+        let (status_tx, mut status_rx) = mpsc::unbounded_channel();
+        let session = self.live.run_reporting(source, self.options.clone(), audio_rx, event_tx, status_tx);
+        engine.emit(EngineEvent::Live { source, status: LiveStatus::Using(self.live.name().to_owned()) });
+        let forward = self.heard.clone();
+        // A status said before an event is forwarded before it.
+        tokio::spawn(async move {
+            let mut status_open = true;
+            loop {
+                tokio::select! {
+                    biased;
+                    status = status_rx.recv(), if status_open => match status {
+                        Some(status) => drop(forward.send((source, Heard::Status(status)))),
+                        None => status_open = false,
+                    },
+                    event = event_rx.recv() => match event {
+                        Some(event) => drop(forward.send((source, Heard::Event(event)))),
+                        None => break,
+                    },
+                }
+            }
+        });
+        self.generations += 1;
+        let (generation, ended) = (self.generations, self.ended.clone());
+        let task = tokio::spawn(async move {
+            let result = session.await;
+            let _ = ended.send((source, generation));
+            result
+        });
+        self.running.insert(source, Side { audio: Some(audio_tx), task, generation });
+    }
+
+    /// Start the wanted sides that aren't running.
+    fn start_missing(&mut self, engine: &Engine) {
+        for source in self.wanted.clone() {
+            if !self.running.contains_key(&source) {
+                self.start(source, engine);
+            }
+        }
+    }
+
+    fn caption_me(&mut self, on: bool, engine: &Engine) {
+        if on {
+            if !self.wanted.contains(&Source::Me) {
+                self.wanted.push(Source::Me);
+                self.start(Source::Me, engine);
+            }
+        } else {
+            self.wanted.retain(|s| *s != Source::Me);
+            // Its audio closes: it says the rest of what it heard and ends
+            // on its own.
+            self.running.remove(&Source::Me);
+        }
+    }
+}
+
+/// Tell what a side's session ended with, if it failed.
+fn report(engine: &Engine, source: Source, ended: Result<Result<(), crate::ProviderError>, tokio::task::JoinError>) {
+    let error = match ended {
+        Ok(Ok(())) => return,
+        Ok(Err(error)) => error,
+        Err(join) => crate::ProviderError::new(crate::ProviderErrorKind::Other, join.to_string()),
+    };
+    engine.emit(EngineEvent::Error { source, error });
 }
 
 /// How long after a Me final's end Them's audio may still bring the words it
@@ -331,22 +436,18 @@ async fn run(
     };
 
     // Them always; Me only when my captions are on.
-    let (heard_tx, mut heard) = mpsc::unbounded_channel::<(Source, LiveEvent)>();
-    let mut sides: HashMap<Source, Side> = HashMap::new();
-    let wanted = if config.caption_me { vec![Source::Them, Source::Me] } else { vec![Source::Them] };
-    for source in wanted {
-        let (audio_tx, audio_rx) = mpsc::unbounded_channel();
-        let (event_tx, mut event_rx) = mpsc::unbounded_channel();
-        let task = live.run(source, config.live.clone(), audio_rx, event_tx);
-        let forward = heard_tx.clone();
-        tokio::spawn(async move {
-            while let Some(event) = event_rx.recv().await {
-                let _ = forward.send((source, event));
-            }
-        });
-        sides.insert(source, Side { audio: Some(audio_tx), task: tokio::spawn(task) });
-    }
-    drop(heard_tx);
+    let (heard_tx, mut heard) = mpsc::unbounded_channel::<(Source, Heard)>();
+    let (ended_tx, mut ended) = mpsc::unbounded_channel::<(Source, u64)>();
+    let mut sides = Sides {
+        live,
+        options: config.live.clone(),
+        wanted: if config.caption_me { vec![Source::Them, Source::Me] } else { vec![Source::Them] },
+        running: HashMap::new(),
+        heard: heard_tx,
+        ended: ended_tx,
+        generations: 0,
+    };
+    sides.start_missing(&engine);
 
     // While paused: when it paused (wall clock).
     let mut paused: Option<u64> = None;
@@ -367,9 +468,25 @@ async fn run(
                     engine.emit(EngineEvent::State(MeetingState::Recording));
                 }
                 Control::Stop => break,
+                Control::Live(live) => {
+                    sides.live = live;
+                    sides.start_missing(&engine);
+                }
+                Control::CaptionMe(on) => sides.caption_me(on, &engine),
                 _ => {}
             },
-            Some((source, event)) = heard.recv() => engine.heard(source, event),
+            Some((source, heard)) = heard.recv() => match heard {
+                Heard::Event(event) => engine.heard(source, event),
+                Heard::Status(status) => engine.emit(EngineEvent::Live { source, status }),
+            },
+            Some((source, generation)) = ended.recv() => {
+                // A session ended mid-meeting (it failed): told at once.
+                if sides.running.get(&source).is_some_and(|side| side.generation == generation)
+                    && let Some(side) = sides.running.remove(&source)
+                {
+                    report(&engine, source, side.task.await);
+                }
+            },
             frame = audio.recv() => {
                 let Some(frame) = frame else { break };
                 if paused.is_some() {
@@ -393,7 +510,7 @@ async fn run(
                     }
                     engine.them_audio(elapsed_ms);
                 }
-                if let Some(side) = sides.get(&frame.source)
+                if let Some(side) = sides.running.get(&frame.source)
                     && let Some(tx) = &side.audio
                 {
                     let _ = tx.send(frame);
@@ -413,24 +530,21 @@ async fn run(
     }
 
     // Close each side's audio; the sessions say the rest of what they heard.
-    for side in sides.values_mut() {
+    let mut running = std::mem::take(&mut sides.running);
+    drop(sides);
+    for side in running.values_mut() {
         side.audio.take();
     }
-    let mut order: Vec<Source> = sides.keys().copied().collect();
+    let mut order: Vec<Source> = running.keys().copied().collect();
     order.sort();
     for source in order {
-        let side = sides.remove(&source).expect("each side once");
-        match side.task.await {
-            Ok(Ok(())) => {}
-            Ok(Err(error)) => engine.emit(EngineEvent::Error { source, error }),
-            Err(join) => engine.emit(EngineEvent::Error {
-                source,
-                error: crate::ProviderError::new(crate::ProviderErrorKind::Other, join.to_string()),
-            }),
-        }
+        let side = running.remove(&source).expect("each side once");
+        report(&engine, source, side.task.await);
     }
-    while let Some((source, event)) = heard.recv().await {
-        engine.heard(source, event);
+    while let Some((source, heard)) = heard.recv().await {
+        if let Heard::Event(event) = heard {
+            engine.heard(source, event);
+        }
     }
     engine.settle();
     engine.transcript.finish();

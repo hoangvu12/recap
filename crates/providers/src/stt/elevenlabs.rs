@@ -20,8 +20,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use recap_engine::{
-    AudioFrame, BatchRequest, BatchStt, BatchTranscript, BoxFuture, Capabilities, LiveEvent, LiveOptions, LiveStt,
-    ProviderError, ProviderErrorKind, Source,
+    AudioFrame, BatchRequest, BatchStt, BatchTranscript, BoxFuture, Capabilities, LiveEvent, LiveOptions, LiveStatus,
+    LiveStt, ProviderError, ProviderErrorKind, Source,
 };
 use tokio::sync::mpsc;
 
@@ -128,13 +128,27 @@ impl LiveStt for ElevenLabs {
 
     fn run(
         &self,
-        _source: Source,
+        source: Source,
         options: LiveOptions,
         audio: mpsc::UnboundedReceiver<AudioFrame>,
         events: mpsc::UnboundedSender<LiveEvent>,
     ) -> BoxFuture<'static, Result<(), ProviderError>> {
+        let (status, _) = mpsc::unbounded_channel();
+        self.run_reporting(source, options, audio, events, status)
+    }
+
+    /// Says Reconnecting when a connection is lost, Connected once one is
+    /// back.
+    fn run_reporting(
+        &self,
+        _source: Source,
+        options: LiveOptions,
+        audio: mpsc::UnboundedReceiver<AudioFrame>,
+        events: mpsc::UnboundedSender<LiveEvent>,
+        status: mpsc::UnboundedSender<LiveStatus>,
+    ) -> BoxFuture<'static, Result<(), ProviderError>> {
         let inner = self.0.clone();
-        Box::pin(async move { live::run(inner, options, audio, events).await })
+        Box::pin(async move { live::run(inner, options, audio, events, status).await })
     }
 }
 

@@ -6,7 +6,7 @@ mod fake;
 use std::time::Duration;
 
 use fake::{FakeScribe, Step, committed, error, partial, started};
-use recap_engine::{AudioFrame, LiveEvent, LiveOptions, LiveStt, ProviderError, ProviderErrorKind, Source};
+use recap_engine::{AudioFrame, LiveEvent, LiveOptions, LiveStatus, LiveStt, ProviderError, ProviderErrorKind, Source};
 use recap_providers::{Provider, elevenlabs::{Config, ElevenLabs}};
 use tokio::sync::mpsc;
 
@@ -234,6 +234,32 @@ async fn a_dropped_connection_reconnects_and_replays_audio_since_the_last_final(
     assert_eq!(firsts, (10..50).collect::<Vec<i16>>(), "frames since the last final, then the new ones");
     let (result, _) = session.finish().await;
     assert_eq!(result, Ok(()));
+}
+
+#[tokio::test]
+async fn a_lost_connection_is_told_as_reconnecting_then_connected() {
+    let mut first = vec![started(), Step::AwaitChunks(5)];
+    first.push(Step::Drop);
+    let mut second = vec![started(), Step::AwaitChunks(5)];
+    second.extend(committed("Back again.", &[("Back", 0.0, 0.2), ("again.", 0.2, 0.5)]));
+    let server = FakeScribe::start(vec![first, second]).await;
+    let stt = client(config(&server.base));
+    let (audio, audio_rx) = mpsc::unbounded_channel();
+    let (events_tx, mut events) = mpsc::unbounded_channel();
+    let (status_tx, mut statuses) = mpsc::unbounded_channel();
+    let done = tokio::spawn(stt.run_reporting(Source::Them, LiveOptions::default(), audio_rx, events_tx, status_tx));
+    for i in 0..12 {
+        audio.send(frame(i, 0)).unwrap();
+    }
+    let heard = tokio::time::timeout(Duration::from_secs(10), events.recv()).await.unwrap().unwrap();
+    assert_eq!(heard.text, "Back again.");
+    drop(audio);
+    let _ = tokio::time::timeout(Duration::from_secs(10), done).await.unwrap();
+    let mut seen = Vec::new();
+    while let Ok(s) = statuses.try_recv() {
+        seen.push(s);
+    }
+    assert_eq!(seen, [LiveStatus::Reconnecting, LiveStatus::Connected]);
 }
 
 #[tokio::test]
