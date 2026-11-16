@@ -22,16 +22,13 @@ local format = require("@lib/format")
 local RecDot = require("@components/rec_dot")
 local Icon = require("@components/icon")
 local Keycap = require("@components/keycap")
+local motion = require("@lib/motion")
 
 -- The partial's colour: fg 55% on the dark glass.
 local PARTIAL = "#FFFFFF8C"
 local IDLE_MS = 8000
 local IDLE_OPACITY = 0.5
-
-local function reduced(): boolean
-	local prefers = (ui :: any).prefers
-	return prefers ~= nil and prefers.reduced_motion:get() == true
-end
+local IDLE_FADE_MS = 400
 
 local function text_size(): number
 	return host.settings:get().caption_size
@@ -143,12 +140,17 @@ local function reconnecting(): Node
 		gap = 6,
 		items = "center",
 		h = 22,
-		ui.div {
-			w = 16,
-			h = 16,
-			rotate = ui.loop { from = 0, to = 360, duration = 800, ease = "linear", yoyo = false },
-			Icon { name = "spinner", color = "$rc.text.tertiary" },
-		},
+		-- Turns every 800 ms; still under reduced motion.
+		motion.Looping(
+			ui.div {
+				id = "overlay-reconnecting-spin",
+				w = 16,
+				h = 16,
+				rotate = ui.loop { from = 0, to = 360, duration = 800, ease = "linear", yoyo = false },
+				Icon { name = "spinner", color = "$rc.text.tertiary" },
+			},
+			Icon { name = "spinner", color = "$rc.text.tertiary" }
+		),
 		ui.text { "Reconnecting", id = "overlay-reconnecting", text_size = 16, color = "$rc.text.tertiary" },
 	}
 end
@@ -279,6 +281,24 @@ local function toolbar(): Node
 	}
 end
 
+-- The toolbar, shown while hovered; `enter` is its entrance (nil: at once).
+local function Toolbar(enter: { [string]: any }?): Node
+	local exit: { [string]: any } = if enter
+		then { opacity = 0, duration = motion.fast_out, ease = motion.ease.out }
+		else { opacity = 0, duration = motion.REDUCED_FADE, ease = motion.ease.out }
+	return ui.presence(function()
+		return if state.overlay_toolbar:get() then "on" else nil
+	end, function()
+		return toolbar()
+	end, {
+		absolute = true,
+		top = 8,
+		right = 8,
+		enter = enter,
+		exit = exit,
+	})
+end
+
 return function(): Node
 	-- Dim after 8 s without new words; new words undim at once.
 	ui.effect(function()
@@ -290,11 +310,8 @@ return function(): Node
 	end)
 	ui.effect(function()
 		if state.captions_idle:get() then
-			anime.animate("#captions-block", {
-				opacity = IDLE_OPACITY,
-				duration = if reduced() then 100 else 400,
-				ease = "out(2)",
-			})
+			-- 400 ms ease-out; reduced motion: a 100 ms fade.
+			motion.animate("#captions-block", { opacity = IDLE_OPACITY, duration = IDLE_FADE_MS, ease = motion.ease.out })
 		else
 			anime.utils.set("#captions-block", { opacity = 1 })
 		end
@@ -305,9 +322,8 @@ return function(): Node
 	local function shift(px: number)
 		local s = state.caption_shift:peek()
 		state.caption_shift:set({ px = px, count = s.count + 1 })
-		if not reduced() then
-			anime.animate("#captions-block", { y = { px, 0 }, duration = 150, ease = "outExpo" })
-		end
+		-- 150 ms ease-out-expo; reduced motion: at once (lib/motion drops it).
+		motion.animate("#captions-block", { y = { px, 0 }, duration = motion.base, ease = motion.ease.outExpo })
 	end
 	local newest: number? = nil
 	local turned = false
@@ -341,7 +357,6 @@ return function(): Node
 			state.overlay_toolbar:set(false)
 		end
 	end
-	local quick = reduced()
 
 	return ui.column {
 		id = "overlay-window",
@@ -428,16 +443,19 @@ return function(): Node
 			local m = mode()
 			return m == "reconnecting" or m == "paused"
 		end, ui.div { id = "captions-dimmed", w = 0, h = 0, aria_hidden = true }),
-		ui.presence(function()
-			return if state.overlay_toolbar:get() then "on" else nil
-		end, function()
-			return toolbar()
+		-- motion.fast: 100 ms in with a 4 px rise, 200 ms out; reduced motion
+		-- (followed live): the 100 ms in is instant, the 200 ms out a 100 ms
+		-- fade.
+		ui.switch(function()
+			return if motion.reduced() then "reduced" else "full"
 		end, {
-			absolute = true,
-			top = 8,
-			right = 8,
-			enter = { opacity = { 0, 1 }, y = { if quick then 0 else 4, 0 }, duration = if quick then 0 else 100, ease = "out(2)" },
-			exit = { opacity = 0, duration = if quick then 0 else 200, ease = "out(2)" },
+			full = Toolbar {
+				opacity = { 0, 1 },
+				y = { motion.RISE, 0 },
+				duration = motion.fast_in,
+				ease = motion.ease.outExpo,
+			},
+			reduced = Toolbar(nil),
 		}),
 	}
 end
