@@ -3823,6 +3823,7 @@ dependencies = [
 name = "recap"
 version = "0.1.0"
 dependencies = [
+ "futures",
  "global-hotkey",
  "recap-engine",
  "recap-providers",

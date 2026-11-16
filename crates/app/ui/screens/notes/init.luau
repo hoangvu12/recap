@@ -8,6 +8,7 @@ local actions = require("@app/actions")
 local Header = require("@self/header")
 local Footer = require("@self/footer")
 local Transcript = require("@self/transcript")
+local Summary = require("@self/summary")
 
 local function MyNotes(): Node
 	return ui.column {
@@ -32,12 +33,16 @@ local function MyNotes(): Node
 	}
 end
 
--- Filled by the processing and summary tickets (#9, #11).
-local function Summary(): Node
-	return ui.column { id = "summary-tab", w_full = true, grow = 1, p = 16 }
-end
-
 return function(): Node
+	-- Done processing (DESIGN §2): the summary written while the card showed
+	-- this meeting opens the Summary tab.
+	ui.effect(function()
+		local s = host.summary:get()
+		local p = host.processing:peek()
+		if s.id ~= "" and p.id == s.id and #p.steps > 0 then
+			state.notes_tab:set("summary")
+		end
+	end)
 	return ui.column {
 		id = "notes-window",
 		w_full = true,

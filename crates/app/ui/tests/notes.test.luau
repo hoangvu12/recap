@@ -90,6 +90,19 @@ test("the Notes tab is where my notes go", function()
 	expect(app:state("my_notes")).to_be("Ask about the India fallback")
 end)
 
+test("Stop keeps my notes with the meeting first: they steer the summary", function()
+	local app = mount()
+	fx.live_meeting(app)
+	app:set_state("meeting", { state = "recording", elapsed_ms = 62000, title = "", started_ms = fx.STARTED_MS, id = "20261116-100000" })
+	app:set_state("my_notes", "Ask about the India fallback")
+	local win = app:window("notes")
+	win:click("#stop")
+	expect(app:state("calls")).to_equal({
+		{ name = "set_my_notes", arg = { id = "20261116-100000", text = "Ask about the India fallback" } },
+		{ name = "stop", arg = nil },
+	})
+end)
+
 -- A long live transcript: `n` final rows, alternating sides.
 local function long_meeting(app, n)
 	local rows = {}

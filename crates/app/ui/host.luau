@@ -63,6 +63,29 @@ export type Step = {
 -- there is none to show (live, or done).
 export type Processing = { id: string, steps: { Step } }
 
+-- The meeting's summary (crates/app/src/summary.rs: view); id "" when it
+-- has none.
+export type Topic = { heading: string, bullets: { string } }
+export type NextStep = {
+	-- From 1: what tick_next_step names.
+	index: number,
+	-- Who does it ("" nobody), and their speaker's place (from 1; 0: not a
+	-- speaker), which picks the chip's hue.
+	owner: string,
+	owner_n: number,
+	text: string,
+	-- "Thu, Nov 19"; "" when none.
+	due: string,
+	done: boolean,
+}
+export type Summary = {
+	id: string,
+	overview: string,
+	topics: { Topic },
+	next_steps: { NextStep },
+	decisions: { string },
+}
+
 export type MeetingStatus = "recording" | "processing" | "done"
 
 -- A stored meeting in Home's list.
@@ -254,6 +277,15 @@ M.transcript = ui.shared("transcript", { count = 0, open = {} } :: Transcript)
 -- The Notes window's meeting's processing (Transcribing, Naming speakers,
 -- Writing summary).
 M.processing = ui.shared("processing", { id = "", steps = {} } :: Processing)
+
+-- The Notes window's meeting's summary.
+M.summary = ui.shared("summary", {
+	id = "",
+	overview = "",
+	topics = {},
+	next_steps = {},
+	decisions = {},
+} :: Summary)
 
 -- The overlay's lines, oldest first: the last few rows it may show.
 M.captions = ui.shared("captions", {} :: { CaptionLine })

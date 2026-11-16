@@ -13,7 +13,7 @@
 use std::{path::PathBuf, sync::Arc};
 
 use recap_engine::{
-    AudioFrame, AudioSource, BatchStt, BoxFuture, Capabilities, CaptureOptions, LiveEvent, LiveOptions, LiveStt,
+    AudioFrame, AudioSource, BatchStt, BoxFuture, Capabilities, CaptureOptions, LiveEvent, LiveOptions, LiveStt, Llm,
     ProviderError, Script, ScriptedLiveStt, SilenceSource, Source, WavSource,
 };
 use recap_providers::{Providers, elevenlabs};
@@ -135,6 +135,18 @@ impl StartOptions {
         let on_switch =
             move |n: recap_engine::FallbackNotice| notify(format!("{} failed ({}); switched to {}", n.from, n.error.message, n.to));
         providers.batch(on_switch).map(|job| Arc::new(job) as Arc<dyn BatchStt>)
+    }
+
+    /// The after-Stop naming and summary AI (the Summary and names job), or
+    /// why there is none.
+    pub fn llm(
+        &self,
+        providers: &Providers,
+        notify: impl Fn(String) + Send + Sync + 'static,
+    ) -> Result<Arc<dyn Llm>, ProviderError> {
+        let on_switch =
+            move |n: recap_engine::FallbackNotice| notify(format!("{} failed ({}); switched to {}", n.from, n.error.message, n.to));
+        providers.llm(on_switch).map(|job| Arc::new(job) as Arc<dyn Llm>)
     }
 }
 

@@ -9,11 +9,32 @@ local processing = require("@lib/processing")
 
 local M = {}
 
--- Stop the meeting (Stop ↵).
+-- Stop the meeting (Stop ↵). My notes are kept first: they steer the summary.
 function M.stop()
-	local s = host.meeting:peek().state
-	if s == "recording" or s == "paused" then
+	local m = host.meeting:peek()
+	if m.state == "recording" or m.state == "paused" then
+		local notes = state.my_notes:peek()
+		if m.id and m.id ~= "" and string.match(notes, "%S") then
+			host.invoke("set_my_notes", { id = m.id, text = notes })
+		end
 		host.invoke("stop")
+	end
+end
+
+-- Tick next step `index` (from 1) of the summary shown on or off.
+function M.tick_next_step(index: number, done: boolean)
+	local s = host.summary:peek()
+	if s.id ~= "" then
+		host.invoke("tick_next_step", { id = s.id, index = index, done = done })
+	end
+end
+
+-- Name the speakers still unnamed and write the shown meeting's summary
+-- again (Regenerate summary).
+function M.regenerate_summary()
+	local id = host.meeting:peek().id
+	if id and id ~= "" and host.meeting:peek().state == "stopped" then
+		host.invoke("regenerate_summary", id)
 	end
 end
 
