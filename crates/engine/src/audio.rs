@@ -33,6 +33,17 @@ pub trait AudioSource: Send {
     fn next_frame(&mut self) -> Option<AudioFrame>;
 }
 
+/// Which devices live capture uses (Settings, Audio).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct CaptureOptions {
+    /// The microphone's device id; `None` is the default communications
+    /// device (also used when the chosen one isn't there).
+    pub microphone: Option<String>,
+    /// Them is this app's audio (`ms-teams.exe`, its whole process tree);
+    /// `None` is all system audio but Recap's.
+    pub meeting_app: Option<String>,
+}
+
 const FRAME_MS: u64 = 100;
 
 /// Silence on both sides for a while: what the scripted fake STT is clocked

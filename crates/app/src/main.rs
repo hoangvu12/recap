@@ -1,10 +1,15 @@
-//! Recap. `recap [--inspect] [--seed] [--settings] [--replay <file.wav>] [--scripted]`
+//! Recap. `recap [--background] [--inspect] [--seed] [--settings] [--replay <file.wav>] [--scripted]`
 //!
+//! - `--background` starts in the tray, no window (autostart uses it).
 //! - `--inspect` serves devtools (`zgx inspect`).
 //! - `--seed` stores the test meeting first (once), so Home has one.
 //! - `--settings` opens Settings too.
 //! - `--replay <file.wav>` / `--scripted`: dev meetings, started at once
 //!   (`recap::live` says what they replace).
+//!
+//! Recap lives in the tray: closing its windows leaves it running, Quit in
+//! the tray menu ends it. Only one runs: a second launch brings Home of the
+//! first forward and exits (zgx's application id, ADR 0011).
 //!
 //! Recap's home is `RECAP_DATA` if set, else `%LOCALAPPDATA%\Recap`: it
 //! holds `settings.json` and `providers.json` (keys are in Credential
@@ -19,20 +24,26 @@ use std::{
 };
 
 use recap::{
+    calls::CallToasts,
+    commands::{Command, Commands},
     fonts,
     host::{self, Host},
-    live::StartOptions,
+    live::{StartOptions, capture_options},
     playback::{Output, Player, RodioOutput},
     processing::{Processing, ProcessingConfig},
     seed,
     session::{self, SessionConfig},
     settings::ProvidersHost,
     user_settings::{Microphone, PickFolder, SettingsHost},
-    windows::{self, Quit},
+    windows::{self, OpenWindows, Quit},
 };
+use recap_engine::detect::CallHint;
 use recap_providers::{Keyring, Providers, Registry};
 use recap_storage::{Settings, Store};
-use zgx_desktop::{Application, FileDialogOptions};
+use zgx_desktop::{Application, ApplicationEvent, FileDialogOptions};
+
+/// Who Recap is to Windows: one instance per id, and its toasts' sender.
+const APPLICATION_ID: &str = "app.recap.Recap";
 
 fn now_ms() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64)
@@ -51,7 +62,9 @@ fn open_store(root: &Path, seed_it: bool) -> Option<Store> {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let devtools = std::env::args().any(|a| a == "--inspect") || zgx_script::inspect::asked();
+    let flag = |name: &str| std::env::args().any(|a| a == name);
+    let devtools = flag("--inspect") || zgx_script::inspect::asked();
+    let background = flag("--background");
     let start_options = StartOptions::from_args(std::env::args().skip(1));
     let home = std::env::var_os("RECAP_DATA")
         .map(PathBuf::from)
@@ -59,8 +72,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .ok_or("no LOCALAPPDATA: set RECAP_DATA")?;
     let settings_path = home.join("settings.json");
     let settings = Settings::load(&settings_path).unwrap_or_default();
-    let store = open_store(&settings.meetings_root(&home), std::env::args().any(|a| a == "--seed"));
-    let open_settings = std::env::args().any(|a| a == "--settings");
+    let store = open_store(&settings.meetings_root(&home), flag("--seed"));
+    let open_settings = flag("--settings");
     let providers =
         Providers::open(Registry::builtin(), Some(home.join("providers.json")), std::sync::Arc::new(Keyring::new()));
     // The engine's tasks and audio run here, off the UI thread; their
@@ -72,7 +85,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     zgx_script::compile_ahead(&script, &[]);
 
-    let mut app = Application::new().window(windows::root()).desktop_id("recap");
+    // A second launch lands here, in the first: Home comes forward.
+    let reopen: Rc<RefCell<Option<Commands>>> = Rc::default();
+    let on_reopen = reopen.clone();
+    let mut app = Application::new()
+        .window(windows::root())
+        .desktop_id("recap")
+        .application_id(APPLICATION_ID)?
+        .quit_on_last_window_close(false)
+        .on_application_event(move |event, _| {
+            if matches!(event, ApplicationEvent::Reopen | ApplicationEvent::OpenUrls(_))
+                && let Some(commands) = &*on_reopen.borrow()
+            {
+                commands.run(Command::OpenHome);
+            }
+        });
     for font in fonts::bundled() {
         app = app.font(font?);
     }
@@ -132,13 +159,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         caption_me: settings.caption_my_speech,
                         live: settings.live_options(),
                     };
-                    match options.source() {
-                        Ok(source) => {
+                    match options.source(&capture_options(&settings)) {
+                        Ok((source, note)) => {
                             let _inside = runtime.enter();
                             let (notify, notices) = session::notices();
                             let live = options.live(&providers, notify);
                             let started = session::start(host.store(), config.clone(), source, live, Some(notices));
                             tasks.spawn(host.follow_session(&config, started));
+                            if let Some(note) = note {
+                                host.notice(&note);
+                            }
                             host.open_window("overlay");
                         }
                         Err(error) => host.notice(&format!("Can't start: {error}")),
@@ -148,11 +178,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         };
         host.script.action("start_notes", starter.clone());
+
+        // The tray, the hotkeys and the call toasts run the same commands.
+        // Click-through: once #8 merges, add
+        // `.with_click_through(Rc::new(move || overlay.toggle_click_through()))`
+        // with its `OverlayHost`.
+        let open_windows = OpenWindows::default();
+        let commands = {
+            let (start, focus, factory) = (starter.clone(), open_windows.clone(), cx.windows.clone());
+            Commands::new(
+                host.clone(),
+                Rc::new(move || start(zgx_script::Value::Nil)),
+                Rc::new(move |id: &str| focus.focus(id)),
+                Rc::new(move || factory.quit()),
+            )
+        };
+        *reopen.borrow_mut() = Some(commands.clone());
+        let resident = resident(cx, &host, &settings_host, &commands);
+        recap::autostart::connect(
+            &settings_host,
+            recap::autostart::RunKey::recap(),
+            std::env::current_exe().map(|exe| recap::autostart::command_line(&exe)).unwrap_or_default(),
+        );
+
         if let Err(error) = host.script.reload() {
             eprintln!("recap: {error}");
         }
         cx.tasks.spawn(host.script.watch(Duration::from_millis(250)));
-        let follow = windows::follow(&host.script, cx, Quit::WhenNoneOpen, devtools);
+        let follow = windows::follow_into(&host.script, cx, Quit::Resident, devtools, open_windows);
         let handle = cx.render(host.script.view());
         let server = devtools
             .then(|| {
@@ -166,7 +219,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             })
             .flatten();
 
-        host.open_window("home");
+        if !background {
+            host.open_window("home");
+        }
         if open_settings {
             host.open_window("settings");
         }
@@ -176,13 +231,105 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         let saving = host.script.clone();
-        let keep = RefCell::new(Some((follow, server, host, providers_host, settings_host, engine)));
+        let keep = RefCell::new(Some((follow, server, host, providers_host, settings_host, resident, engine)));
+        let reopen = reopen.clone();
         cx.on_closed(move || {
             saving.save();
-            if let Some((follow, server, host, providers_host, settings_host, engine)) = keep.borrow_mut().take() {
-                drop((follow, server, host, providers_host, settings_host));
+            reopen.borrow_mut().take();
+            if let Some((follow, server, host, providers_host, settings_host, resident, engine)) = keep.borrow_mut().take()
+            {
+                drop((follow, server, host, providers_host, settings_host, resident));
                 engine.shutdown_background();
             }
         });
     })
+}
+
+/// What keeps Recap in the tray: the icon, the hotkeys and the call watch,
+/// alive while this is kept.
+#[cfg(windows)]
+fn resident(
+    cx: &zgx_desktop::WindowContext,
+    host: &Host,
+    settings: &SettingsHost,
+    commands: &Commands,
+) -> Box<dyn std::any::Any> {
+    use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+
+    use recap::{hotkeys::{HotkeysHost, SystemKeys}, tray::Tray};
+
+    let mut keep: Vec<Box<dyn std::any::Any>> = Vec::new();
+
+    // The tray: its commands, and the icon showing whether notes are live.
+    match Tray::new() {
+        Ok((tray, mut chosen)) => {
+            let tray = Rc::new(RefCell::new(tray));
+            let meeting = host.script.shared("meeting", zgx_script::Value::Nil);
+            let shown = tray.clone();
+            keep.push(Box::new(cx.ui.runtime.effect(move || {
+                let live = meeting.with(|m| {
+                    matches!(m.field("state"), Some(zgx_script::Value::Str(s)) if &**s == "recording" || &**s == "paused")
+                });
+                shown.borrow_mut().set_live(live);
+            })));
+            keep.push(Box::new(tray));
+            let commands = commands.clone();
+            cx.tasks.spawn(async move {
+                while let Some(command) = chosen.recv().await {
+                    commands.run(command);
+                }
+            });
+        }
+        Err(error) => eprintln!("recap: tray: {error}"),
+    }
+
+    // Global hotkeys, as Settings has them.
+    match SystemKeys::new() {
+        Ok(keys) => {
+            let mut presses = SystemKeys::presses();
+            let hotkeys = HotkeysHost::connect(settings, &host.script, &cx.ui.runtime, Box::new(keys));
+            let (h, commands) = (hotkeys.clone(), commands.clone());
+            cx.tasks.spawn(async move {
+                while let Some(id) = presses.recv().await {
+                    if let Some(command) = h.pressed(id) {
+                        commands.run(command);
+                    }
+                }
+            });
+            keep.push(Box::new(hotkeys));
+        }
+        Err(error) => eprintln!("recap: hotkeys: {error}"),
+    }
+
+    // The call toast: suggests, and acts only when clicked.
+    let toasts = {
+        let (host, commands) = (host.clone(), commands.clone());
+        CallToasts::register(&host.script.clone(), move |hint| match hint {
+            CallHint::Started { .. } if !host.is_live() => commands.run(Command::ToggleNotes),
+            CallHint::Released { .. } if host.is_live() => commands.run(Command::ToggleNotes),
+            _ => {}
+        })
+    };
+    let looking = Arc::new(AtomicBool::new(settings.current().suggest_on_call));
+    toasts.set_enabled(settings.current().suggest_on_call);
+    {
+        let (toasts, looking) = (toasts.clone(), looking.clone());
+        settings.on_change(move |_, new| {
+            toasts.set_enabled(new.suggest_on_call);
+            looking.store(new.suggest_on_call, Ordering::Relaxed);
+        });
+    }
+    let mut users = recap_engine::detect::poll_mic_users(looking);
+    let host = host.clone();
+    cx.tasks.spawn(async move {
+        while let Some(on_mic) = users.recv().await {
+            toasts.observe(now_ms(), &on_mic, host.is_live());
+        }
+    });
+    Box::new(keep)
+}
+
+#[cfg(not(windows))]
+fn resident(_: &zgx_desktop::WindowContext, _: &Host, _: &SettingsHost, _: &Commands) -> Box<dyn std::any::Any> {
+    Box::new(())
 }

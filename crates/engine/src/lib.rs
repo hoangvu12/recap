@@ -20,6 +20,7 @@
 //! partial → final segments, clocked by the audio it is given.
 
 mod audio;
+pub mod detect;
 pub mod echo;
 mod event;
 pub mod fake;
@@ -27,6 +28,7 @@ mod fallback;
 #[cfg(windows)]
 mod live_capture;
 mod live_meeting;
+pub mod process;
 mod provider;
 mod recorder;
 pub mod refine;
@@ -34,7 +36,7 @@ mod timeline;
 mod transcript;
 mod wav_source;
 
-pub use audio::{AudioFrame, AudioSource, FeedSource, FrameFeed, SAMPLE_RATE, SilenceSource};
+pub use audio::{AudioFrame, AudioSource, CaptureOptions, FeedSource, FrameFeed, SAMPLE_RATE, SilenceSource};
 #[cfg(windows)]
 pub use live_capture::{CaptureError, LiveCapture, microphones};
 pub use recorder::{Recorder, Recording};

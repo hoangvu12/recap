@@ -46,7 +46,7 @@ use std::{
     rc::Rc,
 };
 
-use recap_engine::{EngineEvent, MeetingControl};
+use recap_engine::{EngineEvent, MeetingControl, MeetingState};
 use recap_storage::{MeetingId, Status, Store};
 use tokio::sync::mpsc::UnboundedReceiver;
 use zgx_script::{ScriptHost, Shared, Value};
@@ -75,6 +75,9 @@ pub fn script_path() -> PathBuf {
         .join("app.luau")
 }
 
+/// What runs once no meeting is live ([`Host::when_idle`]).
+type Then = Box<dyn FnOnce()>;
+
 #[derive(Clone)]
 pub struct Host {
     pub script: ScriptHost,
@@ -88,6 +91,8 @@ pub struct Host {
     live: Rc<RefCell<Option<MeetingId>>>,
     /// Changes when Settings moves the storage folder.
     store: Rc<RefCell<Option<Store>>>,
+    /// What waits for the live meeting to end (Quit while recording).
+    when_idle: Rc<RefCell<Vec<Then>>>,
     processing: Shared,
     summary: Shared,
     /// How to process a meeting (main.rs sets it; none: meetings stay unprocessed).
@@ -146,6 +151,7 @@ impl Host {
             control: Rc::default(),
             live: Rc::default(),
             store: Rc::new(RefCell::new(store)),
+            when_idle: Rc::default(),
             processing: script.shared("processing", value(no_processing())),
             summary: script.shared("summary", value(summary::no_view())),
             processor: Rc::default(),
@@ -398,6 +404,46 @@ impl Host {
         self.script.shared(&format!("window.{id}"), false).set(Value::Bool(true));
     }
 
+    /// Whether window `id` is open (or asked to be).
+    pub fn window_open(&self, id: &str) -> bool {
+        self.script.shared(&format!("window.{id}"), false).with_untracked(Value::truthy)
+    }
+
+    /// Open window `id` if it is closed, close it if open.
+    pub fn toggle_window(&self, id: &str) {
+        let open = !self.window_open(id);
+        self.script.shared(&format!("window.{id}"), false).set(Value::Bool(open));
+    }
+
+    /// The meeting's state: the live one's, else the one shown (none yet).
+    pub fn state(&self) -> Option<MeetingState> {
+        self.presenter.borrow().state()
+    }
+
+    /// Stop the live meeting (nothing when none is).
+    pub fn stop(&self) {
+        if let Some(control) = &*self.control.borrow() {
+            control.stop();
+        }
+    }
+
+    /// Pause the live meeting, or resume it while paused.
+    pub fn toggle_pause(&self) {
+        let paused = self.state() == Some(MeetingState::Paused);
+        if let Some(control) = &*self.control.borrow() {
+            if paused { control.resume() } else { control.pause() }
+        }
+    }
+
+    /// Run `then` once no meeting is live: now, or when the live one ends.
+    pub fn when_idle(&self, then: impl FnOnce() + 'static) {
+        if self.is_live() {
+            self.when_idle.borrow_mut().push(Box::new(then));
+        } else {
+            then();
+        }
+    }
+
     /// Tell the user `text` in the meeting's notice line.
     pub fn notice(&self, text: &str) {
         eprintln!("recap: {text}");
@@ -635,6 +681,10 @@ impl Host {
             // Ended without Saved (no store, or it failed): not live either.
             host.control.borrow_mut().take();
             host.live.borrow_mut().take();
+            let waiting: Vec<_> = host.when_idle.borrow_mut().drain(..).collect();
+            for then in waiting {
+                then();
+            }
         }
     }
 

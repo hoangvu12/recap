@@ -18,10 +18,17 @@
 //!   and renames kept.
 //! - [`playback`]: a line or a voice of the recording, played on a thread
 //!   of its own (rodio).
+//! - [`commands`]: what the tray, the hotkeys and the call toasts do.
+//! - [`tray`], [`hotkeys`], [`calls`], [`autostart`]: Recap living in the
+//!   tray (ticket #15, ADR 0011).
 
+pub mod autostart;
+pub mod calls;
+pub mod commands;
 pub mod fonts;
 pub mod home;
 pub mod host;
+pub mod hotkeys;
 pub mod live;
 pub mod naming;
 pub mod playback;
@@ -32,5 +39,6 @@ pub mod session;
 pub mod settings;
 pub mod speakers;
 pub mod summary;
+pub mod tray;
 pub mod user_settings;
 pub mod windows;

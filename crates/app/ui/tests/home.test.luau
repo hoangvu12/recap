@@ -105,6 +105,20 @@ test("Start new notes asks the host to start", function()
 	expect(app:state("calls")).to_equal({ { name = "start_notes", arg = nil } })
 end)
 
+test("Start new notes shows its hotkey from Settings", function()
+	local app = mount()
+	local win = home(app)
+	expect(win:text("#start-notes-hotkey")).to_be("Ctrl+Alt+N")
+	local s = table.clone(app:state("settings"))
+	s.hotkeys = { start_notes = "Ctrl+Shift+R", pause = "", click_through = "", captions = "" }
+	app:set_state("settings", s)
+	expect(win:wait("#start-notes-hotkey", { text = "Ctrl+Shift+R" })).to_be(true)
+	s = table.clone(s)
+	s.hotkeys = { start_notes = "", pause = "", click_through = "", captions = "" }
+	app:set_state("settings", s)
+	expect(win:wait("#start-notes-keys", { gone = true })).to_be(true)
+end)
+
 test("typing narrows the list to matching titles", function()
 	local app = mount()
 	local win = home(app)

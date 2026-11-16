@@ -34,8 +34,9 @@ M.settings_page = ui.state("settings_page", "general")
 M.settings_query = ui.state("settings_query", "")
 -- The glossary term being typed.
 M.glossary_draft = ui.state("glossary_draft", "")
--- The hotkey (Shortcuts) whose keys are being recorded; "" none.
-M.hotkey_recording = ui.state("hotkey_recording", "")
+-- The hotkey (Shortcuts) whose keys are being recorded; "" none. Shared:
+-- the host lets the global hotkeys rest meanwhile, so the keys reach here.
+M.hotkey_recording = ui.shared("hotkey_recording", "")
 
 -- The Add provider sheet over Settings: closed, the preset list
 -- (screens/8c) or a provider's form (8d, 8e). `id` is the saved provider a
