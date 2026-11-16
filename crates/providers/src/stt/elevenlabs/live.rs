@@ -24,7 +24,8 @@ use tokio::sync::mpsc;
 use tokio::time::{Instant, sleep_until, timeout};
 use tokio_tungstenite::tungstenite::{self, Message, client::IntoClientRequest, http::HeaderValue};
 
-use super::{Inner, http_error, keyterms};
+use super::super::keyterms;
+use super::{Inner, http_error};
 
 type Ws = tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
 type Sink = SplitSink<Ws, Message>;
