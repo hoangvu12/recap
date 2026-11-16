@@ -63,6 +63,29 @@ export type Step = {
 -- there is none to show (live, or done).
 export type Processing = { id: string, steps: { Step } }
 
+-- The meeting's summary (crates/app/src/summary.rs: view); id "" when it
+-- has none.
+export type Topic = { heading: string, bullets: { string } }
+export type NextStep = {
+	-- From 1: what tick_next_step names.
+	index: number,
+	-- Who does it ("" nobody), and their speaker's place (from 1; 0: not a
+	-- speaker), which picks the chip's hue.
+	owner: string,
+	owner_n: number,
+	text: string,
+	-- "Thu, Nov 19"; "" when none.
+	due: string,
+	done: boolean,
+}
+export type Summary = {
+	id: string,
+	overview: string,
+	topics: { Topic },
+	next_steps: { NextStep },
+	decisions: { string },
+}
+
 export type MeetingStatus = "recording" | "processing" | "done"
 
 -- A stored meeting in Home's list.
@@ -271,6 +294,15 @@ M.transcript = ui.shared("transcript", { count = 0, open = {} } :: Transcript)
 -- Writing summary).
 M.processing = ui.shared("processing", { id = "", steps = {} } :: Processing)
 
+-- The Notes window's meeting's summary.
+M.summary = ui.shared("summary", {
+	id = "",
+	overview = "",
+	topics = {},
+	next_steps = {},
+	decisions = {},
+} :: Summary)
+
 -- The overlay's lines, oldest first: the last few rows it may show.
 M.captions = ui.shared("captions", {} :: { CaptionLine })
 
@@ -317,6 +349,14 @@ M.settings_error = ui.shared("settings_error", { field = "", message = "" } :: S
 
 -- The active microphones (Audio).
 M.microphones = ui.shared("microphones", {} :: { Microphone })
+
+-- Hotkeys the system refused (another app holds them), by id: what to say.
+M.hotkey_conflicts = ui.shared("hotkey_conflicts", {} :: { [string]: string })
+
+-- A call toast to show (crates/app/src/calls.rs): a new `seq` is a new one.
+-- Clicking it asks the host for `call_toast_clicked`.
+export type CallToast = { seq: number, title: string, body: string }
+M.call_toast = ui.shared("call_toast", { seq = 0, title = "", body = "" } :: CallToast)
 
 -- Which windows are open (crates/app/src/windows.rs makes them).
 M.windows = {

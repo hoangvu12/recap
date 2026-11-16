@@ -298,6 +298,11 @@ impl Presenter {
         self.id = id.to_owned();
     }
 
+    /// The meeting's state; none before it starts.
+    pub fn state(&self) -> Option<MeetingState> {
+        self.state
+    }
+
     /// The stored meeting's id ("" until it is saved).
     pub fn id(&self) -> &str {
         &self.id

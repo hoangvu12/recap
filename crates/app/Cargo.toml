@@ -31,7 +31,13 @@ windows = { version = "=0.62.2", features = [
     "Win32_UI_Shell",
     "Win32_UI_WindowsAndMessaging",
 ] }
+# The tray icon and its menu, and global hotkeys (zgx has neither; ADR 0011).
+tray-icon = "0.26.1"
+global-hotkey = "0.9.0"
+# The autostart value under HKCU\...\Run.
+winreg = "0.56.0"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util"] }
 tempfile = "3"
+futures.workspace = true

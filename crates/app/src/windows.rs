@@ -4,7 +4,8 @@
 //! size) live here, by id.
 //!
 //! The first window zgx makes is the hidden root: Recap lives in the tray
-//! (a later ticket), so no visible window is the app's main one.
+//! (`tray`), so no visible window is the app's main one, and closing the
+//! last one leaves it running (`Quit::Resident`).
 
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
@@ -60,19 +61,40 @@ pub enum Quit {
 /// Called as a window opens: its id, title and context.
 pub type Opened = Rc<dyn Fn(&str, &str, &WindowContext)>;
 
+/// The windows [`follow_into`] has open, by id.
+#[derive(Clone, Default)]
+pub struct OpenWindows(Rc<RefCell<HashMap<String, WindowHandle>>>);
+
+impl OpenWindows {
+    /// Bring window `id` forward if it is open (a window opening now comes
+    /// forward by itself).
+    pub fn focus(&self, id: &str) {
+        if let Some(handle) = self.0.borrow().get(id).filter(|h| !h.is_closed()) {
+            handle.set_minimized(false);
+            handle.request_focus();
+        }
+    }
+}
+
 /// Open and close the script's windows as their `open` states say, and set
-/// a state false when its window is closed; `opened` hears each that opens.
-/// Keep the effect it returns.
-pub fn follow(
+/// a state false when its window is closed. Keep the effect it returns.
+pub fn follow(host: &ScriptHost, cx: &WindowContext, quit: Quit, devtools: bool) -> zgx::reactive::Effect {
+    follow_into(host, cx, quit, devtools, OpenWindows::default(), Rc::new(|_, _, _| {}))
+}
+
+/// [`follow`], keeping the open windows in `open` (to bring one forward);
+/// `opened` hears each window that opens, once its native window exists.
+pub fn follow_into(
     host: &ScriptHost,
     cx: &WindowContext,
     quit: Quit,
     devtools: bool,
+    open: OpenWindows,
     opened: Opened,
 ) -> zgx::reactive::Effect {
     let factory = cx.windows.clone();
     let runtime = cx.ui.runtime.clone();
-    let open: Rc<RefCell<HashMap<String, WindowHandle>>> = Rc::default();
+    let open = open.0;
     let ever_open = Rc::new(std::cell::Cell::new(false));
     let (list, host) = (host.windows(), host.clone());
     cx.ui.runtime.effect(move || {

@@ -7,6 +7,8 @@
 //! - [`live`]: how Start begins a meeting (audio, live provider, dev flags).
 //! - [`session`]: a live meeting saved as it goes (engine + store).
 //! - [`processing`]: the after-Stop pipeline, a resumable job queue of steps.
+//! - [`naming`], [`summary`]: its AI steps, Naming speakers and Writing
+//!   summary; the summary's Markdown, its ticks and the Summary tab's state.
 //! - [`home`]: the meetings list and detail pane, from the store (pure).
 //! - [`seed`]: `--seed` stores the test meeting, so Home has one.
 //! - [`settings`]: Settings' host side: the providers, their jobs and Test.
@@ -14,16 +16,26 @@
 //!   saved, published and watched; storage folder and audio retention applied.
 //! - [`overlay`]: the caption overlay's window: hidden from capture, a tool
 //!   window, click-through and pin; switching the live engine.
+//! - [`commands`]: what the tray, the hotkeys and the call toasts do.
+//! - [`tray`], [`hotkeys`], [`calls`], [`autostart`]: Recap living in the
+//!   tray (ticket #15, ADR 0011).
 
+pub mod autostart;
+pub mod calls;
+pub mod commands;
 pub mod fonts;
 pub mod home;
 pub mod host;
+pub mod hotkeys;
 pub mod live;
+pub mod naming;
 pub mod overlay;
 pub mod presenter;
 pub mod processing;
 pub mod seed;
 pub mod session;
 pub mod settings;
+pub mod summary;
+pub mod tray;
 pub mod user_settings;
 pub mod windows;

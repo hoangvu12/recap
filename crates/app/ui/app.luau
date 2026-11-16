@@ -9,9 +9,11 @@
 --   components/   small reusable views (chip, keycap, icon, rows)
 --   screens/      a window's content: notes/, overlay
 --   windows.luau  every window, declared once
+--   toasts.luau   system toasts the host asks for (the call toast)
 local theme = require("@theme")
 
 theme.setup()
 require("@app/windows")
+require("@app/toasts")
 
 return ui.div { id = "root" }

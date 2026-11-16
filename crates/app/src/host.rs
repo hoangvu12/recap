@@ -10,13 +10,19 @@
 //!          meetings         { { id, title, started_ms, duration_ms, status } }, newest first
 //!          processing       { id, steps = { { id, label, status, took_ms, error } } }: the
 //!                           Notes window's meeting's processing (no steps: none to show)
-//!          window.<id>      whether window <id> is open
+//!          summary          { id, overview, topics, next_steps, decisions }: the Notes
+//!                           window's meeting's summary (id "": none)
+//!          window.<id>     whether window <id> is open
 //! function transcript_row(i)    Row i (from 1), or nil
 //!          meeting_detail(id)   { id, title, overview, started_ms, duration_ms, status, speakers }
 //! action   stop, pause, resume  the running meeting
 //!          open_meeting(id)     a stored meeting in the Notes window, read mode; an
 //!                               unfinished one is processed again (Recover)
 //!          retry_processing(id) process meeting id again from its failed step
+//!          regenerate_summary(id)  name the speakers still unnamed and write the
+//!                               summary again (meetings processed without them)
+//!          tick_next_step { id, index, done }  next step `index` (from 1) ticked or not
+//!          set_my_notes { id, text }  what the user typed (kept at Stop)
 //!          start_notes          a new meeting (main.rs registers it)
 //! ```
 
@@ -29,7 +35,7 @@ use std::{
     rc::Rc,
 };
 
-use recap_engine::{EngineEvent, MeetingControl};
+use recap_engine::{EngineEvent, MeetingControl, MeetingState};
 use recap_storage::{MeetingId, Status, Store};
 use tokio::sync::mpsc::UnboundedReceiver;
 use zgx_script::{ScriptHost, Shared, Value};
@@ -37,8 +43,9 @@ use zgx_script::{ScriptHost, Shared, Value};
 use crate::{
     home,
     presenter::{Changed, Presenter},
-    processing::{Progress, ProcessingEvent},
+    processing::{self, ProcessingEvent, Progress, StepId},
     session::{self, LiveSession, SessionConfig, SessionEvent},
+    summary,
 };
 
 /// Starts processing meeting `id` in `store` (on the engine's runtime).
@@ -56,6 +63,9 @@ pub fn script_path() -> PathBuf {
         .join("app.luau")
 }
 
+/// What runs once no meeting is live ([`Host::when_idle`]).
+type Then = Box<dyn FnOnce()>;
+
 #[derive(Clone)]
 pub struct Host {
     pub script: ScriptHost,
@@ -70,7 +80,10 @@ pub struct Host {
     live: Rc<RefCell<Option<MeetingId>>>,
     /// Changes when Settings moves the storage folder.
     store: Rc<RefCell<Option<Store>>>,
+    /// What waits for the live meeting to end (Quit while recording).
+    when_idle: Rc<RefCell<Vec<Then>>>,
     processing: Shared,
+    summary: Shared,
     /// How to process a meeting (main.rs sets it; none: meetings stay unprocessed).
     processor: Rc<RefCell<Option<(Process, Spawn)>>>,
     /// The meetings being processed now.
@@ -112,7 +125,9 @@ impl Host {
             control: Rc::default(),
             live: Rc::default(),
             store: Rc::new(RefCell::new(store)),
+            when_idle: Rc::default(),
             processing: script.shared("processing", value(no_processing())),
+            summary: script.shared("summary", value(summary::no_view())),
             processor: Rc::default(),
             running: Rc::default(),
             generation: Rc::default(),
@@ -166,6 +181,31 @@ impl Host {
                 retrier.process(&id);
             }
         });
+        let regenerator = host.clone();
+        host.script.action("regenerate_summary", move |arg| {
+            if let Some(id) = meeting_id(&arg) {
+                regenerator.regenerate_summary(&id);
+            }
+        });
+        let ticker = host.clone();
+        host.script.action("tick_next_step", move |arg| {
+            let json: serde_json::Value = serde_json::from_str(&arg.to_json()).unwrap_or_default();
+            let (Some(id), Some(index)) = (json["id"].as_str().filter(|id| !id.is_empty()), json["index"].as_u64()) else {
+                return;
+            };
+            ticker.tick_next_step(&MeetingId::from(id), index as usize, json["done"].as_bool().unwrap_or(false));
+        });
+        let notes = host.clone();
+        host.script.action("set_my_notes", move |arg| {
+            let json: serde_json::Value = serde_json::from_str(&arg.to_json()).unwrap_or_default();
+            let (Some(id), Some(text), Some(store)) = (json["id"].as_str().filter(|id| !id.is_empty()), json["text"].as_str(), notes.store())
+            else {
+                return;
+            };
+            if let Err(error) = store.set_my_notes(&MeetingId::from(id), text) {
+                eprintln!("recap: my notes of {id}: {error}");
+            }
+        });
         host.refresh_meetings();
         host
     }
@@ -173,6 +213,46 @@ impl Host {
     /// Open window `id` (`ui/windows.luau` declares it).
     pub fn open_window(&self, id: &str) {
         self.script.shared(&format!("window.{id}"), false).set(Value::Bool(true));
+    }
+
+    /// Whether window `id` is open (or asked to be).
+    pub fn window_open(&self, id: &str) -> bool {
+        self.script.shared(&format!("window.{id}"), false).with_untracked(Value::truthy)
+    }
+
+    /// Open window `id` if it is closed, close it if open.
+    pub fn toggle_window(&self, id: &str) {
+        let open = !self.window_open(id);
+        self.script.shared(&format!("window.{id}"), false).set(Value::Bool(open));
+    }
+
+    /// The meeting's state: the live one's, else the one shown (none yet).
+    pub fn state(&self) -> Option<MeetingState> {
+        self.presenter.borrow().state()
+    }
+
+    /// Stop the live meeting (nothing when none is).
+    pub fn stop(&self) {
+        if let Some(control) = &*self.control.borrow() {
+            control.stop();
+        }
+    }
+
+    /// Pause the live meeting, or resume it while paused.
+    pub fn toggle_pause(&self) {
+        let paused = self.state() == Some(MeetingState::Paused);
+        if let Some(control) = &*self.control.borrow() {
+            if paused { control.resume() } else { control.pause() }
+        }
+    }
+
+    /// Run `then` once no meeting is live: now, or when the live one ends.
+    pub fn when_idle(&self, then: impl FnOnce() + 'static) {
+        if self.is_live() {
+            self.when_idle.borrow_mut().push(Box::new(then));
+        } else {
+            then();
+        }
     }
 
     /// Tell the user `text` in the meeting's notice line.
@@ -240,11 +320,12 @@ impl Host {
                 self.replace_presenter(Presenter::stored_with_pauses(&meeting.info, &segments, &pauses));
                 self.publish(Changed::ALL);
                 let status = meeting.info.status;
-                self.processing.set(value(if status == Status::Done {
+                self.processing.set(value(if status == Status::Done && !self.is_processing(id) {
                     no_processing()
                 } else {
                     Progress::read(&store.folder(id)).view(id)
                 }));
+                self.show_summary(&store, id);
                 Some(status)
             }
             Ok((None, _)) => {
@@ -262,6 +343,47 @@ impl Host {
     /// starts it, `spawn` runs its follower on the UI thread.
     pub fn set_processor(&self, process: Process, spawn: Spawn) {
         *self.processor.borrow_mut() = Some((process, spawn));
+    }
+
+    /// Regenerate: name the speakers still unnamed and write meeting `id`'s
+    /// summary again, from its transcript (meetings processed before the AI
+    /// steps, or whose summary should change).
+    pub fn regenerate_summary(&self, id: &MeetingId) {
+        let Some(store) = self.store() else { return };
+        if self.is_processing(id) {
+            return;
+        }
+        if let Err(error) = processing::redo(&store.folder(id), &[StepId::NamingSpeakers, StepId::WritingSummary]) {
+            self.notice(&format!("Can't regenerate: {error}"));
+            return;
+        }
+        self.process(id);
+    }
+
+    /// Tick next step `index` (from 1) of meeting `id` on or off; kept at once.
+    pub fn tick_next_step(&self, id: &MeetingId, index: usize, done: bool) {
+        let Some(store) = self.store() else { return };
+        let Some(i) = index.checked_sub(1) else { return };
+        match summary::set_done(&store, id, i, done) {
+            Ok(()) => {
+                if self.presenter.borrow().id() == id.as_str() {
+                    self.show_summary(&store, id);
+                }
+            }
+            Err(error) => eprintln!("recap: tick: {error}"),
+        }
+    }
+
+    /// Meeting `id`'s summary as the Summary tab's state.
+    fn show_summary(&self, store: &Store, id: &MeetingId) {
+        let view = match store.meeting(id) {
+            Ok(Some(meeting)) => match meeting.summary.and_then(|s| serde_json::from_value::<summary::SummaryData>(s.data).ok()) {
+                Some(data) => summary::view(id.as_str(), &data, &meeting.info.speakers),
+                None => summary::no_view(),
+            },
+            _ => summary::no_view(),
+        };
+        self.summary.set(value(view));
     }
 
     /// Whether meeting `id` is being processed now.
@@ -338,6 +460,7 @@ impl Host {
         *self.control.borrow_mut() = Some(control);
         *self.live.borrow_mut() = id;
         self.processing.set(value(no_processing()));
+        self.summary.set(value(summary::no_view()));
         self.publish(Changed::ALL);
         let host = self.clone();
         async move {
@@ -366,6 +489,10 @@ impl Host {
             // Ended without Saved (no store, or it failed): not live either.
             host.control.borrow_mut().take();
             host.live.borrow_mut().take();
+            let waiting: Vec<_> = host.when_idle.borrow_mut().drain(..).collect();
+            for then in waiting {
+                then();
+            }
         }
     }
 

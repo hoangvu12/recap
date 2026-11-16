@@ -2,6 +2,8 @@
 //! WASAPI, each on a thread of its own, stamped with QPC time and put on one
 //! [`Timeline`].
 //!
+//! Which devices: [`CaptureOptions`] (Settings, Audio). Without a choice:
+//!
 //! - Me: the default communications capture device. When the default changes
 //!   (headphones ↔ speakers) or the device goes away, the stream is reopened
 //!   on the new default; the hole in between is zero-filled.
@@ -21,7 +23,7 @@ use wasapi::{
     WaveFormat,
 };
 
-use crate::{AudioFrame, AudioSource, Packet, SAMPLE_RATE, Source, Timeline};
+use crate::{AudioFrame, AudioSource, CaptureOptions, Packet, SAMPLE_RATE, Source, Timeline};
 
 /// How long one side may stall before it is zero-filled so the other keeps
 /// flowing: well past WASAPI's packet interval (10 ms) and buffer (100 ms).
@@ -69,9 +71,33 @@ pub struct LiveCapture {
 }
 
 impl LiveCapture {
-    /// Open both streams; an error if either can't be opened at all. Once
-    /// started, a lost device is reopened for as long as capture runs.
+    /// [`LiveCapture::start_with`] the defaults: the communications mic and
+    /// all system audio but ours.
     pub fn start() -> Result<LiveCapture, CaptureError> {
+        Self::start_with(&CaptureOptions::default()).map(|(capture, _)| capture)
+    }
+
+    /// Open both streams on the devices `options` name; an error if either
+    /// can't be opened at all. A chosen mic that isn't there is replaced by
+    /// the default one; a meeting app that isn't running by all system
+    /// audio. Either is said in the note returned beside the capture. Once
+    /// started, a lost device is reopened for as long as capture runs.
+    pub fn start_with(options: &CaptureOptions) -> Result<(LiveCapture, Option<String>), CaptureError> {
+        let mut notes = Vec::new();
+        let microphone = options.microphone.clone().filter(|id| {
+            let there = mic_exists(id);
+            if !there {
+                notes.push("The chosen microphone isn't connected; using the default one".to_string());
+            }
+            there
+        });
+        let app_root = options.meeting_app.as_deref().and_then(|exe| {
+            let root = crate::process::app_root(&crate::process::processes(), exe);
+            if root.is_none() {
+                notes.push(format!("{exe} isn't running; capturing all system audio"));
+            }
+            root
+        });
         let clock = Clock::new();
         let stop = Arc::new(AtomicBool::new(false));
         let (tx, packets) = mpsc::channel();
@@ -85,7 +111,14 @@ impl LiveCapture {
                 let _com = wasapi::initialize_mta();
                 // Default-device changes flag a reopen; kept alive while capturing.
                 let _events = watch_default_mic(changed.clone());
-                capture_loop(Source::Me, || WasapiStream::mic(clock), &tx, &stop, &changed, Some(mic_ready));
+                capture_loop(
+                    Source::Me,
+                    || WasapiStream::mic(clock, microphone.as_deref()),
+                    &tx,
+                    &stop,
+                    &changed,
+                    Some(mic_ready),
+                );
             }
         }));
         let (system_ready, system_first) = mpsc::channel();
@@ -94,7 +127,14 @@ impl LiveCapture {
             move || {
                 let _com = wasapi::initialize_mta();
                 let never = AtomicBool::new(false);
-                capture_loop(Source::Them, || WasapiStream::loopback(clock), &tx, &stop, &never, Some(system_ready));
+                capture_loop(
+                    Source::Them,
+                    || WasapiStream::loopback(clock, app_root),
+                    &tx,
+                    &stop,
+                    &never,
+                    Some(system_ready),
+                );
             }
         }));
 
@@ -104,8 +144,13 @@ impl LiveCapture {
         };
         first(mic_first).map_err(CaptureError::Mic)?;
         first(system_first).map_err(CaptureError::MeetingAudio)?;
-        Ok(capture)
+        Ok((capture, (!notes.is_empty()).then(|| notes.join(". "))))
     }
+}
+
+/// Whether capture device `id` is there now.
+fn mic_exists(id: &str) -> bool {
+    microphones().iter().any(|(known, _)| known == id)
 }
 
 fn spawn(name: &str, f: impl FnOnce() + Send + 'static) -> JoinHandle<()> {
@@ -243,18 +288,28 @@ impl WasapiStream {
         WaveFormat::new(32, 32, SampleType::Float, SAMPLE_RATE as usize, 1, None)
     }
 
-    fn mic(clock: Clock) -> Result<WasapiStream, String> {
-        let device = DeviceEnumerator::new()
-            .and_then(|e| e.get_default_device_for_role(Direction::Capture, Role::Communications))
-            .map_err(|e| e.to_string())?;
+    /// Device `id` if it is there, else the default communications mic.
+    fn mic(clock: Clock, id: Option<&str>) -> Result<WasapiStream, String> {
+        let enumerator = DeviceEnumerator::new().map_err(|e| e.to_string())?;
+        let chosen = id.and_then(|id| enumerator.get_device(id).ok());
+        let device = match chosen {
+            Some(device) => device,
+            None => enumerator
+                .get_default_device_for_role(Direction::Capture, Role::Communications)
+                .map_err(|e| e.to_string())?,
+        };
         let client = device.get_iaudioclient().map_err(|e| e.to_string())?;
         Self::start(client, clock, 1_000_000)
     }
 
-    fn loopback(clock: Clock) -> Result<WasapiStream, String> {
-        // Everything but this process tree (include_tree = false excludes it).
-        let client = AudioClient::new_application_loopback_client(std::process::id(), false)
-            .map_err(|e| e.to_string())?;
+    /// The process tree of `app` (its root pid), or everything but ours.
+    fn loopback(clock: Clock, app: Option<u32>) -> Result<WasapiStream, String> {
+        // include_tree = false excludes the tree; true takes only it.
+        let client = match app {
+            Some(pid) => AudioClient::new_application_loopback_client(pid, true),
+            None => AudioClient::new_application_loopback_client(std::process::id(), false),
+        }
+        .map_err(|e| e.to_string())?;
         // Process loopback can't report its buffer: 0 lets Windows choose.
         Self::start(client, clock, 0)
     }

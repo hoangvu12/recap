@@ -13,10 +13,11 @@
 use std::{path::PathBuf, sync::Arc};
 
 use recap_engine::{
-    AudioFrame, AudioSource, BatchStt, BoxFuture, Capabilities, LiveEvent, LiveOptions, LiveStt, ProviderError, Script,
-    ScriptedLiveStt, SilenceSource, Source, WavSource,
+    AudioFrame, AudioSource, BatchStt, BoxFuture, Capabilities, CaptureOptions, LiveEvent, LiveOptions, LiveStt, Llm,
+    ProviderError, Script, ScriptedLiveStt, SilenceSource, Source, WavSource,
 };
 use recap_providers::{Providers, elevenlabs};
+use recap_storage::{MeetingAudio, Settings};
 use tokio::sync::mpsc;
 
 use crate::presenter::LiveChoice;
@@ -61,19 +62,24 @@ impl StartOptions {
         options
     }
 
-    /// The meeting's audio.
-    pub fn source(&self) -> Result<Box<dyn AudioSource>, String> {
+    /// The meeting's audio, captured from the `devices` chosen (a replay
+    /// ignores them); beside it, what the user should know (a chosen device
+    /// wasn't there, so another is used).
+    pub fn source(&self, devices: &CaptureOptions) -> Result<(Box<dyn AudioSource>, Option<String>), String> {
         match &self.audio {
             Audio::Replay(path) => WavSource::open(path)
-                .map(|wav| Box::new(wav.paced()) as Box<dyn AudioSource>)
+                .map(|wav| (Box::new(wav.paced()) as Box<dyn AudioSource>, None))
                 .map_err(|error| format!("{}: {error}", path.display())),
-            Audio::Silence => Ok(Box::new(SilenceSource::paced(None))),
+            Audio::Silence => Ok((Box::new(SilenceSource::paced(None)), None)),
             #[cfg(windows)]
-            Audio::Capture => recap_engine::LiveCapture::start()
-                .map(|capture| Box::new(capture) as Box<dyn AudioSource>)
+            Audio::Capture => recap_engine::LiveCapture::start_with(devices)
+                .map(|(capture, note)| (Box::new(capture) as Box<dyn AudioSource>, note))
                 .map_err(|error| error.to_string()),
             #[cfg(not(windows))]
-            Audio::Capture => Err("live capture needs Windows".into()),
+            Audio::Capture => {
+                let _ = devices;
+                Err("live capture needs Windows".into())
+            }
         }
     }
 
@@ -118,6 +124,18 @@ impl StartOptions {
     }
 }
 
+/// The devices Settings, Audio chose: a microphone ("" is the default) and
+/// the meeting audio (all system audio, or one app's).
+pub fn capture_options(settings: &Settings) -> CaptureOptions {
+    CaptureOptions {
+        microphone: Some(settings.microphone.trim().to_owned()).filter(|id| !id.is_empty()),
+        meeting_app: match &settings.meeting_audio {
+            MeetingAudio::System => None,
+            MeetingAudio::App(exe) => Some(exe.clone()),
+        },
+    }
+}
+
 impl StartOptions {
     /// The after-Stop transcript's batch STT (the Transcript job), or why
     /// there is none. A `--replay` with `ELEVENLABS_API_KEY` uses that key.
@@ -134,6 +152,18 @@ impl StartOptions {
         let on_switch =
             move |n: recap_engine::FallbackNotice| notify(format!("{} failed ({}); switched to {}", n.from, n.error.message, n.to));
         providers.batch(on_switch).map(|job| Arc::new(job) as Arc<dyn BatchStt>)
+    }
+
+    /// The after-Stop naming and summary AI (the Summary and names job), or
+    /// why there is none.
+    pub fn llm(
+        &self,
+        providers: &Providers,
+        notify: impl Fn(String) + Send + Sync + 'static,
+    ) -> Result<Arc<dyn Llm>, ProviderError> {
+        let on_switch =
+            move |n: recap_engine::FallbackNotice| notify(format!("{} failed ({}); switched to {}", n.from, n.error.message, n.to));
+        providers.llm(on_switch).map(|job| Arc::new(job) as Arc<dyn Llm>)
     }
 }
 
