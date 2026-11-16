@@ -85,6 +85,25 @@ impl ScriptedLiveStt {
         self
     }
 
+    /// When each script line is said, `(start_ms, end_ms)` of meeting time,
+    /// as the replay says it: its first word to its last sentence's final.
+    pub fn line_times(&self) -> Vec<(u64, u64)> {
+        let p = self.pace;
+        let mut out = Vec::new();
+        let mut t = 0;
+        for line in &self.script.lines {
+            let start = t;
+            let mut end = t;
+            for sentence in sentences(&line.text) {
+                end = t + sentence.split(' ').count() as u64 * p.word_ms + p.final_lag_ms;
+                t = end + p.sentence_gap_ms;
+            }
+            out.push((start, end));
+            t += p.line_gap_ms - p.sentence_gap_ms;
+        }
+        out
+    }
+
     /// Every event of the meeting with the time it is heard, in order; both
     /// sides share one timeline.
     fn schedule(&self) -> Vec<(u64, Source, LiveEvent)> {
@@ -187,6 +206,17 @@ mod tests {
             sentences("Okay, let's go. Thanks, Tom. Who owns it? Me"),
             ["Okay, let's go.", "Thanks, Tom.", "Who owns it?", "Me"]
         );
+    }
+
+    #[test]
+    fn line_times_follow_the_replay() {
+        let stt = ScriptedLiveStt::new(Script::test_meeting());
+        let times = stt.line_times();
+        assert_eq!(times.len(), 12);
+        assert_eq!(times[0].0, 0);
+        assert!(times.windows(2).all(|w| w[0].1 < w[1].0), "lines follow each other");
+        let last_final = stt.schedule().iter().filter(|(_, _, e)| e.is_final).map(|(at, _, _)| *at).max();
+        assert_eq!(Some(times[11].1), last_final);
     }
 
     #[test]

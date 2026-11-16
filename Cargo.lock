@@ -2776,7 +2776,9 @@ name = "recap"
 version = "0.1.0"
 dependencies = [
  "recap-engine",
+ "recap-storage",
  "serde_json",
+ "tempfile",
  "tokio",
  "zgx",
  "zgx-desktop",
