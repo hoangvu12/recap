@@ -20,3 +20,4 @@ zgx-desktop.workspace = true
 zgx-script = { workspace = true, features = ["inspect"] }
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }

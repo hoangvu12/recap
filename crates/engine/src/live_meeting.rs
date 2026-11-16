@@ -220,10 +220,10 @@ async fn run(
                         next_tick += 1_000;
                     }
                 }
-                if let Some(side) = sides.get(&frame.source) {
-                    if let Some(tx) = &side.audio {
-                        let _ = tx.send(frame);
-                    }
+                if let Some(side) = sides.get(&frame.source)
+                    && let Some(tx) = &side.audio
+                {
+                    let _ = tx.send(frame);
                 }
             }
         }

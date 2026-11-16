@@ -65,6 +65,21 @@ fn a_segment_stays_in_its_row_while_the_other_side_talks_over_it() {
 }
 
 #[test]
+fn a_side_heard_late_rejoins_its_turn_when_the_other_side_spoke_after_it() {
+    // Each side's provider answers on its own: Me's next sentence (said at
+    // 1.0 s) can arrive after Them's reply (said at 2.0 s) opened a row.
+    let mut t = LiveTranscript::default();
+    t.apply(&seg(1, Source::Me, 0, 900, "Okay.", true));
+    t.apply(&seg(2, Source::Them, 2_000, 2_400, "Thanks,", false));
+    let change = t.apply(&seg(3, Source::Me, 1_000, 1_800, "Let's start.", true));
+    assert_eq!((change.index, change.added), (0, false));
+    assert_eq!(t.row(0).unwrap().final_text, "Okay. Let's start.");
+    assert_eq!(t.len(), 2);
+    // Said after Them's row started: a turn of its own.
+    assert!(t.apply(&seg(4, Source::Me, 2_500, 3_000, "Go on.", true)).added);
+}
+
+#[test]
 fn finishing_turns_what_is_still_partial_into_final_text() {
     let mut t = LiveTranscript::default();
     t.apply(&seg(1, Source::Them, 0, 900, "One.", true));

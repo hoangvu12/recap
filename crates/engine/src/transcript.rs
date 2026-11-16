@@ -31,9 +31,10 @@ pub struct RowChange {
     pub added: bool,
 }
 
-/// Segments grouped into rows: the next segment of the same side joins the
-/// last row when it follows it closely; the other side speaking, or a pause,
-/// starts a new row.
+/// Segments grouped into rows: the next segment of the same side joins its
+/// last turn when it follows it closely; the other side speaking, or a pause,
+/// starts a new row. Rows are only ever added at the end, and placed by
+/// meeting time, not by when a side's text arrived.
 #[derive(Clone, Debug)]
 pub struct LiveTranscript {
     rows: Vec<Row>,
@@ -66,13 +67,18 @@ impl LiveTranscript {
         let (index, added) = match self.by_segment.get(&segment.id) {
             Some(&index) => (index, false),
             None => {
-                let joins = self.rows.last().is_some_and(|last| {
-                    last.source == segment.source
-                        && !last.is_open()
-                        && segment.start_ms <= last.end_ms + self.join_gap_ms
+                // The side's latest turn, if this continues it: close after
+                // it, and nothing of the other side said in between (rows
+                // after it that started later only arrived first: each
+                // side's provider answers on its own).
+                let turn = self.rows.iter().rposition(|r| r.source == segment.source).filter(|&i| {
+                    let row = &self.rows[i];
+                    !row.is_open()
+                        && segment.start_ms <= row.end_ms + self.join_gap_ms
+                        && self.rows[i + 1..].iter().all(|later| later.start_ms > segment.start_ms)
                 });
-                if joins {
-                    (self.rows.len() - 1, false)
+                if let Some(index) = turn {
+                    (index, false)
                 } else {
                     let index = self.rows.len();
                     self.rows.push(Row {

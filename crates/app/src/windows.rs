@@ -1,0 +1,134 @@
+//! The app's windows. Luau declares each one (`ui/windows.luau`: its id,
+//! title, size and content) and opens it through its `window.<id>` state;
+//! the native options a script can't set (frameless, always on top, minimum
+//! size) live here, by id.
+//!
+//! The first window zgx makes is the hidden root: Recap lives in the tray
+//! (a later ticket), so no visible window is the app's main one.
+
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
+
+use zgx_desktop::{Titlebar, WindowContext, WindowHandle, WindowLevel, WindowOptions};
+use zgx_script::{ScriptHost, Value};
+
+/// The hidden root window: it hosts the script and draws nothing.
+pub fn root() -> WindowOptions {
+    WindowOptions {
+        title: "Recap".into(),
+        width: 1.,
+        height: 1.,
+        visible: false,
+        decorations: false,
+        ..Default::default()
+    }
+}
+
+/// The native options of window `id`, around what Luau declared.
+pub fn options(id: &str, title: &str, width: f64, height: f64, frame_autosave: Option<String>) -> WindowOptions {
+    let base = WindowOptions { title: title.into(), width, height, frame_autosave, ..Default::default() };
+    match id {
+        // A Raycast-like panel: no title bar (its header moves it).
+        "notes" => WindowOptions { titlebar: Titlebar::Hidden, min_size: Some((360., 480.)), ..base },
+        // Captions over the call: frameless and above every window.
+        "overlay" => WindowOptions {
+            titlebar: Titlebar::Hidden,
+            level: WindowLevel::AlwaysOnTop,
+            min_size: Some((360., 80.)),
+            ..base
+        },
+        _ => base,
+    }
+}
+
+/// When the app quits.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Quit {
+    /// Once the last declared window closes.
+    WhenNoneOpen,
+    /// Never on its own (the tray keeps it).
+    Resident,
+}
+
+/// Open and close the script's windows as their `open` states say, and set
+/// a state false when its window is closed. Keep the effect it returns.
+pub fn follow(host: &ScriptHost, cx: &WindowContext, quit: Quit, devtools: bool) -> zgx::reactive::Effect {
+    let factory = cx.windows.clone();
+    let runtime = cx.ui.runtime.clone();
+    let open: Rc<RefCell<HashMap<String, WindowHandle>>> = Rc::default();
+    let ever_open = Rc::new(std::cell::Cell::new(false));
+    let (list, host) = (host.windows(), host.clone());
+    cx.ui.runtime.effect(move || {
+        let windows = list.get();
+        let mut any_wanted = false;
+        for window in windows {
+            let wanted = window.open.get().truthy();
+            any_wanted |= wanted;
+            let shown = open.borrow().get(&window.id).is_some_and(|handle| !handle.is_closed());
+            if wanted && !shown {
+                let options =
+                    options(&window.id, &window.title, window.width, window.height, window.frame_autosave.clone());
+                let (view_host, state, id, title) =
+                    (host.clone(), window.open.clone(), window.id.clone(), window.title.clone());
+                let handle = factory.open(options, move |wcx| {
+                    let closing = id.clone();
+                    wcx.on_closed(move || {
+                        if state.with_untracked(Value::truthy) {
+                            state.set(Value::Bool(false));
+                        }
+                        zgx_script::inspect::forget_window(&closing);
+                    });
+                    let handle = wcx.render(view_host.window_view(&id));
+                    if devtools {
+                        let session =
+                            zgx_script::inspect::Session::new(&wcx.ui, handle, &view_host, Some(wcx.inspector.clone()));
+                        zgx_script::inspect::register_window(&id, &title, session);
+                    }
+                });
+                open.borrow_mut().insert(window.id.clone(), handle);
+            } else if !wanted
+                && shown
+                && let Some(handle) = open.borrow_mut().remove(&window.id)
+            {
+                runtime.untracked(|| handle.close());
+            }
+        }
+        ever_open.set(ever_open.get() || any_wanted);
+        if quit == Quit::WhenNoneOpen && ever_open.get() && !any_wanted {
+            factory.quit();
+        }
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_overlay_floats_frameless_over_every_window() {
+        let o = options("overlay", "Recap captions", 720., 120., Some("overlay".into()));
+        assert_eq!(o.level, WindowLevel::AlwaysOnTop);
+        assert_eq!(o.titlebar, Titlebar::Hidden);
+        assert_eq!((o.width, o.height), (720., 120.));
+        assert_eq!(o.frame_autosave.as_deref(), Some("overlay"));
+    }
+
+    #[test]
+    fn notes_is_a_frameless_panel_that_stays_readable() {
+        let o = options("notes", "Recap", 420., 900., None);
+        assert_eq!(o.titlebar, Titlebar::Hidden);
+        assert_eq!(o.level, WindowLevel::Normal);
+        assert_eq!(o.min_size, Some((360., 480.)));
+    }
+
+    #[test]
+    fn a_window_without_options_of_its_own_is_a_plain_window() {
+        let o = options("settings", "Settings", 640., 480., None);
+        assert_eq!(o.titlebar, Titlebar::Standard);
+        assert_eq!(o.level, WindowLevel::Normal);
+    }
+
+    #[test]
+    fn the_root_window_is_never_seen() {
+        assert!(!root().visible);
+    }
+}
