@@ -20,6 +20,7 @@
 //! partial → final segments, clocked by the audio it is given.
 
 mod audio;
+pub mod echo;
 mod event;
 pub mod fake;
 mod fallback;
