@@ -1,0 +1,11 @@
+/target/
+**/target/
+.env
+*.env
+.scratch/
+# Never commit real meetings. Only testdata/meeting_tts.wav is allowed.
+*.ogg
+meeting.*
+!testdata/meeting_tts.wav
+*.sqlite
+*.db

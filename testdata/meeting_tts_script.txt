@@ -1,0 +1,12 @@
+Mark|Okay, let's get started. Thanks for joining, Priya and David. Today I want to settle the launch date for the mobile app and agree on who owns the remaining work.
+Zira|Thanks, Tom. Quick status from design. The onboarding screens are done, and the new checkout flow is about ninety percent finished. I still need to fix the dark mode colors on the payment page.
+David|From the backend side, the payments API is ready, but load testing showed slow responses above two thousand users. I think we need one more week to add caching before we go live.
+Mark|One more week pushes us to December first. Priya, can design finish the dark mode work by then?
+Zira|Yes, I can finish dark mode by Friday, so that's not a blocker.
+David|Then I'd suggest we launch on December first, with caching in place. If load testing still fails, we fall back to a soft launch in India only.
+Mark|Okay, that works for me. Let's make it official. We launch on December first, and the India soft launch is the backup plan.
+Zira|Agreed. One more thing, Tom. Who is writing the release notes? Last time nobody owned them and they went out late.
+Mark|Good point. I'll write the release notes and share a draft on Wednesday.
+David|I'll also send the load test report to the whole team by Thursday, so everyone can see the numbers.
+Zira|And I'll book a short review with the support team next Monday, so they know about the new checkout flow.
+Mark|Great. So to recap: David adds caching and sends the load test report Thursday. Priya fixes dark mode by Friday and sets up the support review. I write the release notes by Wednesday. Launch is December first. Thanks everyone, talk soon.
