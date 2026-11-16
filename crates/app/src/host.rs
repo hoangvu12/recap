@@ -50,7 +50,8 @@ pub struct Host {
     meetings: Shared,
     presenter: Rc<RefCell<Presenter>>,
     control: Rc<RefCell<Option<MeetingControl>>>,
-    store: Option<Store>,
+    /// Changes when Settings moves the storage folder.
+    store: Rc<RefCell<Option<Store>>>,
 }
 
 fn value(json: serde_json::Value) -> Value {
@@ -78,7 +79,7 @@ impl Host {
             meetings: script.shared("meetings", Value::from_json("[]").unwrap_or(Value::Nil)),
             presenter: Rc::new(RefCell::new(presenter)),
             control: Rc::default(),
-            store,
+            store: Rc::new(RefCell::new(store)),
             script,
         };
         let presenter = host.presenter.clone();
@@ -100,6 +101,7 @@ impl Host {
         }
         let store = host.store.clone();
         host.script.function("meeting_detail", move |arg| {
+            let store = store.borrow().clone();
             let (Some(store), Some(id)) = (&store, meeting_id(&arg)) else {
                 return Value::Nil;
             };
@@ -132,9 +134,21 @@ impl Host {
         self.control.borrow().is_some()
     }
 
+    /// The store meetings are read from and written to now.
+    pub fn store(&self) -> Option<Store> {
+        self.store.borrow().clone()
+    }
+
+    /// Read and write meetings in `store` from now on (Settings moved the
+    /// storage folder); Home lists its meetings.
+    pub fn set_store(&self, store: Option<Store>) {
+        *self.store.borrow_mut() = store;
+        self.refresh_meetings();
+    }
+
     /// Publish the stored meetings again (Home's list).
     pub fn refresh_meetings(&self) {
-        let Some(store) = &self.store else { return };
+        let Some(store) = self.store() else { return };
         match store.list() {
             Ok(list) => {
                 self.meetings.set(value(home::meetings(&list)));
@@ -150,7 +164,7 @@ impl Host {
             eprintln!("recap: a meeting is live; {id} stays closed");
             return;
         }
-        let Some(store) = &self.store else { return };
+        let Some(store) = self.store() else { return };
         let loaded = store.meeting(id).and_then(|m| Ok((m, store.transcript(id)?)));
         match loaded {
             Ok((Some(meeting), segments)) => {

@@ -34,7 +34,7 @@ mod wav_source;
 
 pub use audio::{AudioFrame, AudioSource, FeedSource, FrameFeed, SAMPLE_RATE, SilenceSource};
 #[cfg(windows)]
-pub use live_capture::{CaptureError, LiveCapture};
+pub use live_capture::{CaptureError, LiveCapture, microphones};
 pub use recorder::{Recorder, Recording};
 pub use timeline::{Packet, Timeline};
 pub use wav_source::WavSource;
