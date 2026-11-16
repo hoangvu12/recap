@@ -55,6 +55,9 @@ pub fn script_path() -> PathBuf {
         .join("app.luau")
 }
 
+/// What runs once no meeting is live ([`Host::when_idle`]).
+type Then = Box<dyn FnOnce()>;
+
 #[derive(Clone)]
 pub struct Host {
     pub script: ScriptHost,
@@ -69,7 +72,7 @@ pub struct Host {
     /// Changes when Settings moves the storage folder.
     store: Rc<RefCell<Option<Store>>>,
     /// What waits for the live meeting to end (Quit while recording).
-    when_idle: Rc<RefCell<Vec<Box<dyn FnOnce()>>>>,
+    when_idle: Rc<RefCell<Vec<Then>>>,
     processing: Shared,
     /// How to process a meeting (main.rs sets it; none: meetings stay unprocessed).
     processor: Rc<RefCell<Option<(Process, Spawn)>>>,

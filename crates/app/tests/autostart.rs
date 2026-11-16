@@ -71,7 +71,9 @@ fn the_general_switch_follows_into_the_run_key() {
 
     let mut win = app.window("settings").unwrap();
     win.click("#nav-general");
-    assert!(win.wait_until(|w| w.find("#set-autostart").is_some()));
+    assert!(win.wait_until(|w| w.find("#page-general").is_some() && w.find("#set-autostart").is_some()));
+    // Startup is the page's last section: below the window's fold.
+    win.scroll("#page-general", 2000.);
     win.click("#set-autostart");
     assert!(win.wait_until(|_| settings.current().autostart));
     assert_eq!(key.0.get().as_deref(), Some("\"C:\\x\\recap.exe\" --background"));
