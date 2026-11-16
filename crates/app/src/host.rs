@@ -72,11 +72,18 @@ pub type Process = Rc<dyn Fn(Store, MeetingId) -> UnboundedReceiver<ProcessingEv
 pub type Spawn = Rc<dyn Fn(Pin<Box<dyn Future<Output = ()>>>)>;
 
 /// Where the UI's scripts are: `RECAP_UI` (a folder with app.luau), else the
-/// source tree's `ui/` (development; packaging bundles them in a later
-/// ticket).
+/// `ui/` beside the executable (installed: the installer puts it there),
+/// else the source tree's `ui/` (development).
 pub fn script_path() -> PathBuf {
+    let beside_exe = || {
+        std::env::current_exe()
+            .ok()
+            .and_then(|exe| Some(exe.parent()?.join("ui")))
+            .filter(|ui| ui.join("app.luau").is_file())
+    };
     std::env::var_os("RECAP_UI")
         .map(PathBuf::from)
+        .or_else(beside_exe)
         .unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("ui"))
         .join("app.luau")
 }

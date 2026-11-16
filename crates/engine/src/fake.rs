@@ -73,16 +73,29 @@ impl Default for Pace {
 pub struct ScriptedLiveStt {
     script: Script,
     pace: Pace,
+    looping: bool,
 }
 
 impl ScriptedLiveStt {
     pub fn new(script: Script) -> Self {
-        Self { script, pace: Pace::default() }
+        Self { script, pace: Pace::default(), looping: false }
     }
 
     pub fn with_pace(mut self, pace: Pace) -> Self {
         self.pace = pace;
         self
+    }
+
+    /// Say the script again and again, for as long as audio comes (the soak
+    /// run's endless meeting). Each round starts a line gap after the last.
+    pub fn looping(mut self) -> Self {
+        self.looping = true;
+        self
+    }
+
+    /// How long one round of the script takes, up to where the next starts.
+    fn round_ms(&self) -> u64 {
+        self.line_times().last().map_or(0, |(_, end)| end + self.pace.line_gap_ms)
     }
 
     /// When each script line is said, `(start_ms, end_ms)` of meeting time,
@@ -173,15 +186,24 @@ impl LiveStt for ScriptedLiveStt {
             .filter(|(_, side, _)| *side == source)
             .map(|(at, _, event)| LiveEvent { end_ms: at.max(event.end_ms), ..event })
             .collect();
+        // Looping: each round is the schedule shifted by a round's length.
+        let round_ms = if self.looping && !schedule.is_empty() { self.round_ms().max(1) } else { 0 };
         Box::pin(async move {
             let mut heard_ms = 0;
             let mut next = 0;
+            let mut base = 0;
             let mut partial: Option<LiveEvent> = None;
             while let Some(frame) = audio.recv().await {
                 heard_ms += frame.duration_ms();
-                while let Some(event) = schedule.get(next).filter(|e| e.end_ms <= heard_ms) {
+                loop {
+                    if next == schedule.len() && round_ms > 0 {
+                        next = 0;
+                        base += round_ms;
+                    }
+                    let Some(event) = schedule.get(next).filter(|e| base + e.end_ms <= heard_ms) else { break };
+                    let event = LiveEvent { start_ms: base + event.start_ms, end_ms: base + event.end_ms, ..event.clone() };
                     partial = (!event.is_final).then(|| event.clone());
-                    if events.send(event.clone()).is_err() {
+                    if events.send(event).is_err() {
                         return Ok(());
                     }
                     next += 1;
@@ -217,6 +239,44 @@ mod tests {
         assert!(times.windows(2).all(|w| w[0].1 < w[1].0), "lines follow each other");
         let last_final = stt.schedule().iter().filter(|(_, _, e)| e.is_final).map(|(at, _, _)| *at).max();
         assert_eq!(Some(times[11].1), last_final);
+    }
+
+    /// The finals `stt` says on `source` over `heard_ms` of silence.
+    fn finals(stt: &ScriptedLiveStt, source: Source, heard_ms: u64) -> Vec<LiveEvent> {
+        let rt = tokio::runtime::Builder::new_current_thread().build().unwrap();
+        rt.block_on(async {
+            let (audio_tx, audio) = mpsc::unbounded_channel();
+            let (events, mut out) = mpsc::unbounded_channel();
+            for at in (0..heard_ms).step_by(100) {
+                audio_tx.send(AudioFrame::silence(source, at, 100)).unwrap();
+            }
+            drop(audio_tx);
+            stt.run(source, LiveOptions::default(), audio, events).await.unwrap();
+            let mut finals = Vec::new();
+            while let Ok(event) = out.try_recv() {
+                if event.is_final {
+                    finals.push(event);
+                }
+            }
+            finals
+        })
+    }
+
+    #[test]
+    fn a_looping_script_says_it_again_later() {
+        let once = ScriptedLiveStt::new(Script::test_meeting());
+        let round = once.round_ms();
+        let first = finals(&once, Source::Them, round * 3);
+        let looping = ScriptedLiveStt::new(Script::test_meeting()).looping();
+        let thrice = finals(&looping, Source::Them, round * 3);
+        assert!(!first.is_empty());
+        assert_eq!(thrice.len(), first.len() * 3, "three rounds in three rounds' time");
+        let second = &thrice[first.len()..first.len() * 2];
+        for (a, b) in first.iter().zip(second) {
+            assert_eq!(a.text, b.text);
+            assert_eq!(b.start_ms, a.start_ms + round, "the next round comes a round later");
+        }
+        assert!(thrice.windows(2).all(|w| w[0].start_ms <= w[1].start_ms), "time only goes forward");
     }
 
     #[test]

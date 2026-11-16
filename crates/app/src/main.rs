@@ -6,6 +6,8 @@
 //! - `--settings` opens Settings too.
 //! - `--replay <file.wav>` / `--scripted`: dev meetings, started at once
 //!   (`recap::live` says what they replace).
+//! - `--soak <minutes>`: the leak check, one endless scripted meeting with
+//!   memory and handles sampled each minute (`recap::soak`).
 //!
 //! Recap lives in the tray: closing its windows leaves it running, Quit in
 //! the tray menu ends it. Only one runs: a second launch brings Home of the
@@ -20,6 +22,10 @@ use std::{
     cell::RefCell,
     path::{Path, PathBuf},
     rc::Rc,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -35,16 +41,19 @@ use recap::{
     seed,
     session::{self, SessionConfig},
     settings::ProvidersHost,
+    soak::Soak,
     user_settings::{Microphone, PickFolder, SettingsHost},
     windows::{self, OpenWindows, Quit},
 };
-use recap_engine::detect::CallHint;
+use recap_engine::{ProviderError, ProviderErrorKind, detect::CallHint};
 use recap_providers::{Keyring, Providers, Registry};
 use recap_storage::{Settings, Store};
 use zgx_desktop::{Application, ApplicationEvent, FileDialogOptions};
 
 /// Who Recap is to Windows: one instance per id, and its toasts' sender.
 const APPLICATION_ID: &str = "app.recap.Recap";
+/// The soak run's: it runs beside the user's Recap.
+const SOAK_APPLICATION_ID: &str = "app.recap.Recap.Soak";
 
 fn now_ms() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64)
@@ -66,11 +75,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let flag = |name: &str| std::env::args().any(|a| a == name);
     let devtools = flag("--inspect") || zgx_script::inspect::asked();
     let background = flag("--background");
-    let start_options = StartOptions::from_args(std::env::args().skip(1));
-    let home = std::env::var_os("RECAP_DATA")
-        .map(PathBuf::from)
-        .or_else(Store::default_root)
-        .ok_or("no LOCALAPPDATA: set RECAP_DATA")?;
+    // `--soak <minutes>`: the long-run leak check, an instance of its own
+    // on its own data (recap::soak).
+    let soak = Soak::from_args(std::env::args().skip(1));
+    let soak_failed = Arc::new(AtomicBool::new(false));
+    let start_options = soak.as_ref().map_or_else(|| StartOptions::from_args(std::env::args().skip(1)), Soak::start_options);
+    let home = match soak {
+        Some(_) => Some(Soak::home()),
+        None => std::env::var_os("RECAP_DATA").map(PathBuf::from).or_else(Store::default_root),
+    }
+    .ok_or("no LOCALAPPDATA: set RECAP_DATA")?;
     let settings_path = home.join("settings.json");
     let settings = Settings::load(&settings_path).unwrap_or_default();
     let store = open_store(&settings.meetings_root(&home), flag("--seed"));
@@ -92,7 +106,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut app = Application::new()
         .window(windows::root())
         .desktop_id("recap")
-        .application_id(APPLICATION_ID)?
+        .application_id(if soak.is_some() { SOAK_APPLICATION_ID } else { APPLICATION_ID })?
         .quit_on_last_window_close(false)
         .on_application_event(move |event, _| {
             if matches!(event, ApplicationEvent::Reopen | ApplicationEvent::OpenUrls(_))
@@ -104,7 +118,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for font in fonts::bundled() {
         app = app.font(font?);
     }
-    app.run(move |cx| {
+    let failed = soak_failed.clone();
+    let ran = app.run(move |cx| {
         if devtools {
             zgx_script::inspect::prepare();
         }
@@ -134,10 +149,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let process: host::Process = {
             let (runtime, providers, options, settings) =
                 (engine.handle().clone(), providers.clone(), start_options.clone(), settings_host.clone());
+            let soaking = soak.is_some();
             Rc::new(move |store, id| {
                 let _inside = runtime.enter();
                 let settings = settings.current();
                 let config = ProcessingConfig { keyterms: settings.keyterms(), my_name: settings.my_name.clone() };
+                if soaking {
+                    // No real API in a soak run: its meeting stays unprocessed.
+                    let off = || ProviderError::new(ProviderErrorKind::Auth, "no providers in a soak run");
+                    return Processing::full(Err(off()), Err(off())).start(store, id, config);
+                }
                 let batch = options.batch(&providers, |notice| eprintln!("recap: {notice}"));
                 let llm = options.llm(&providers, |notice| eprintln!("recap: {notice}"));
                 Processing::full(batch, llm).start(store, id, config)
@@ -199,11 +220,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
         *reopen.borrow_mut() = Some(commands.clone());
         let resident = resident(cx, &host, &settings_host, &commands);
-        recap::autostart::connect(
-            &settings_host,
-            recap::autostart::RunKey::recap(),
-            std::env::current_exe().map(|exe| recap::autostart::command_line(&exe)).unwrap_or_default(),
-        );
+        match &soak {
+            // The Run key is the real Recap's: a soak run leaves it alone.
+            None => recap::autostart::connect(
+                &settings_host,
+                recap::autostart::RunKey::recap(),
+                std::env::current_exe().map(|exe| recap::autostart::command_line(&exe)).unwrap_or_default(),
+            ),
+            // When the time is up: Quit (stops the meeting, saves, quits).
+            Some(soak) => {
+                let (tx, rx) = tokio::sync::oneshot::channel();
+                let failed = soak_failed.clone();
+                let watching = soak.watch(&home, move |verdict| {
+                    failed.store(!verdict.ok, Ordering::Relaxed);
+                    let _ = tx.send(());
+                });
+                match watching {
+                    Ok(()) => {
+                        let commands = commands.clone();
+                        cx.tasks.spawn(async move {
+                            if rx.await.is_ok() {
+                                commands.run(Command::Quit);
+                            }
+                        });
+                    }
+                    Err(error) => eprintln!("recap: soak: {error}"),
+                }
+            }
+        }
 
         if let Err(error) = host.script.reload() {
             eprintln!("recap: {error}");
@@ -256,7 +300,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 engine.shutdown_background();
             }
         });
-    })
+    });
+    if failed.load(Ordering::Relaxed) {
+        std::process::exit(1);
+    }
+    ran
 }
 
 /// What keeps Recap in the tray: the icon, the hotkeys and the call watch,
@@ -268,8 +316,6 @@ fn resident(
     settings: &SettingsHost,
     commands: &Commands,
 ) -> Box<dyn std::any::Any> {
-    use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
-
     use recap::{hotkeys::{HotkeysHost, SystemKeys}, tray::Tray};
 
     let mut keep: Vec<Box<dyn std::any::Any>> = Vec::new();

@@ -91,6 +91,57 @@ impl AudioSource for WavSource {
     }
 }
 
+/// One WAV file played again and again, its rounds one after another on the
+/// meeting's timeline: the soak run's endless meeting. Ends only when the
+/// meeting stops (or the file can't be read again).
+pub struct LoopingWav {
+    path: std::path::PathBuf,
+    round: WavSource,
+    /// Where this round starts on the meeting's timeline.
+    offset_ms: u64,
+    /// The end of the furthest frame of this round, on the round's timeline.
+    round_end_ms: u64,
+    paced: Option<Instant>,
+}
+
+impl LoopingWav {
+    pub fn open(path: &Path) -> io::Result<LoopingWav> {
+        Ok(LoopingWav { path: path.to_owned(), round: WavSource::open(path)?, offset_ms: 0, round_end_ms: 0, paced: None })
+    }
+
+    /// In real time, as live capture would be.
+    pub fn paced(mut self) -> Self {
+        self.paced = Some(Instant::now());
+        self
+    }
+}
+
+impl AudioSource for LoopingWav {
+    fn next_frame(&mut self) -> Option<AudioFrame> {
+        let mut frame = match self.round.next_frame() {
+            Some(frame) => frame,
+            None => {
+                // The round has ended: the next starts where it stopped.
+                self.round = WavSource::open(&self.path).ok()?;
+                self.offset_ms += self.round_end_ms;
+                self.round_end_ms = 0;
+                self.round.next_frame()?
+            }
+        };
+        self.round_end_ms = self.round_end_ms.max(frame.start_ms + frame.duration_ms());
+        frame.start_ms += self.offset_ms;
+        if let Some(started) = self.paced
+            && frame.source == Source::Them
+        {
+            let due = started + Duration::from_millis(frame.start_ms + frame.duration_ms());
+            if let Some(wait) = due.checked_duration_since(Instant::now()) {
+                std::thread::sleep(wait);
+            }
+        }
+        Some(frame)
+    }
+}
+
 /// One WAV file being read.
 struct Input {
     reader: hound::WavReader<BufReader<File>>,

@@ -24,6 +24,7 @@
 //! - [`commands`]: what the tray, the hotkeys and the call toasts do.
 //! - [`tray`], [`hotkeys`], [`calls`], [`autostart`]: Recap living in the
 //!   tray (ticket #15, ADR 0011).
+//! - [`soak`]: `--soak <minutes>`, the long-run leak check (ticket #18).
 
 pub mod autostart;
 pub mod calls;
@@ -42,6 +43,7 @@ pub mod processing;
 pub mod seed;
 pub mod session;
 pub mod settings;
+pub mod soak;
 pub mod speakers;
 pub mod summary;
 pub mod tray;

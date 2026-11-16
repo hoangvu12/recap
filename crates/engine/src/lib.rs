@@ -42,7 +42,7 @@ pub use live_capture::{CaptureError, LiveCapture, microphones};
 pub use recorder::{Recorder, Recording};
 pub use refine::Turn;
 pub use timeline::{Packet, Timeline};
-pub use wav_source::WavSource;
+pub use wav_source::{LoopingWav, WavSource};
 pub use event::{EngineEvent, MeetingResult, MeetingState, PauseMark, Segment, SegmentId, Source};
 pub use fake::{Script, ScriptLine, ScriptedLiveStt};
 pub use fallback::{Fallback, FallbackNotice};

@@ -14,7 +14,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use recap_engine::{
     AudioFrame, AudioSource, BatchStt, BoxFuture, Capabilities, CaptureOptions, LiveEvent, LiveOptions, LiveStt, Llm,
-    ProviderError, Script, ScriptedLiveStt, SilenceSource, Source, WavSource,
+    LoopingWav, ProviderError, Script, ScriptedLiveStt, SilenceSource, Source, WavSource,
 };
 use recap_providers::{Providers, elevenlabs};
 use recap_storage::{MeetingAudio, Settings};
@@ -31,6 +31,9 @@ pub enum Audio {
     Replay(PathBuf),
     /// Silence, paced (with `--scripted`: the test meeting without audio).
     Silence,
+    /// A WAV file again and again, paced, until Stop (`--soak`); the script
+    /// loops with it.
+    Looped(PathBuf),
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -71,6 +74,9 @@ impl StartOptions {
                 .map(|wav| (Box::new(wav.paced()) as Box<dyn AudioSource>, None))
                 .map_err(|error| format!("{}: {error}", path.display())),
             Audio::Silence => Ok((Box::new(SilenceSource::paced(None)), None)),
+            Audio::Looped(path) => LoopingWav::open(path)
+                .map(|wav| (Box::new(wav.paced()) as Box<dyn AudioSource>, None))
+                .map_err(|error| format!("{}: {error}", path.display())),
             #[cfg(windows)]
             Audio::Capture => recap_engine::LiveCapture::start_with(devices)
                 .map(|(capture, note)| (Box::new(capture) as Box<dyn AudioSource>, note))
@@ -88,7 +94,8 @@ impl StartOptions {
     /// stay empty.
     pub fn live(&self, providers: &Providers, notify: impl Fn(String) + Clone + Send + Sync + 'static) -> Arc<dyn LiveStt> {
         if self.scripted {
-            return Arc::new(ScriptedLiveStt::new(Script::test_meeting()));
+            let script = ScriptedLiveStt::new(Script::test_meeting());
+            return Arc::new(if matches!(self.audio, Audio::Looped(_)) { script.looping() } else { script });
         }
         if matches!(self.audio, Audio::Replay(_))
             && let Some(key) = std::env::var("ELEVENLABS_API_KEY").ok().filter(|k| !k.trim().is_empty())

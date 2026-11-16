@@ -5,7 +5,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use recap_engine::{AudioFrame, AudioSource, SAMPLE_RATE, Source, WavSource};
+use recap_engine::{AudioFrame, AudioSource, LoopingWav, SAMPLE_RATE, Source, WavSource};
 
 const TEST_MEETING: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../testdata/meeting_tts.wav");
 
@@ -111,6 +111,19 @@ fn a_side_that_starts_late_or_ends_early_is_zero_filled_to_stay_aligned() {
     assert!(level(&frames, Source::Me, 1_200, 1_800) > 5_000.0, "the mic's audio at its place");
     assert!(level(&frames, Source::Me, 2_200, 2_900) < 1.0, "zeros after the mic dropped");
     assert!(level(&frames, Source::Them, 0, 2_900) > 5_000.0, "Them never gaps");
+}
+
+#[test]
+fn a_looping_wav_plays_its_rounds_back_to_back_on_one_timeline() {
+    let path = tone_wav("loop.wav", 48_000, 1.0, &[440.0, 0.0]);
+    let mut source = LoopingWav::open(&path).unwrap();
+    // Three and a half rounds: it never ends by itself.
+    let frames: Vec<AudioFrame> = (0..70).map_while(|_| source.next_frame()).collect();
+    assert_eq!(frames.len(), 70);
+    assert_aligned(&frames);
+    let end = side(&frames, Source::Them).last().map(|f| f.start_ms + f.duration_ms()).unwrap();
+    assert!((3_400..=3_600).contains(&end), "3.5 s of rounds: {end}");
+    assert!(level(&frames, Source::Me, 2_200, 2_800) > 5_000.0, "the third round is the file again");
 }
 
 #[test]

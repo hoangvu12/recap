@@ -30,6 +30,7 @@ rodio = { version = "0.23", default-features = false, features = ["playback"] }
 # Same version as recap-engine's (wasapi's).
 windows = { version = "=0.62.2", features = [
     "Win32_Foundation",
+    "Win32_System_ProcessStatus",
     "Win32_System_Threading",
     "Win32_UI_Shell",
     "Win32_UI_WindowsAndMessaging",
@@ -39,6 +40,38 @@ tray-icon = "0.26.1"
 global-hotkey = "0.9.0"
 # The autostart value under HKCU\...\Run.
 winreg = "0.56.0"
+
+# The installer (`cargo packager --release -p recap`, README "Install"): a
+# per-user NSIS setup, no admin. recap.exe, the Luau UI beside it (fonts are
+# inside the exe), a Start menu shortcut carrying the app id (the AUMID zgx
+# gives the process, so pins and toasts are one app). It installs into
+# %LOCALAPPDATA%\Programs\Recap, apart from the data in %LOCALAPPDATA%\Recap,
+# which uninstalling keeps; uninstalling removes the autostart Run value and
+# the toasts' AUMID key.
+[package.metadata.packager]
+product-name = "Recap"
+identifier = "app.recap.Recap"
+publisher = "Recap"
+formats = ["nsis"]
+before-packaging-command = "cargo build --release -p recap"
+resources = ["ui"]
+icons = ["assets/icon/recap.png"]
+
+[package.metadata.packager.nsis]
+installer-icon = "assets/icon/recap.ico"
+installer-mode = "currentUser"
+preinstall-section = '''
+InstallDir "$LOCALAPPDATA\Programs\Recap"
+
+Section "un.RecapRegistry"
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Recap"
+  DeleteRegKey HKCU "Software\Classes\AppUserModelId\app.recap.Recap"
+SectionEnd
+'''
+
+[build-dependencies]
+# The exe's icon and version information (build.rs).
+winresource = "0.1.33"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util"] }
