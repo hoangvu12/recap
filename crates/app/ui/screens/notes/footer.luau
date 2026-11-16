@@ -5,6 +5,7 @@
 local host = require("@app/host")
 local actions = require("@app/actions")
 local format = require("@lib/format")
+local processing = require("@lib/processing")
 local RecDot = require("@components/rec_dot")
 local Keycap = require("@components/keycap")
 
@@ -106,6 +107,36 @@ return function(): Node
 							return not paused()
 						end, Keycap("↵")),
 					},
+					ui.div { w = 1, h = 16, mx = 4, bg = "$rc.stroke.hairline" },
+				}
+			),
+			-- After Stop (screens/3a, 3b): Hide Esc while it processes, Retry ↵
+			-- once a step failed.
+			ui.show(
+				function()
+					return not live() and processing.active(host.processing:get())
+				end,
+				ui.row {
+					items = "center",
+					gap = 4,
+					ui.switch(function()
+						return if processing.failed(host.processing:get()) then "failed" else "working"
+					end, {
+						working = bare_button {
+							id = "hide",
+							label = "Hide",
+							color = "$rc.text.primary",
+							on_click = actions.hide_notes,
+							Keycap("Esc"),
+						},
+						failed = bare_button {
+							id = "retry-footer",
+							label = "Retry",
+							color = "$rc.text.primary",
+							on_click = actions.retry_processing,
+							Keycap("↵"),
+						},
+					}),
 					ui.div { w = 1, h = 16, mx = 4, bg = "$rc.stroke.hairline" },
 				}
 			),

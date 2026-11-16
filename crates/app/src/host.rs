@@ -73,6 +73,8 @@ pub struct Host {
     processor: Rc<RefCell<Option<(Process, Spawn)>>>,
     /// The meetings being processed now.
     running: Rc<RefCell<HashSet<MeetingId>>>,
+    /// `transcript.generation`: one more each time the presenter is another.
+    generation: Rc<std::cell::Cell<u64>>,
 }
 
 fn value(json: serde_json::Value) -> Value {
@@ -110,6 +112,7 @@ impl Host {
             processing: script.shared("processing", value(no_processing())),
             processor: Rc::default(),
             running: Rc::default(),
+            generation: Rc::default(),
             script,
         };
         let presenter = host.presenter.clone();
@@ -231,7 +234,7 @@ impl Host {
         match loaded {
             Ok((Some(meeting), segments)) => {
                 let pauses = session::read_pauses(&store.folder(id));
-                *self.presenter.borrow_mut() = Presenter::stored_with_pauses(&meeting.info, &segments, &pauses);
+                self.replace_presenter(Presenter::stored_with_pauses(&meeting.info, &segments, &pauses));
                 self.publish(Changed { meeting: true, transcript: true, captions: true });
                 let status = meeting.info.status;
                 self.processing.set(value(if status == Status::Done {
@@ -326,7 +329,7 @@ impl Host {
         if let Some(id) = &id {
             presenter.saved_as(id.as_str());
         }
-        *self.presenter.borrow_mut() = presenter;
+        self.replace_presenter(presenter);
         *self.control.borrow_mut() = Some(control);
         *self.live.borrow_mut() = id;
         self.processing.set(value(no_processing()));
@@ -361,13 +364,22 @@ impl Host {
         }
     }
 
+    /// Show `presenter` from now on: another transcript, whose rows the UI
+    /// reads again.
+    fn replace_presenter(&self, presenter: Presenter) {
+        *self.presenter.borrow_mut() = presenter;
+        self.generation.set(self.generation.get() + 1);
+    }
+
     fn publish(&self, changed: Changed) {
         let p = self.presenter.borrow();
         if changed.meeting {
             self.meeting.set(value(p.meeting()));
         }
         if changed.transcript {
-            self.transcript.set(value(p.transcript()));
+            let mut transcript = p.transcript();
+            transcript["generation"] = self.generation.get().into();
+            self.transcript.set(value(transcript));
         }
         if changed.captions {
             self.captions.set(value(p.captions()));
