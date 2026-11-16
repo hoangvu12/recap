@@ -6,7 +6,7 @@ Start with `CLAUDE.md` and `docs/design/DESIGN.md`.
 
 ## Install
 
-Run `Recap_<version>_x64-setup.exe`. It installs for you alone, with no admin prompt:
+Run `recap_<version>_x64-setup.exe`. It installs for you alone, with no admin prompt:
 
 - the app goes in `%LOCALAPPDATA%\Programs\Recap` (`recap.exe` and its Luau UI in `ui\`), with a Start menu entry;
 - your meetings, settings and providers stay in `%LOCALAPPDATA%\Recap`, and API keys stay in Windows Credential Manager (under "Recap").
@@ -36,7 +36,7 @@ Then, from the repo root:
 cargo packager --release -p recap
 ```
 
-This runs `cargo build --release -p recap` first, then writes the setup to `<target>\release\Recap_<version>_x64-setup.exe`. On the first run, cargo-packager downloads NSIS. The packaging config is `[package.metadata.packager]` in `crates/app/Cargo.toml`. The icon (`crates/app/assets/icon/`) comes from `python tools/gen_icon.py`, and `build.rs` embeds it in the exe.
+This runs `cargo build --release -p recap` first, then writes the setup to `<target>\release\recap_<version>_x64-setup.exe`. On the first run, cargo-packager downloads NSIS. The setup and the uninstaller close any running `recap.exe` first (any process with that name, a dev build too). The packaging config is `[package.metadata.packager]` in `crates/app/Cargo.toml`. The icon (`crates/app/assets/icon/`) comes from `python tools/gen_icon.py`, and `build.rs` embeds it in the exe.
 
 To install silently, run the setup with `/S`, and add `/R` to start Recap afterwards. To uninstall silently, run `"%LOCALAPPDATA%\Programs\Recap\uninstall.exe" /S`.
 
