@@ -1,0 +1,17 @@
+[package]
+name = "recap-storage"
+description = "Recap's storage: meeting folders (the truth) and app.db (SQLite, WAL, FTS5), an index rebuilt from them."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+recap-engine.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+rusqlite = { version = "0.43", features = ["bundled"] }
+
+[dev-dependencies]
+tempfile = "3"

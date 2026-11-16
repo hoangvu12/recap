@@ -1,11 +1,12 @@
 # Recap: a headless meeting engine and the zgx desktop app on top of it.
 #
 #   crates/engine  recap-engine: events in, MeetingResult out. No UI, no zgx.
+#   crates/storage recap-storage: meeting folders + app.db (SQLite), no UI.
 #   crates/app     recap: the zgx host (Rust) and the Luau UI (crates/app/ui).
 
 [workspace]
 resolver = "3"
-members = ["crates/engine", "crates/app"]
+members = ["crates/engine", "crates/storage", "crates/app"]
 
 [workspace.package]
 version = "0.1.0"
@@ -15,6 +16,7 @@ publish = false
 
 [workspace.dependencies]
 recap-engine = { path = "crates/engine" }
+recap-storage = { path = "crates/storage" }
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
