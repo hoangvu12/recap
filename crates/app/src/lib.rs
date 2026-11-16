@@ -7,6 +7,7 @@
 //! - [`fonts`]: the bundled faces.
 //! - [`home`]: the meetings list and detail pane, from the store (pure).
 //! - [`seed`]: `--seed` stores the test meeting, so Home has one.
+//! - [`session`]: a live meeting saved as it goes (engine + store).
 //! - [`settings`]: Settings' host side: the providers, their jobs and Test.
 
 pub mod fake;
@@ -15,5 +16,6 @@ pub mod home;
 pub mod host;
 pub mod presenter;
 pub mod seed;
+pub mod session;
 pub mod settings;
 pub mod windows;

@@ -3,10 +3,13 @@
 //!
 //! Only what changes travels: the meeting, the row count and the rows still
 //! partial. A final row never changes again, so the UI asks for it once
-//! (`transcript_row`, [`Presenter::row`]).
+//! (`transcript_row`, [`Presenter::row`]). The exceptions are an echo taken
+//! back (its row loses its words) and a pause marker, a row of its own.
 //!
 //! A stored meeting ([`Presenter::stored`]) reads the same way, in read
 //! mode: stopped, every row final, rows of named speakers carrying the name.
+
+use std::collections::BTreeSet;
 
 use recap_engine::{EngineEvent, LiveTranscript, MeetingState, Row, Segment, SegmentId, Source};
 use recap_storage::{MeetingInfo, Speaker};
@@ -38,8 +41,14 @@ pub struct Presenter {
     elapsed_ms: u64,
     title: String,
     started_ms: u64,
-    /// The stored meeting's id; empty while live.
+    /// The stored meeting's id; empty until it is saved.
     id: String,
+    /// My lines are captions too ("Caption my own speech").
+    my_captions: bool,
+    /// What the user should know: a provider failed, the backup took over.
+    notice: String,
+    /// Final rows changed after the UI read them (echoes taken back).
+    revised: BTreeSet<usize>,
 }
 
 impl Presenter {
@@ -52,7 +61,16 @@ impl Presenter {
             title: String::new(),
             started_ms,
             id: String::new(),
+            my_captions: false,
+            notice: String::new(),
+            revised: BTreeSet::new(),
         }
+    }
+
+    /// Show my lines in the captions too (dimmed by the overlay).
+    pub fn with_my_captions(mut self, on: bool) -> Self {
+        self.my_captions = on;
+        self
     }
 
     /// A stored meeting in read mode, with its transcript (refined or live).
@@ -82,6 +100,9 @@ impl Presenter {
             title: info.title.clone(),
             started_ms: info.started_ms,
             id: info.id.to_string(),
+            my_captions: false,
+            notice: String::new(),
+            revised: BTreeSet::new(),
         }
     }
 
@@ -101,14 +122,45 @@ impl Presenter {
             }
             EngineEvent::Segment(segment) => {
                 transcript.apply(segment);
-                Changed { meeting: false, transcript: true, captions: segment.source == Source::Them }
+                let captions = segment.source == Source::Them || self.my_captions;
+                Changed { meeting: false, transcript: true, captions }
             }
-            EngineEvent::Error { .. } | EngineEvent::RecordingFailed(_) => Changed::default(),
+            EngineEvent::Dropped(id) => {
+                let open: Vec<usize> = transcript.open_rows().collect();
+                let Some(index) = transcript.forget(*id) else {
+                    return Changed::default();
+                };
+                // A row the UI holds as final: send it again. (One that was
+                // open is read again once it leaves `open`.)
+                if !open.contains(&index) {
+                    self.revised.insert(index);
+                }
+                Changed { meeting: false, transcript: true, captions: true }
+            }
+            EngineEvent::Pause(mark) => {
+                transcript.mark_pause(*mark);
+                Changed { transcript: true, ..Default::default() }
+            }
+            EngineEvent::Error { error, .. } => {
+                self.notice = error.message.clone();
+                Changed { meeting: true, ..Default::default() }
+            }
+            EngineEvent::Committed(_) | EngineEvent::RecordingFailed(_) => Changed::default(),
             EngineEvent::Finished(result) => {
                 self.elapsed_ms = self.elapsed_ms.max(result.duration_ms);
                 Changed { meeting: true, ..Default::default() }
             }
         }
+    }
+
+    /// Tell the user `text` (the backup took over); `meeting` changed.
+    pub fn notice(&mut self, text: &str) {
+        self.notice = text.to_owned();
+    }
+
+    /// The meeting is stored as `id`; `meeting` changed.
+    pub fn saved_as(&mut self, id: &str) {
+        self.id = id.to_owned();
     }
 
     /// `meeting`.
@@ -119,6 +171,7 @@ impl Presenter {
             "title": self.title,
             "started_ms": self.started_ms,
             "id": self.id,
+            "notice": self.notice,
         })
     }
 
@@ -126,12 +179,18 @@ impl Presenter {
     pub fn transcript(&self) -> Value {
         match &self.rows {
             Rows::Live(transcript) => {
-                let open: Map<String, Value> = transcript
-                    .open_rows()
-                    .filter_map(|i| transcript.row(i))
-                    .map(|row| ((row.index + 1).to_string(), row_value(row)))
-                    .collect();
-                json!({ "count": transcript.len(), "open": open })
+                let rows = |indexes: &mut dyn Iterator<Item = usize>| -> Map<String, Value> {
+                    indexes
+                        .filter_map(|i| transcript.row(i))
+                        .map(|row| ((row.index + 1).to_string(), row_value(row)))
+                        .collect()
+                };
+                let mut value = json!({ "count": transcript.len(), "open": rows(&mut transcript.open_rows()) });
+                let revised = rows(&mut self.revised.iter().copied().filter(|&i| !transcript.row(i).is_some_and(Row::is_open)));
+                if !revised.is_empty() {
+                    value["revised"] = Value::Object(revised);
+                }
+                value
             }
             Rows::Stored(rows) => json!({ "count": rows.len(), "open": {} }),
         }
@@ -148,7 +207,8 @@ impl Presenter {
         }
     }
 
-    /// `captions`: the last lines of Them, oldest first.
+    /// `captions`: the last lines of Them (and mine, when my captions are
+    /// on), oldest first.
     pub fn captions(&self) -> Value {
         let Rows::Live(transcript) = &self.rows else {
             return json!([]);
@@ -157,9 +217,9 @@ impl Presenter {
             .rows()
             .iter()
             .rev()
-            .filter(|row| row.source == Source::Them)
+            .filter(|row| !row.is_blank() && (row.source == Source::Them || self.my_captions))
             .take(CAPTION_LINES)
-            .map(|row| json!({ "source": "them", "final": row.final_text, "partial": row.partial_text }))
+            .map(|row| json!({ "source": row.source.as_str(), "final": row.final_text, "partial": row.partial_text }))
             .collect();
         lines.reverse();
         Value::Array(lines)
@@ -167,14 +227,18 @@ impl Presenter {
 }
 
 fn row_value(row: &Row) -> Value {
-    json!({
+    let mut value = json!({
         "index": row.index + 1,
         "source": row.source.as_str(),
         "start_ms": row.start_ms,
         "final": row.final_text,
         "partial": row.partial_text,
         "open": row.is_open(),
-    })
+    });
+    if let Some(mark) = row.pause {
+        value["pause"] = json!({ "paused_ms": mark.paused_ms, "resumed_ms": mark.resumed_ms });
+    }
+    value
 }
 
 /// One row per turn of a speaker: a speaker's segments in a row join.
