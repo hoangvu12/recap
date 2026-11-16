@@ -37,18 +37,27 @@ impl Command {
 }
 
 /// Runs commands on the host. What it can't do itself it is given: how to
-/// start notes (main.rs's Start), bring a window forward, and quit.
+/// start notes (main.rs's Start), bring a window forward, quit, and flip the
+/// overlay's click-through (the overlay window owns it, ticket #8).
 #[derive(Clone)]
 pub struct Commands {
     host: Host,
     start: Rc<dyn Fn()>,
     focus: Rc<dyn Fn(&str)>,
     quit: Rc<dyn Fn()>,
+    click_through: Option<Rc<dyn Fn()>>,
 }
 
 impl Commands {
     pub fn new(host: Host, start: Rc<dyn Fn()>, focus: Rc<dyn Fn(&str)>, quit: Rc<dyn Fn()>) -> Self {
-        Self { host, start, focus, quit }
+        Self { host, start, focus, quit, click_through: None }
+    }
+
+    /// Flip the overlay's click-through with `flip` (until given, the
+    /// click-through hotkey does nothing).
+    pub fn with_click_through(mut self, flip: Rc<dyn Fn()>) -> Self {
+        self.click_through = Some(flip);
+        self
     }
 
     pub fn run(&self, command: Command) {
@@ -63,7 +72,10 @@ impl Commands {
             }
             Command::PauseResume => host.toggle_pause(),
             Command::ToggleCaptions => host.toggle_window("overlay"),
-            Command::ToggleClickThrough => host.toggle_click_through(),
+            Command::ToggleClickThrough => match &self.click_through {
+                Some(flip) => flip(),
+                None => eprintln!("recap: click-through: no overlay to flip"),
+            },
             Command::OpenHome => self.show("home"),
             Command::OpenSettings => self.show("settings"),
             Command::Quit => {

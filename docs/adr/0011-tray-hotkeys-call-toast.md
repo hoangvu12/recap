@@ -46,8 +46,8 @@ application id), but no tray and no global hotkeys.
 
 ## Consequences
 
-- The overlay owns applying click-through: the hotkey flips the shared
-  `overlay.click_through` (also the host action `toggle_click_through`).
+- The overlay owns click-through (ticket #8, `OverlayHost`). The hotkey
+  calls whatever main.rs gives `Commands::with_click_through`.
 - The polling thread costs one WASAPI enumeration a second, only while the
   call toast is on.
 - Browser calls are detected per browser, not per tab.

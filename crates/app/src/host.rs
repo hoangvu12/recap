@@ -10,12 +10,9 @@
 //!          processing       { id, steps = { { id, label, status, took_ms, error } } }: the
 //!                           Notes window's meeting's processing (no steps: none to show)
 //!          window.<id>      whether window <id> is open
-//!          overlay.click_through  whether the overlay lets clicks through (the
-//!                           overlay window applies it)
 //! function transcript_row(i)    Row i (from 1), or nil
 //!          meeting_detail(id)   { id, title, overview, started_ms, duration_ms, status, speakers }
 //! action   stop, pause, resume  the running meeting
-//!          toggle_click_through the overlay's click-through, flipped
 //!          open_meeting(id)     a stored meeting in the Notes window, read mode; an
 //!                               unfinished one is processed again (Recover)
 //!          retry_processing(id) process meeting id again from its failed step
@@ -71,7 +68,6 @@ pub struct Host {
     live: Rc<RefCell<Option<MeetingId>>>,
     /// Changes when Settings moves the storage folder.
     store: Rc<RefCell<Option<Store>>>,
-    click_through: Shared,
     /// What waits for the live meeting to end (Quit while recording).
     when_idle: Rc<RefCell<Vec<Box<dyn FnOnce()>>>>,
     processing: Shared,
@@ -115,7 +111,6 @@ impl Host {
             control: Rc::default(),
             live: Rc::default(),
             store: Rc::new(RefCell::new(store)),
-            click_through: script.shared("overlay.click_through", false),
             when_idle: Rc::default(),
             processing: script.shared("processing", value(no_processing())),
             processor: Rc::default(),
@@ -123,8 +118,6 @@ impl Host {
             generation: Rc::default(),
             script,
         };
-        let flip = host.clone();
-        host.script.action("toggle_click_through", move |_| flip.toggle_click_through());
         let presenter = host.presenter.clone();
         host.script.function("transcript_row", move |arg| match arg {
             Value::Num(i) if i >= 1. => value(presenter.borrow().row(i as usize)),
@@ -191,12 +184,6 @@ impl Host {
     pub fn toggle_window(&self, id: &str) {
         let open = !self.window_open(id);
         self.script.shared(&format!("window.{id}"), false).set(Value::Bool(open));
-    }
-
-    /// Flip the overlay's click-through.
-    pub fn toggle_click_through(&self) {
-        let on = self.click_through.with_untracked(Value::truthy);
-        self.click_through.set(Value::Bool(!on));
     }
 
     /// The meeting's state: the live one's, else the one shown (none yet).

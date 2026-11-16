@@ -175,6 +175,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         host.script.action("start_notes", starter.clone());
 
         // The tray, the hotkeys and the call toasts run the same commands.
+        // Click-through: once #8 merges, add
+        // `.with_click_through(Rc::new(move || overlay.toggle_click_through()))`
+        // with its `OverlayHost`.
         let open_windows = OpenWindows::default();
         let commands = {
             let (start, focus, factory) = (starter.clone(), open_windows.clone(), cx.windows.clone());

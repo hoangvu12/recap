@@ -136,13 +136,15 @@ fn captions_show_and_hide_the_overlay() {
 }
 
 #[test]
-fn click_through_is_a_state_the_overlay_follows() {
+fn click_through_flips_the_overlay_it_is_given() {
     let r = rig();
-    assert_eq!(r.shared("overlay.click_through"), Value::Bool(false));
-    r.commands.run(Command::ToggleClickThrough);
-    assert_eq!(r.shared("overlay.click_through"), Value::Bool(true));
-    r.commands.run(Command::ToggleClickThrough);
-    assert_eq!(r.shared("overlay.click_through"), Value::Bool(false));
+    r.commands.run(Command::ToggleClickThrough); // none given yet: nothing
+    let flips = Rc::new(Cell::new(0));
+    let counted = flips.clone();
+    let commands = r.commands.clone().with_click_through(Rc::new(move || counted.set(counted.get() + 1)));
+    commands.run(Command::ToggleClickThrough);
+    commands.run(Command::ToggleClickThrough);
+    assert_eq!(flips.get(), 2);
 }
 
 #[test]

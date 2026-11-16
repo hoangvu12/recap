@@ -299,11 +299,6 @@ M.microphones = ui.shared("microphones", {} :: { Microphone })
 -- Hotkeys the system refused (another app holds them), by id: what to say.
 M.hotkey_conflicts = ui.shared("hotkey_conflicts", {} :: { [string]: string })
 
--- Whether the overlay lets clicks through to the window under it (the
--- click-through hotkey and `toggle_click_through` flip it; the overlay
--- window applies it).
-M.overlay_click_through = ui.shared("overlay.click_through", false)
-
 -- A call toast to show (crates/app/src/calls.rs): a new `seq` is a new one.
 -- Clicking it asks the host for `call_toast_clicked`.
 export type CallToast = { seq: number, title: string, body: string }
