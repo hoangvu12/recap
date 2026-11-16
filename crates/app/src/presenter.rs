@@ -210,7 +210,7 @@ impl Presenter {
             EngineEvent::State(state) => {
                 self.state = Some(*state);
                 let finished = *state == MeetingState::Stopped && !transcript.finish().is_empty();
-                Changed { meeting: true, transcript: finished, captions: finished }
+                Changed { meeting: true, transcript: finished, captions: finished, live: false }
             }
             EngineEvent::Elapsed(ms) => {
                 self.elapsed_ms = *ms;
@@ -219,7 +219,7 @@ impl Presenter {
             EngineEvent::Segment(segment) => {
                 transcript.apply(segment);
                 let captions = segment.source == Source::Them || self.my_captions;
-                Changed { meeting: false, transcript: true, captions }
+                Changed { transcript: true, captions, ..Default::default() }
             }
             EngineEvent::Dropped(id) => {
                 let open: Vec<usize> = transcript.open_rows().collect();
@@ -231,7 +231,7 @@ impl Presenter {
                 if !open.contains(&index) {
                     self.revised.insert(index);
                 }
-                Changed { meeting: false, transcript: true, captions: true }
+                Changed { transcript: true, captions: true, ..Default::default() }
             }
             EngineEvent::Pause(mark) => {
                 transcript.mark_pause(*mark);

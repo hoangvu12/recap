@@ -28,7 +28,7 @@ use std::{
     time::Duration,
 };
 
-use recap_providers::{Provider, Providers};
+use recap_providers::Providers;
 use serde::Deserialize;
 use zgx_desktop::{WindowContext, WindowHandle, WindowLevel};
 use zgx_script::{Shared, Value};
