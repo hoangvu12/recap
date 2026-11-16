@@ -165,6 +165,39 @@ function M.color(token: () -> string, duration: number?): any
 	return M.tween(ui.computed(token), { duration = duration or M.base })
 end
 
+-- An entrance as bindings rather than an on_mount animation: spread the
+-- result into the node's props (`opacity`, `y`). Use it inside a
+-- `ui.component` (it holds state), and in virtualized lists, where an
+-- on_mount `anime.animate` can leave the row at opacity 0. `play = false`
+-- gives plain props (no entrance).
+function M.entrance(play: boolean, opts: Options?): { [string]: any }
+	if not play then
+		return {}
+	end
+	local o: Options = opts or {}
+	local shown = ui.use_state(false)
+	ui.after(1, function()
+		shown:set(true)
+	end)
+	if reduced_now() then
+		return { opacity = ui.tween(shown, { from = 0, to = 1, duration = M.REDUCED_FADE, ease = M.ease.out }) }
+	end
+	local duration = o.duration or M.enter_ms
+	local ease = o.ease or M.ease.outExpo
+	return {
+		opacity = ui.tween(shown, { from = 0, to = 1, duration = duration, ease = ease }),
+		y = ui.tween(shown, { from = o.rise or M.RISE, to = 0, duration = duration, ease = ease }),
+	}
+end
+
+-- `props` with `extra`'s fields added (for `motion.entrance`).
+function M.with(props: { [any]: any }, extra: { [string]: any }): { [any]: any }
+	for k, v in extra do
+		props[k] = v
+	end
+	return props
+end
+
 -- `exit` parameters for `ui.presence` / `ui.each`: an opacity fade out
 -- (100 ms by default); nil (leave at once) under reduced motion when it is
 -- shorter than 150 ms, else 100 ms.

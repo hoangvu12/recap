@@ -28,11 +28,10 @@ end
 
 local function PauseMarker(index: number, row: host.Row, arriving: boolean): Node
 	local pause = row.pause :: host.Pause
-	return ui.row {
+	-- It appears with a 150 ms fade.
+	return ui.row(motion.with({
 		id = `row-{index}`,
 		class = "transcript-row",
-		-- It appears with a 150 ms fade.
-		on_mount = if arriving then motion.on_fade(motion.base) else nil,
 		w_full = true,
 		px = 16,
 		pt = 0,
@@ -51,7 +50,7 @@ local function PauseMarker(index: number, row: host.Row, arriving: boolean): Nod
 			tabular = true,
 		},
 		Dashes(),
-	}
+	}, motion.entrance(arriving, { duration = motion.base, rise = 0, ease = motion.ease.out })))
 end
 
 return ui.component(function(props: Props): Node
@@ -120,6 +119,8 @@ return ui.component(function(props: Props): Node
 		last_final, last_partial = r.final, r.partial
 	end)
 	local final_color = if source == "me" then "$rc.text.secondary" else "$rc.text.primary"
+	-- Its space is taken at once; the content fades in and rises 4 px.
+	local entrance = motion.entrance(arriving)
 
 	return ui.column {
 		id = `row-{index}`,
@@ -134,8 +135,8 @@ return ui.component(function(props: Props): Node
 				pt = 4,
 				pb = 20,
 				gap = 10,
-				-- Its space is taken at once; the content fades in and rises 4 px.
-				on_mount = if arriving then motion.on_enter() else nil,
+				opacity = entrance.opacity,
+				y = entrance.y,
 				ui.row {
 					gap = 8,
 					items = "center",
