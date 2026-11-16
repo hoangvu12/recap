@@ -18,6 +18,8 @@ use tokio::sync::mpsc;
 struct Line {
     name: &'static str,
     line: &'static str,
+    /// What it says on my side (the same words would be an echo of Them).
+    my_line: &'static str,
     after_ms: u64,
     /// Fail with this once `after_ms` is heard, instead of speaking.
     fail: Option<ProviderErrorKind>,
@@ -29,7 +31,7 @@ struct Line {
 
 impl Line {
     fn new(name: &'static str, line: &'static str) -> Self {
-        Line { name, line, after_ms: 1_000, fail: None, blips: false, sides: Arc::default() }
+        Line { name, line, my_line: "Sounds good to me, thanks.", after_ms: 1_000, fail: None, blips: false, sides: Arc::default() }
     }
 }
 
@@ -75,7 +77,8 @@ impl LiveStt for Line {
                         let _ = status.send(LiveStatus::Connected);
                     }
                     let start = frame.start_ms;
-                    let _ = events.send(LiveEvent { text: me.line.into(), is_final: true, start_ms: start, end_ms: start + 100 });
+                    let text = if source == Source::Me { me.my_line } else { me.line };
+                    let _ = events.send(LiveEvent { text: text.into(), is_final: true, start_ms: start, end_ms: start + 100 });
                 }
             }
             Ok(())
