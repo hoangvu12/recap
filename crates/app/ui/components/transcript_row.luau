@@ -8,6 +8,8 @@
 -- nothing.
 local host = require("@app/host")
 local format = require("@lib/format")
+local motion = require("@lib/motion")
+local arrivals = require("@lib/arrivals")
 local Chip = require("./chip")
 local Icon = require("./icon")
 
@@ -24,11 +26,13 @@ local function Dashes(): Node
 	}
 end
 
-local function PauseMarker(index: number, row: host.Row): Node
+local function PauseMarker(index: number, row: host.Row, arriving: boolean): Node
 	local pause = row.pause :: host.Pause
 	return ui.row {
 		id = `row-{index}`,
 		class = "transcript-row",
+		-- It appears with a 150 ms fade.
+		on_mount = if arriving then motion.on_fade(motion.base) else nil,
 		w_full = true,
 		px = 16,
 		pt = 0,
@@ -73,8 +77,10 @@ return ui.component(function(props: Props): Node
 		return settled
 	end)
 	local first = row:peek()
+	-- A row that just came in plays its entrance (motion_spec §2.3).
+	local arriving = arrivals.arriving(index)
 	if first and first.pause then
-		return PauseMarker(index, first)
+		return PauseMarker(index, first, arriving)
 	end
 	local source = if first then first.source else "them"
 	local has_words = function()
@@ -89,11 +95,14 @@ return ui.component(function(props: Props): Node
 		ui.show(
 			has_words,
 			ui.column {
+				id = `row-{index}-body`,
 				w_full = true,
 				px = 16,
 				pt = 4,
 				pb = 20,
 				gap = 10,
+				-- Its space is taken at once; the content fades in and rises 4 px.
+				on_mount = if arriving then motion.on_enter() else nil,
 				ui.row {
 					gap = 8,
 					items = "center",

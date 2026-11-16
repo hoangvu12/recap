@@ -54,4 +54,33 @@ function M.setup()
 	ui.theme.default(M.DARK)
 end
 
+export type Choice = "system" | "dark" | "light"
+
+-- Apply Settings' theme ("system" follows Windows' app mode).
+function M.apply(choice: Choice)
+	if choice == "light" then
+		ui.theme.set(M.LIGHT)
+	elseif choice == "dark" then
+		ui.theme.set(M.DARK)
+	else
+		ui.theme.follow_system { dark = M.DARK, light = M.LIGHT }
+	end
+end
+
+-- Keep applying the theme `choice()` reads (the saved setting) as it
+-- changes. The overlay doesn't follow: it scopes itself to `M.OVERLAY`.
+function M.follow(choice: () -> Choice)
+	local last: Choice? = nil
+	ui.effect(function()
+		local c = choice()
+		if c ~= last then
+			last = c
+			M.apply(c)
+		end
+	end)
+end
+
+-- The caption overlay is dark always (DESIGN §9.3 Caption bar).
+M.OVERLAY = M.DARK
+
 return M

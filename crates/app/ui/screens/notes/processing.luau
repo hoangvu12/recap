@@ -7,6 +7,7 @@ local host = require("@app/host")
 local actions = require("@app/actions")
 local processing = require("@lib/processing")
 local Icon = require("@components/icon")
+local motion = require("@lib/motion")
 
 -- The steps the card has, in order (Transcribing, Naming speakers, Writing summary).
 local STEPS = 3
@@ -30,16 +31,47 @@ local function StepRow(i: number): Node
 		-- The icon says the status (ids `step-<i>-<status>`).
 		ui.switch(status, {
 			pending = Icon { name = "circle-empty", color = "$rc.text.quaternary", id = `step-{i}-pending` },
+			-- The spinner fades in (150 ms) and turns every 800 ms; under
+			-- reduced motion it stands still.
 			running = ui.div {
 				id = `step-{i}-running`,
 				w = 16,
 				h = 16,
 				shrink = 0,
-				rotate = ui.loop { from = 0, to = 360, duration = 800, ease = "linear", yoyo = false },
-				Icon { name = "spinner", color = "$rc.accent" },
+				on_mount = motion.on_fade(motion.base),
+				motion.Looping(
+					ui.div {
+						id = `step-{i}-spin`,
+						w = 16,
+						h = 16,
+						rotate = ui.loop { from = 0, to = 360, duration = 800, ease = "linear", yoyo = false },
+						Icon { name = "spinner", color = "$rc.accent" },
+					},
+					Icon { name = "spinner", color = "$rc.accent" }
+				),
 			},
-			done = Icon { name = "check", color = "$rc.text.secondary", id = `step-{i}-done` },
-			error = Icon { name = "error-circle", color = "$rc.red", id = `step-{i}-error` },
+			-- ✓ crossfades in with a small scale (.8 → 1), no overshoot.
+			done = ui.div {
+				w = 16,
+				h = 16,
+				shrink = 0,
+				on_mount = function(el)
+					motion.animate(el, {
+						opacity = { 0, 1 },
+						scale = { 0.8, 1 },
+						duration = motion.base,
+						ease = motion.ease.outExpo,
+					})
+				end,
+				Icon { name = "check", color = "$rc.text.secondary", id = `step-{i}-done` },
+			},
+			error = ui.div {
+				w = 16,
+				h = 16,
+				shrink = 0,
+				on_mount = motion.on_fade(motion.base),
+				Icon { name = "error-circle", color = "$rc.red", id = `step-{i}-error` },
+			},
 		}),
 		ui.text {
 			function()

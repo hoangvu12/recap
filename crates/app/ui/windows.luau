@@ -11,6 +11,7 @@ local Home = require("@screens/home")
 local Notes = require("@screens/notes")
 local Overlay = require("@screens/overlay")
 local Settings = require("@screens/settings")
+local theme = require("@theme")
 
 ui.window {
 	id = "home",
@@ -49,7 +50,15 @@ ui.window {
 	width = 720,
 	height = 120,
 	frame_autosave = "overlay",
-	Overlay(),
+	-- Dark always, whatever the app's theme (DESIGN §9.3 Caption bar).
+	ui.column {
+		id = "overlay-scope",
+		theme = theme.OVERLAY,
+		w_full = true,
+		h_full = true,
+		ui.text { theme.OVERLAY, id = "overlay-theme", w = 0, h = 0, overflow = "clip", opacity = 0 },
+		Overlay(),
+	},
 }
 
 return nil

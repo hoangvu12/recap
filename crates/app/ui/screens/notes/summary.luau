@@ -10,23 +10,19 @@ local processing = require("@lib/processing")
 local Chip = require("@components/chip")
 local Icon = require("@components/icon")
 local Processing = require("./processing")
+local motion = require("@lib/motion")
 
--- The fade: each section 240 ms, starting 40 ms after the one above; the
--- last starts by 260 ms, so all are in within 500 ms.
-local FADE_MS = 240
+-- The reveal: each section 240 ms (`motion.reveal`), starting 40 ms after
+-- the one above, capped at the 6th: all are in within 500 ms. Reduced
+-- motion: one 100 ms fade (lib/motion drops the rise and the stagger).
 local STAGGER_MS = 40
-local LAST_START_MS = 260
+local CAP = 6
 
 local function fade_in(order: number): (Element) -> ()
-	return function(el: Element)
-		anime.animate(el, {
-			opacity = { 0, 1 },
-			y = { 4, 0 },
-			duration = FADE_MS,
-			delay = math.min((order - 1) * STAGGER_MS, LAST_START_MS),
-			ease = "out(2)",
-		})
-	end
+	return motion.on_enter {
+		duration = motion.reveal,
+		delay = (math.min(order, CAP) - 1) * STAGGER_MS,
+	}
 end
 
 local function Header(text: string, id: string?): Node
