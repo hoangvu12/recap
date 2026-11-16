@@ -33,6 +33,9 @@ pub struct SessionConfig {
     /// "Caption my own speech": a second live socket for Me.
     pub caption_me: bool,
     pub live: LiveOptions,
+    /// The engines live captions may switch to if theirs fails (the
+    /// overlay's "Switch to Deepgram").
+    pub live_choices: Vec<crate::presenter::LiveChoice>,
 }
 
 /// What a live session tells the UI.

@@ -23,6 +23,12 @@ M.hud = ui.state("hud", { text = "", seq = 0 })
 M.transcript_at_end = ui.state("transcript_at_end", true)
 -- Rows that arrived since the transcript was scrolled away from the end.
 M.seen_count = ui.state("seen_count", 0)
+-- The overlay: its hover toolbar is showing (after a 150 ms hover); no
+-- speech for 8 s (the text dims); the last shift up of its lines, in
+-- points, and how many shifts there have been (wrap or new turn).
+M.overlay_toolbar = ui.state("overlay_toolbar", false)
+M.captions_idle = ui.state("captions_idle", false)
+M.caption_shift = ui.state("caption_shift", { px = 0, count = 0 })
 -- The stored transcript's row last clicked (Play from here ↵); 0 none.
 M.selected_row = ui.state("selected_row", 0)
 -- The row whose speaker chip is being renamed inline (screens/5): its
@@ -31,8 +37,6 @@ M.selected_row = ui.state("selected_row", 0)
 M.renaming = ui.state("renaming", { index = 0, speaker = "" })
 M.rename_text = ui.state("rename_text", "")
 M.rename_pick = ui.state("rename_pick", 1)
--- How many caption lines the overlay shows (1–3).
-M.caption_lines = ui.state("caption_lines", 2)
 -- Home: the selected meeting's id ("": the first shown) and the search text.
 M.home_selected = ui.state("home_selected", "")
 M.home_query = ui.state("home_query", "")

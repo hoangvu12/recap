@@ -14,7 +14,7 @@ const STARTED: u64 = 1_794_830_400_000;
 const WAV: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../testdata/meeting_tts.wav");
 
 fn config(caption_me: bool) -> SessionConfig {
-    SessionConfig { started_ms: STARTED, caption_me, live: Default::default() }
+    SessionConfig { started_ms: STARTED, caption_me, ..Default::default() }
 }
 
 fn scripted() -> Arc<ScriptedLiveStt> {

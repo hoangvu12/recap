@@ -3994,6 +3994,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tray-icon",
+ "windows",
  "winreg",
  "zgx",
  "zgx-desktop",

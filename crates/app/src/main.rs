@@ -29,6 +29,7 @@ use recap::{
     fonts,
     host::{self, Host},
     live::{StartOptions, capture_options},
+    overlay::OverlayHost,
     playback::{Output, Player, RodioOutput},
     processing::{Processing, ProcessingConfig},
     seed,
@@ -126,6 +127,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             recap_engine::microphones().into_iter().map(|(id, name)| Microphone { id, name }).collect()
         });
         settings_host.connect_store(&host, home.clone(), now_ms);
+        // The overlay's window: capture exclusion, tool window, click-through
+        // (#15's hotkey: `overlay.toggle_click_through()`), pin, engine switch.
+        let overlay = OverlayHost::register(&host, &settings_host, providers.clone());
         // After Stop (and Recover, Retry): the after-Stop processing.
         let process: host::Process = {
             let (runtime, providers, options, settings) =
@@ -158,6 +162,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         started_ms: now_ms(),
                         caption_me: settings.caption_my_speech,
                         live: settings.live_options(),
+                        live_choices: StartOptions::live_choices(&providers),
                     };
                     match options.source(&capture_options(&settings)) {
                         Ok((source, note)) => {
@@ -180,18 +185,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         host.script.action("start_notes", starter.clone());
 
         // The tray, the hotkeys and the call toasts run the same commands.
-        // Click-through: once #8 merges, add
-        // `.with_click_through(Rc::new(move || overlay.toggle_click_through()))`
-        // with its `OverlayHost`.
         let open_windows = OpenWindows::default();
         let commands = {
             let (start, focus, factory) = (starter.clone(), open_windows.clone(), cx.windows.clone());
+            let overlay = overlay.clone();
             Commands::new(
                 host.clone(),
                 Rc::new(move || start(zgx_script::Value::Nil)),
                 Rc::new(move |id: &str| focus.focus(id)),
                 Rc::new(move || factory.quit()),
             )
+            .with_click_through(Rc::new(move || overlay.toggle_click_through()))
         };
         *reopen.borrow_mut() = Some(commands.clone());
         let resident = resident(cx, &host, &settings_host, &commands);
@@ -205,7 +209,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             eprintln!("recap: {error}");
         }
         cx.tasks.spawn(host.script.watch(Duration::from_millis(250)));
-        let follow = windows::follow_into(&host.script, cx, Quit::Resident, devtools, open_windows);
+        let opened: windows::Opened = {
+            let overlay = overlay.clone();
+            Rc::new(move |id, title, wcx| {
+                if id == "overlay" {
+                    overlay.attach(title, wcx);
+                }
+            })
+        };
+        let follow = windows::follow_into(&host.script, cx, Quit::Resident, devtools, open_windows, opened);
         let handle = cx.render(host.script.view());
         let server = devtools
             .then(|| {
@@ -231,14 +243,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         let saving = host.script.clone();
-        let keep = RefCell::new(Some((follow, server, host, providers_host, settings_host, resident, engine)));
+        let keep =
+            RefCell::new(Some((follow, server, host, providers_host, settings_host, resident, overlay, engine)));
         let reopen = reopen.clone();
         cx.on_closed(move || {
             saving.save();
             reopen.borrow_mut().take();
-            if let Some((follow, server, host, providers_host, settings_host, resident, engine)) = keep.borrow_mut().take()
+            if let Some((follow, server, host, providers_host, settings_host, resident, overlay, engine)) =
+                keep.borrow_mut().take()
             {
-                drop((follow, server, host, providers_host, settings_host, resident));
+                drop((follow, server, host, providers_host, settings_host, resident, overlay));
                 engine.shutdown_background();
             }
         });

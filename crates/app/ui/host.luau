@@ -154,7 +154,23 @@ export type Transcript = {
 	generation: number?,
 }
 
-export type CaptionLine = { source: Source, final: string, partial: string }
+-- A caption line: its transcript row's index (a new one is a new turn),
+-- its final words and what is still partial.
+export type CaptionLine = { index: number?, source: Source, final: string, partial: string }
+
+-- How Them's live captions are doing (the overlay's state): captioning,
+-- reconnecting (the last line kept), or failed (`error` says how, and
+-- `switch_to` is the engine to offer instead).
+export type LiveChoice = { id: string, name: string }
+export type LiveCaptions = {
+	status: "live" | "reconnecting" | "error",
+	provider: string,
+	error: string,
+	switch_to: LiveChoice?,
+}
+
+-- The overlay window's own switches (crates/app/src/overlay.rs).
+export type OverlayWindow = { click_through: boolean, pinned: boolean }
 
 -- Providers (crates/providers: Providers::view). Ids are the registry's.
 export type JobId = "live" | "transcript" | "summary"
@@ -326,6 +342,12 @@ M.playback = ui.shared("playback", { key = "", duration_ms = 0 } :: Playback)
 -- The overlay's lines, oldest first: the last few rows it may show.
 M.captions = ui.shared("captions", {} :: { CaptionLine })
 
+-- How the live captions are doing.
+M.live = ui.shared("live", { status = "live", provider = "", error = "" } :: LiveCaptions)
+
+-- The overlay's click-through and pin.
+M.overlay = ui.shared("overlay", { click_through = false, pinned = true } :: OverlayWindow)
+
 -- The stored meetings, newest first (Home).
 M.meetings = ui.shared("meetings", {} :: { MeetingItem })
 
@@ -436,7 +458,7 @@ function M.invoke(name: string, arg: any?)
 	if M.connected:peek() then
 		ui.invoke(name, arg)
 	else
-		M.calls:push({ name = name, arg = arg or ui.null })
+		M.calls:push({ name = name, arg = if arg == nil then ui.null else arg })
 	end
 end
 

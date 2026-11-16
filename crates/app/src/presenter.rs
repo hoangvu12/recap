@@ -12,7 +12,7 @@
 
 use std::collections::BTreeSet;
 
-use recap_engine::{EngineEvent, LiveTranscript, MeetingState, PauseMark, Row, Segment, SegmentId, Source};
+use recap_engine::{EngineEvent, LiveStatus, LiveTranscript, MeetingState, PauseMark, Row, Segment, SegmentId, Source};
 use recap_storage::{MeetingInfo, Speaker};
 use serde_json::{Map, Value, json};
 
@@ -27,6 +27,62 @@ pub struct Changed {
     pub meeting: bool,
     pub transcript: bool,
     pub captions: bool,
+    /// `live`: how Them's live captions are doing (the overlay's state).
+    pub live: bool,
+}
+
+impl Changed {
+    pub const ALL: Changed = Changed { meeting: true, transcript: true, captions: true, live: true };
+}
+
+/// A speech engine live captions could switch to (its provider id and name).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct LiveChoice {
+    pub id: String,
+    pub name: String,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum LiveState {
+    #[default]
+    Live,
+    Reconnecting,
+    Error,
+}
+
+/// How Them's live captions are doing.
+#[derive(Clone, Debug, Default)]
+struct LiveCaptions {
+    state: LiveState,
+    /// The provider captioning now.
+    provider: String,
+    /// What failed, said for the overlay ("ElevenLabs quota reached").
+    error: String,
+    /// The engines that could caption, and those a switch to failed.
+    choices: Vec<LiveChoice>,
+    tried: Vec<String>,
+}
+
+impl LiveCaptions {
+    /// The engine an error offers to switch to.
+    fn switch_to(&self) -> Option<&LiveChoice> {
+        let same = |a: &str, b: &str| a.eq_ignore_ascii_case(b);
+        self.choices
+            .iter()
+            .find(|c| !same(&c.name, &self.provider) && !self.tried.iter().any(|t| same(t, &c.name)))
+    }
+
+    fn failed(&mut self, error: &recap_engine::ProviderError) {
+        use recap_engine::ProviderErrorKind::*;
+        let provider = &self.provider;
+        self.state = LiveState::Error;
+        self.error = match error.kind {
+            Quota => format!("{provider} quota reached"),
+            Auth => format!("{provider} key not accepted"),
+            Network => format!("Can't reach {provider}"),
+            Protocol | Other => error.message.clone(),
+        };
+    }
 }
 
 enum Rows {
@@ -50,6 +106,7 @@ pub struct Presenter {
     notice: String,
     /// Final rows changed after the UI read them (echoes taken back).
     revised: BTreeSet<usize>,
+    live: LiveCaptions,
     /// A refined transcript's speakers, as chips (`home::speakers`).
     speakers: Value,
 }
@@ -67,6 +124,7 @@ impl Presenter {
             my_captions: false,
             notice: String::new(),
             revised: BTreeSet::new(),
+            live: LiveCaptions::default(),
             speakers: json!([]),
         }
     }
@@ -75,6 +133,43 @@ impl Presenter {
     pub fn with_my_captions(mut self, on: bool) -> Self {
         self.my_captions = on;
         self
+    }
+
+    /// The engines live captions may switch to when theirs fails.
+    pub fn with_live_choices(mut self, choices: Vec<LiveChoice>) -> Self {
+        self.live.choices = choices;
+        self
+    }
+
+    /// Show my lines in the captions, or no longer (the overlay's toggle).
+    pub fn set_my_captions(&mut self, on: bool) -> Changed {
+        let changed = self.my_captions != on;
+        self.my_captions = on;
+        Changed { captions: changed, ..Default::default() }
+    }
+
+    /// A switch to `provider` failed before it began (`message` says why):
+    /// still an error, and it isn't offered again.
+    pub fn switch_failed(&mut self, provider: &str, message: &str) -> Changed {
+        self.live.tried.push(provider.to_owned());
+        self.live.state = LiveState::Error;
+        self.live.error = message.to_owned();
+        Changed { live: true, ..Default::default() }
+    }
+
+    /// `live`: `{ status = "live" | "reconnecting" | "error", provider,
+    /// error, switch_to = { id, name } | null }`.
+    pub fn live(&self) -> Value {
+        let status = match self.live.state {
+            LiveState::Live => "live",
+            LiveState::Reconnecting => "reconnecting",
+            LiveState::Error => "error",
+        };
+        let switch_to = match (self.live.state, self.live.switch_to()) {
+            (LiveState::Error, Some(c)) => json!({ "id": c.id, "name": c.name }),
+            _ => Value::Null,
+        };
+        json!({ "status": status, "provider": self.live.provider, "error": self.live.error, "switch_to": switch_to })
     }
 
     /// A stored meeting in read mode, with its transcript (refined or live).
@@ -122,6 +217,7 @@ impl Presenter {
             my_captions: false,
             notice: String::new(),
             revised: BTreeSet::new(),
+            live: LiveCaptions::default(),
             speakers: if segments.iter().any(|s| s.speaker.is_some()) { home::speakers(info) } else { json!([]) },
         }
     }
@@ -134,7 +230,7 @@ impl Presenter {
             EngineEvent::State(state) => {
                 self.state = Some(*state);
                 let finished = *state == MeetingState::Stopped && !transcript.finish().is_empty();
-                Changed { meeting: true, transcript: finished, captions: finished }
+                Changed { meeting: true, transcript: finished, captions: finished, live: false }
             }
             EngineEvent::Elapsed(ms) => {
                 self.elapsed_ms = *ms;
@@ -143,7 +239,7 @@ impl Presenter {
             EngineEvent::Segment(segment) => {
                 transcript.apply(segment);
                 let captions = segment.source == Source::Them || self.my_captions;
-                Changed { meeting: false, transcript: true, captions }
+                Changed { transcript: true, captions, ..Default::default() }
             }
             EngineEvent::Dropped(id) => {
                 let open: Vec<usize> = transcript.open_rows().collect();
@@ -155,15 +251,34 @@ impl Presenter {
                 if !open.contains(&index) {
                     self.revised.insert(index);
                 }
-                Changed { meeting: false, transcript: true, captions: true }
+                Changed { transcript: true, captions: true, ..Default::default() }
             }
             EngineEvent::Pause(mark) => {
                 transcript.mark_pause(*mark);
                 Changed { transcript: true, ..Default::default() }
             }
-            EngineEvent::Error { error, .. } => {
+            EngineEvent::Error { source, error } => {
                 self.notice = error.message.clone();
-                Changed { meeting: true, ..Default::default() }
+                let them = *source == Source::Them;
+                if them {
+                    self.live.failed(error);
+                }
+                Changed { meeting: true, live: them, ..Default::default() }
+            }
+            EngineEvent::Live { source: Source::Me, .. } => Changed::default(),
+            EngineEvent::Live { source: Source::Them, status } => {
+                let live = &mut self.live;
+                match status {
+                    LiveStatus::Using(name) => {
+                        live.provider = name.clone();
+                        live.state = LiveState::Live;
+                        live.error.clear();
+                    }
+                    LiveStatus::Reconnecting if live.state == LiveState::Live => live.state = LiveState::Reconnecting,
+                    LiveStatus::Connected if live.state == LiveState::Reconnecting => live.state = LiveState::Live,
+                    _ => return Changed::default(),
+                }
+                Changed { live: true, ..Default::default() }
             }
             EngineEvent::Committed(_) | EngineEvent::RecordingFailed(_) => Changed::default(),
             EngineEvent::Finished(result) => {
@@ -250,7 +365,14 @@ impl Presenter {
             .rev()
             .filter(|row| !row.is_blank() && (row.source == Source::Them || self.my_captions))
             .take(CAPTION_LINES)
-            .map(|row| json!({ "source": row.source.as_str(), "final": row.final_text, "partial": row.partial_text }))
+            .map(|row| {
+                json!({
+                    "index": row.index + 1,
+                    "source": row.source.as_str(),
+                    "final": row.final_text,
+                    "partial": row.partial_text,
+                })
+            })
             .collect();
         lines.reverse();
         Value::Array(lines)

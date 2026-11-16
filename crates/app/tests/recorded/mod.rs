@@ -17,7 +17,7 @@ pub const WAV: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../testdata/meeti
 pub async fn record(store: &Store) -> MeetingInfo {
     let source = WavSource::open(Path::new(WAV)).unwrap();
     let live = Arc::new(ScriptedLiveStt::new(Script::test_meeting()));
-    let config = SessionConfig { started_ms: STARTED, caption_me: false, live: Default::default() };
+    let config = SessionConfig { started_ms: STARTED, caption_me: false, ..Default::default() };
     let mut session = session::start(Some(store.clone()), config, Box::new(source), live, None);
     loop {
         let event = tokio::time::timeout(Duration::from_secs(60), session.events.recv())

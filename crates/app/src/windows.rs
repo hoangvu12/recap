@@ -37,11 +37,14 @@ pub fn options(id: &str, title: &str, width: f64, height: f64, frame_autosave: O
         "settings" => WindowOptions { titlebar: Titlebar::Inset, min_size: Some((680., 480.)), ..base },
         // The Name speakers dialog (screens/6): frameless, its header moves it.
         "speakers" => WindowOptions { titlebar: Titlebar::Hidden, min_size: Some((420., 360.)), ..base },
-        // Captions over the call: frameless and above every window.
+        // Captions over the call: frameless and above every window. Opened
+        // hidden: `overlay::OverlayHost::attach` makes it a tool window
+        // hidden from capture, then shows it.
         "overlay" => WindowOptions {
             titlebar: Titlebar::Hidden,
             level: WindowLevel::AlwaysOnTop,
             min_size: Some((360., 80.)),
+            visible: false,
             ..base
         },
         _ => base,
@@ -56,6 +59,9 @@ pub enum Quit {
     /// Never on its own (the tray keeps it).
     Resident,
 }
+
+/// Called as a window opens: its id, title and context.
+pub type Opened = Rc<dyn Fn(&str, &str, &WindowContext)>;
 
 /// The windows [`follow_into`] has open, by id.
 #[derive(Clone, Default)]
@@ -75,16 +81,18 @@ impl OpenWindows {
 /// Open and close the script's windows as their `open` states say, and set
 /// a state false when its window is closed. Keep the effect it returns.
 pub fn follow(host: &ScriptHost, cx: &WindowContext, quit: Quit, devtools: bool) -> zgx::reactive::Effect {
-    follow_into(host, cx, quit, devtools, OpenWindows::default())
+    follow_into(host, cx, quit, devtools, OpenWindows::default(), Rc::new(|_, _, _| {}))
 }
 
-/// [`follow`], keeping the open windows in `open` (to bring one forward).
+/// [`follow`], keeping the open windows in `open` (to bring one forward);
+/// `opened` hears each window that opens, once its native window exists.
 pub fn follow_into(
     host: &ScriptHost,
     cx: &WindowContext,
     quit: Quit,
     devtools: bool,
     open: OpenWindows,
+    opened: Opened,
 ) -> zgx::reactive::Effect {
     let factory = cx.windows.clone();
     let runtime = cx.ui.runtime.clone();
@@ -103,7 +111,9 @@ pub fn follow_into(
                     options(&window.id, &window.title, window.width, window.height, window.frame_autosave.clone());
                 let (view_host, state, id, title) =
                     (host.clone(), window.open.clone(), window.id.clone(), window.title.clone());
+                let opened = opened.clone();
                 let handle = factory.open(options, move |wcx| {
+                    opened(&id, &title, wcx);
                     let closing = id.clone();
                     wcx.on_closed(move || {
                         if state.with_untracked(Value::truthy) {
@@ -144,6 +154,8 @@ mod tests {
         assert_eq!(o.titlebar, Titlebar::Hidden);
         assert_eq!((o.width, o.height), (720., 120.));
         assert_eq!(o.frame_autosave.as_deref(), Some("overlay"));
+        // Shown once it is a tool window hidden from capture.
+        assert!(!o.visible);
     }
 
     #[test]

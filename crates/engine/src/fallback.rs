@@ -15,8 +15,8 @@ use tokio::sync::mpsc;
 use crate::{
     AudioFrame, Source,
     provider::{
-        BatchRequest, BatchStt, BatchTranscript, BoxFuture, Capabilities, LiveEvent, LiveOptions, LiveStt, Llm,
-        ProviderError,
+        BatchRequest, BatchStt, BatchTranscript, BoxFuture, Capabilities, LiveEvent, LiveOptions, LiveStatus,
+        LiveStt, Llm, ProviderError,
     },
 };
 
@@ -136,8 +136,22 @@ impl LiveStt for Fallback<dyn LiveStt> {
         &self,
         source: Source,
         options: LiveOptions,
+        audio: mpsc::UnboundedReceiver<AudioFrame>,
+        events: mpsc::UnboundedSender<LiveEvent>,
+    ) -> BoxFuture<'static, Result<(), ProviderError>> {
+        let (status, _) = mpsc::unbounded_channel();
+        self.run_reporting(source, options, audio, events, status)
+    }
+
+    /// Each provider's statuses are passed on, and a switch says which
+    /// provider captions from then on.
+    fn run_reporting(
+        &self,
+        source: Source,
+        options: LiveOptions,
         mut audio: mpsc::UnboundedReceiver<AudioFrame>,
         events: mpsc::UnboundedSender<LiveEvent>,
+        status: mpsc::UnboundedSender<LiveStatus>,
     ) -> BoxFuture<'static, Result<(), ProviderError>> {
         let chain: Vec<Arc<dyn LiveStt>> = std::iter::once(self.main.clone()).chain(self.backup.clone()).collect();
         let on_switch = self.on_switch.clone();
@@ -154,7 +168,8 @@ impl LiveStt for Fallback<dyn LiveStt> {
                     let _ = frames.send(frame.clone());
                 }
                 let mut frames = audio_open.then_some(frames);
-                let mut session = provider.run(source, options.clone(), provider_audio, provider_events);
+                let mut session =
+                    provider.run_reporting(source, options.clone(), provider_audio, provider_events, status.clone());
                 let forward = |event: LiveEvent, unheard: &mut VecDeque<AudioFrame>| {
                     if event.is_final {
                         while unheard.front().is_some_and(|f| f.start_ms + f.duration_ms() <= event.end_ms) {
@@ -193,6 +208,7 @@ impl LiveStt for Fallback<dyn LiveStt> {
                     Err(error) if error.falls_back() && at + 1 < chain.len() => {
                         notify(&on_switch, provider.name(), chain[at + 1].name(), &error);
                         at += 1;
+                        let _ = status.send(LiveStatus::Using(chain[at].name().to_owned()));
                     }
                     result => return result,
                 }

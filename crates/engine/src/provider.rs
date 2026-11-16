@@ -75,6 +75,20 @@ pub struct LiveEvent {
     pub end_ms: u64,
 }
 
+/// How a live session is doing, besides what it hears (the overlay's
+/// "Reconnecting").
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum LiveStatus {
+    /// Captions come from this provider from now on (a job's backup took
+    /// over).
+    Using(String),
+    /// The connection dropped; the provider is reconnecting, and what it
+    /// missed is caught up afterwards.
+    Reconnecting,
+    /// Connected again after `Reconnecting`.
+    Connected,
+}
+
 /// Live captions for one side.
 pub trait LiveStt: Send + Sync {
     fn name(&self) -> &str;
@@ -90,6 +104,20 @@ pub trait LiveStt: Send + Sync {
         audio: mpsc::UnboundedReceiver<AudioFrame>,
         events: mpsc::UnboundedSender<LiveEvent>,
     ) -> BoxFuture<'static, Result<(), ProviderError>>;
+
+    /// [`LiveStt::run`], also telling `status` how the connection is doing.
+    /// A provider that reconnects says so; by default nothing is told.
+    fn run_reporting(
+        &self,
+        source: Source,
+        options: LiveOptions,
+        audio: mpsc::UnboundedReceiver<AudioFrame>,
+        events: mpsc::UnboundedSender<LiveEvent>,
+        status: mpsc::UnboundedSender<LiveStatus>,
+    ) -> BoxFuture<'static, Result<(), ProviderError>> {
+        drop(status);
+        self.run(source, options, audio, events)
+    }
 }
 
 /// A recorded side to transcribe after Stop.

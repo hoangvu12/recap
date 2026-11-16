@@ -3,10 +3,10 @@
 
 use std::{sync::Arc, time::Duration};
 
-use recap::presenter::Presenter;
+use recap::presenter::{LiveChoice, Presenter};
 use recap_engine::{
-    EngineEvent, Meeting, MeetingConfig, MeetingState, Script, ScriptedLiveStt, Segment, SegmentId,
-    SilenceSource, Source,
+    EngineEvent, LiveStatus, Meeting, MeetingConfig, MeetingState, ProviderError, ProviderErrorKind, Script,
+    ScriptedLiveStt, Segment, SegmentId, SilenceSource, Source,
 };
 use serde_json::json;
 
@@ -33,7 +33,8 @@ fn a_partial_is_an_open_row_and_a_caption() {
             "final": "", "partial": "Thanks, Tom", "open": true
         } } })
     );
-    assert_eq!(p.captions(), json!([{ "source": "them", "final": "", "partial": "Thanks, Tom" }]));
+    // `index` is the row's: a new one is a new turn (the overlay shifts up).
+    assert_eq!(p.captions(), json!([{ "index": 1, "source": "them", "final": "", "partial": "Thanks, Tom" }]));
 }
 
 #[test]
@@ -97,9 +98,9 @@ fn with_my_captions_on_my_lines_are_captions_too() {
     assert_eq!(
         p.captions(),
         json!([
-            { "source": "them", "final": "one", "partial": "" },
-            { "source": "me", "final": "mine", "partial": "" },
-            { "source": "them", "final": "", "partial": "two" },
+            { "index": 1, "source": "them", "final": "one", "partial": "" },
+            { "index": 2, "source": "me", "final": "mine", "partial": "" },
+            { "index": 3, "source": "them", "final": "", "partial": "two" },
         ])
     );
 }
@@ -115,7 +116,104 @@ fn an_echo_taken_back_leaves_the_transcript_and_the_captions() {
     // The row stays (rows keep their places) but has no words.
     assert_eq!(p.transcript(), json!({ "count": 2, "open": {} }));
     assert_eq!((p.row(2)["final"].clone(), p.row(2)["partial"].clone()), (json!(""), json!("")));
-    assert_eq!(p.captions(), json!([{ "source": "them", "final": "we launch on December first", "partial": "" }]));
+    assert_eq!(
+        p.captions(),
+        json!([{ "index": 1, "source": "them", "final": "we launch on December first", "partial": "" }])
+    );
+}
+
+#[test]
+fn my_captions_turned_on_later_show_my_lines() {
+    let mut p = Presenter::new(0);
+    p.apply(&seg(1, Source::Them, 0, "one", true));
+    p.apply(&seg(2, Source::Me, 10_000, "mine", true));
+    assert_eq!(p.captions().as_array().unwrap().len(), 1);
+    assert!(p.set_my_captions(true).captions);
+    assert_eq!(p.captions().as_array().unwrap().len(), 2);
+    assert!(!p.set_my_captions(true).captions, "nothing changed");
+    p.set_my_captions(false);
+    assert_eq!(p.captions().as_array().unwrap().len(), 1);
+}
+
+fn choices() -> Vec<LiveChoice> {
+    vec![
+        LiveChoice { id: "elevenlabs".into(), name: "ElevenLabs".into() },
+        LiveChoice { id: "deepgram".into(), name: "Deepgram".into() },
+    ]
+}
+
+fn using(name: &str) -> EngineEvent {
+    EngineEvent::Live { source: Source::Them, status: LiveStatus::Using(name.into()) }
+}
+
+#[test]
+fn live_captions_start_live_with_their_provider() {
+    let mut p = Presenter::new(0).with_live_choices(choices());
+    assert_eq!(p.live()["status"], "live");
+    assert!(p.apply(&using("ElevenLabs")).live);
+    assert_eq!(p.live(), json!({ "status": "live", "provider": "ElevenLabs", "error": "", "switch_to": null }));
+}
+
+#[test]
+fn a_lost_connection_is_reconnecting_until_it_is_back() {
+    let mut p = Presenter::new(0);
+    p.apply(&using("ElevenLabs"));
+    let them = |status| EngineEvent::Live { source: Source::Them, status };
+    assert!(p.apply(&them(LiveStatus::Reconnecting)).live);
+    assert_eq!(p.live()["status"], "reconnecting");
+    // My side's blips don't touch the overlay.
+    p.apply(&EngineEvent::Live { source: Source::Me, status: LiveStatus::Connected });
+    assert_eq!(p.live()["status"], "reconnecting");
+    p.apply(&them(LiveStatus::Connected));
+    assert_eq!(p.live()["status"], "live");
+}
+
+#[test]
+fn a_quota_or_key_failure_is_an_error_offering_another_engine() {
+    for (kind, said) in [
+        (ProviderErrorKind::Quota, "ElevenLabs quota reached"),
+        (ProviderErrorKind::Auth, "ElevenLabs key not accepted"),
+        (ProviderErrorKind::Network, "Can't reach ElevenLabs"),
+        (ProviderErrorKind::Protocol, "bad frame"),
+    ] {
+        let mut p = Presenter::new(0).with_live_choices(choices());
+        p.apply(&using("ElevenLabs"));
+        let error = ProviderError::new(kind, "bad frame");
+        assert!(p.apply(&EngineEvent::Error { source: Source::Them, error }).live);
+        assert_eq!(
+            p.live(),
+            json!({ "status": "error", "provider": "ElevenLabs", "error": said,
+                    "switch_to": { "id": "deepgram", "name": "Deepgram" } }),
+            "{kind:?}"
+        );
+    }
+}
+
+#[test]
+fn switching_engines_goes_live_again_and_a_failed_switch_is_not_offered_twice() {
+    let mut p = Presenter::new(0).with_live_choices(choices());
+    p.apply(&using("ElevenLabs"));
+    p.apply(&EngineEvent::Error { source: Source::Them, error: ProviderError::new(ProviderErrorKind::Quota, "q") });
+    assert!(p.switch_failed("Deepgram", "Deepgram has no API key").live);
+    assert_eq!(
+        p.live(),
+        json!({ "status": "error", "provider": "ElevenLabs", "error": "Deepgram has no API key", "switch_to": null })
+    );
+
+    let mut p = Presenter::new(0).with_live_choices(choices());
+    p.apply(&using("ElevenLabs"));
+    p.apply(&EngineEvent::Error { source: Source::Them, error: ProviderError::new(ProviderErrorKind::Quota, "q") });
+    p.apply(&using("Deepgram"));
+    assert_eq!(p.live(), json!({ "status": "live", "provider": "Deepgram", "error": "", "switch_to": null }));
+}
+
+#[test]
+fn my_side_failing_is_a_notice_not_the_overlays_error() {
+    let mut p = Presenter::new(0).with_live_choices(choices());
+    p.apply(&using("ElevenLabs"));
+    let changed = p.apply(&EngineEvent::Error { source: Source::Me, error: ProviderError::new(ProviderErrorKind::Quota, "q") });
+    assert!(changed.meeting && !changed.live);
+    assert_eq!(p.live()["status"], "live");
 }
 
 #[test]

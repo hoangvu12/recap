@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{ProviderError, Row};
+use crate::{LiveStatus, ProviderError, Row};
 
 /// One of the two audio sources (GLOSSARY: Me / Them).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -73,7 +73,12 @@ pub enum EngineEvent {
     Pause(PauseMark),
     /// Meeting time, once a second of audio while recording.
     Elapsed(u64),
-    /// A provider failed for one side; recording goes on.
+    /// How one side's live captions are doing: which provider captions it
+    /// (told as each side starts, and when a backup takes over), and
+    /// whether it is reconnecting.
+    Live { source: Source, status: LiveStatus },
+    /// A provider failed for one side, told as it happens; recording goes
+    /// on, that side uncaptioned until `MeetingControl::replace_live`.
     Error { source: Source, error: ProviderError },
     /// The recording could not be written (disk full, folder gone): what is
     /// on disk so far stays; captions go on.
