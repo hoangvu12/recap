@@ -9,6 +9,7 @@ local actions = require("@app/actions")
 local Chip = require("@components/chip")
 local Icon = require("@components/icon")
 local Keycap = require("@components/keycap")
+local motion = require("@lib/motion")
 
 local HUES = { "purple", "green", "orange", "blue", "yellow" }
 
@@ -47,7 +48,8 @@ local function Play(i: number, s: host.DialogSpeaker, playing: () -> boolean): N
 	}
 end
 
--- The 2 px line that crosses as the clip plays (scaleX, linear).
+-- The 2 px line that crosses as the clip plays (scaleX, linear). It tells
+-- playback's progress, so it runs under reduced motion too (anime direct).
 local function Progress(i: number, playing: () -> boolean): Node
 	return ui.show(
 		playing,
@@ -271,9 +273,8 @@ return function(): Node
 		bg = "$rc.bg.window",
 		color = "$rc.text.primary",
 		font = "$rc.font.ui",
-		on_mount = function(el)
-			anime.animate(el, { opacity = { 0, 1 }, y = { 4, 0 }, duration = 200, ease = "outExpo" })
-		end,
+		-- The dialog comes in: 200 ms fade + 4 px rise (motion_spec §2.9).
+		on_mount = motion.on_enter(),
 		on_key = function(e)
 			if e.key == "Escape" then
 				actions.close_name_speakers()

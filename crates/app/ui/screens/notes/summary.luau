@@ -84,7 +84,7 @@ end
 -- `node`, under a wash that fades from fill.selected to nothing over 600 ms
 -- when `changed` (motion_spec §2.7: a paragraph the summary written again
 -- changed). Nothing moves.
-local WASH_MS = 600
+local WASH_MS = motion.wash
 local function Washed(id: string, changed: boolean, node: Node): Node
 	if not changed then
 		return node
@@ -104,7 +104,7 @@ local function Washed(id: string, changed: boolean, node: Node): Node
 			pointer_events = "none",
 			aria_hidden = true,
 			on_mount = function(el)
-				anime.animate(el, { opacity = { 1, 0 }, duration = WASH_MS, ease = "out(2)" })
+				motion.animate(el, { opacity = { 1, 0 }, duration = WASH_MS, ease = motion.ease.out })
 			end,
 		},
 		node,

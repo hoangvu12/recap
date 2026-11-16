@@ -8,6 +8,7 @@ local state = require("@app/state")
 local host = require("@app/host")
 local actions = require("@app/actions")
 local speakers = require("@lib/speakers")
+local motion = require("@lib/motion")
 local Icon = require("./icon")
 
 local function Option(i: number, s: speakers.Suggestion): Node
@@ -118,9 +119,8 @@ return function(index: number): Node
 				w = 240,
 				p = 4,
 				gap = 2,
-				on_mount = function(el)
-					anime.animate(el, { opacity = { 0, 1 }, scale = { 0.98, 1 }, duration = 150, ease = "outExpo" })
-				end,
+				-- Opens with a 150 ms fade and scale .98 → 1 (motion_spec §2.9).
+				on_mount = motion.pop,
 				ui.each(numbered, function(o: { i: number, s: speakers.Suggestion })
 					return Option(o.i, o.s)
 				end, {

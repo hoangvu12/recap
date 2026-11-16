@@ -158,6 +158,43 @@ test("all steps done: the card holds 400 ms on the checks, then fades out", func
 	expect(win:wait("#processing", { gone = true })).to_be(true)
 end)
 
+test("a renamed speaker's chips flash once (20% to 10%, 300 ms); the others don't", function()
+	local app = mount()
+	app:set_state("mock_rows", fx.named_rows())
+	app:set_state("meeting", { state = "stopped", elapsed_ms = 118000, title = "", started_ms = fx.STARTED_MS, id = "m" })
+	app:set_state("transcript", { count = 3, open = {}, generation = 1 })
+	app:set_state("window.notes", true)
+	app:frames(2)
+	local win = app:window("notes")
+	expect(win:has("#speaker-2-flash")).to_be(false)
+	-- Save names: Priya is Priya Shah now; the host shows the transcript again.
+	local rows = fx.named_rows()
+	rows[2].speaker = "Priya Shah"
+	app:set_state("mock_rows", rows)
+	app:set_state("transcript", { count = 3, open = {}, generation = 2 })
+	app:frames(2)
+	expect(win:has("#speaker-2-flash")).to_be(true)
+	expect(win:has("#speaker-1-flash")).to_be(false)
+	expect(win:text("#row-2")).to_contain("Priya Shah")
+end)
+
+test("reduced motion: a renamed chip doesn't flash", function()
+	local app = mount()
+	reduce(app)
+	app:set_state("mock_rows", fx.named_rows())
+	app:set_state("meeting", { state = "stopped", elapsed_ms = 118000, title = "", started_ms = fx.STARTED_MS, id = "m2" })
+	app:set_state("transcript", { count = 3, open = {}, generation = 1 })
+	app:set_state("window.notes", true)
+	app:frames(2)
+	local win = app:window("notes")
+	local rows = fx.named_rows()
+	rows[2].speaker = "Priya Shah"
+	app:set_state("mock_rows", rows)
+	app:set_state("transcript", { count = 3, open = {}, generation = 2 })
+	app:frames(2)
+	expect(win:has("#speaker-2-flash")).to_be(false)
+end)
+
 -- Live transcript --------------------------------------------------------------
 
 -- The live meeting at its end; then row 7 turns final and `n` new rows come.
