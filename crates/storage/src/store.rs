@@ -180,6 +180,28 @@ impl Store {
         Ok(())
     }
 
+    /// Audio retention: delete `audio.ogg` of finished meetings that started
+    /// more than `keep_days` days before `now_ms` (0 keeps all). Transcripts,
+    /// summaries and the speech engines' files stay; unfinished meetings
+    /// keep their audio for Recover. The meetings whose audio went.
+    pub fn prune_audio(&self, now_ms: u64, keep_days: u32) -> Result<Vec<MeetingId>> {
+        if keep_days == 0 {
+            return Ok(Vec::new());
+        }
+        let cutoff = now_ms.saturating_sub(u64::from(keep_days) * 86_400_000);
+        let mut pruned = Vec::new();
+        for info in self.list()? {
+            if info.status != Status::Done || info.started_ms >= cutoff {
+                continue;
+            }
+            if files::remove_file(&self.folder(&info.id).join(files::AUDIO))? {
+                pruned.push(info.id);
+            }
+        }
+        pruned.sort();
+        Ok(pruned)
+    }
+
     /// Every meeting, newest first.
     pub fn list(&self) -> Result<Vec<MeetingInfo>> {
         db::list(&self.conn())
