@@ -20,6 +20,7 @@
 //! partial → final segments, clocked by the audio it is given.
 
 mod audio;
+pub mod detect;
 pub mod echo;
 mod event;
 pub mod fake;
@@ -27,6 +28,7 @@ mod fallback;
 #[cfg(windows)]
 mod live_capture;
 mod live_meeting;
+pub mod process;
 mod provider;
 mod recorder;
 mod timeline;

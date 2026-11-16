@@ -24,7 +24,14 @@ ogg = "0.9.2"
 [target.'cfg(windows)'.dependencies]
 # Live capture: the mic and process loopback. `windows` stays on wasapi's 0.62.
 wasapi = "0.27.0"
-windows = { version = "=0.62.2", features = ["Win32_System_Performance"] }
+# Processes (ToolHelp) name a meeting app's process and the mic's users.
+windows = { version = "=0.62.2", features = [
+    "Win32_Foundation",
+    "Win32_System_Performance",
+    "Win32_System_Diagnostics_ToolHelp",
+] }
+# The ConsentStore says which apps hold the mic.
+winreg = "0.56.0"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util"] }

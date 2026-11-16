@@ -22,6 +22,13 @@ zgx-desktop.workspace = true
 # `inspect`: devtools for `zgx inspect`, asked for with `--inspect`.
 zgx-script = { workspace = true, features = ["inspect"] }
 
+[target.'cfg(windows)'.dependencies]
+# The tray icon and its menu, and global hotkeys (zgx has neither; ADR 0010).
+tray-icon = "0.26.1"
+global-hotkey = "0.9.0"
+# The autostart value under HKCU\...\Run.
+winreg = "0.56.0"
+
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util"] }
 tempfile = "3"

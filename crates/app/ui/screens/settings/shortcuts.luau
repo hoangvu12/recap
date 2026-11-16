@@ -70,22 +70,32 @@ local function Keys(id: string): Node
 	}
 end
 
-local function Refused(id: string): Node
+-- Under the card: why a change was refused, and a hotkey another app holds.
+local function Refused(id: string): { Node }
 	local field = `hotkey.{id}`
-	return ui.show(
-		function()
-			local e = host.settings_error:get()
-			return e.field == field and e.message ~= ""
-		end,
-		ui.text {
+	local function taken(): string
+		return host.hotkey_conflicts:get()[id] or ""
+	end
+	return {
+		ui.show(
 			function()
-				return host.settings_error:get().message
+				local e = host.settings_error:get()
+				return e.field == field and e.message ~= ""
 			end,
-			id = `hotkey-{id}-error`,
-			text_size = 12,
-			color = "$rc.red",
-		}
-	)
+			ui.text {
+				function()
+					return host.settings_error:get().message
+				end,
+				id = `hotkey-{id}-error`,
+				text_size = 12,
+				color = "$rc.red",
+			}
+		),
+		-- Saved, but the system gave it to another app first.
+		ui.show(function()
+			return taken() ~= ""
+		end, ui.text { taken, id = `hotkey-{id}-taken`, text_size = 12, color = "$rc.red" }),
+	}
 end
 
 return function(): Node
@@ -101,7 +111,9 @@ return function(): Node
 				Keys(h.id),
 			}
 		)
-		table.insert(errors, Refused(h.id))
+		for _, node in Refused(h.id) do
+			table.insert(errors, node)
+		end
 	end
 	return ui.column {
 		id = "page-shortcuts",
