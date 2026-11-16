@@ -272,29 +272,48 @@ pub(crate) fn segments(conn: &Connection, id: &MeetingId, kind: TranscriptKind) 
     Ok(rows.collect::<Result<_, _>>()?)
 }
 
-/// `query` as an FTS5 query: each word a quoted prefix, all of them needed.
-fn fts_query(query: &str) -> Option<String> {
-    let terms: Vec<String> = query
+/// `query`'s words, each as an FTS5 quoted prefix.
+fn fts_terms(query: &str) -> Vec<String> {
+    query
         .split_whitespace()
         .map(|w| w.replace('"', ""))
-        .filter(|w| !w.is_empty())
+        // Punctuation alone ("-", "·") is no word to the tokenizer.
+        .filter(|w| w.chars().any(char::is_alphanumeric))
         .map(|w| format!("\"{w}\"*"))
-        .collect();
-    (!terms.is_empty()).then(|| terms.join(" "))
+        .collect()
 }
 
-/// The meetings matching `query`, best match first.
+/// The meetings matching `query`, best match first: every word must be in
+/// the meeting, though each may be in a different part of it (a speaker's
+/// name, the title, a segment, the summary).
 pub(crate) fn search(conn: &Connection, query: &str) -> Result<Vec<MeetingId>> {
-    let Some(fts) = fts_query(query) else {
+    let terms = fts_terms(query);
+    if terms.is_empty() {
         return Ok(Vec::new());
-    };
-    let mut stmt = conn.prepare_cached("SELECT meeting_id FROM search WHERE search MATCH ?1 ORDER BY rank")?;
-    let mut out: Vec<MeetingId> = Vec::new();
-    for id in stmt.query_map([fts], |r| r.get::<_, String>(0))? {
-        let id = MeetingId(id?);
-        if !out.contains(&id) {
-            out.push(id);
-        }
     }
-    Ok(out)
+    // Each word's meetings with their best rank (bm25: lower is better);
+    // a meeting's score is the sum over the words.
+    // (rank is an auxiliary function's value: kept out of SQL aggregates.)
+    let mut stmt = conn.prepare_cached("SELECT meeting_id, rank FROM search WHERE search MATCH ?1 ORDER BY rank")?;
+    let mut scores: Option<Vec<(String, f64)>> = None;
+    for term in &terms {
+        let mut found: Vec<(String, f64)> = Vec::new();
+        for row in stmt.query_map([term], |r| Ok((r.get::<_, String>(0)?, r.get::<_, f64>(1)?)))? {
+            let (id, rank) = row?;
+            // Ordered by rank: a meeting's first row is its best.
+            if !found.iter().any(|(f, _)| *f == id) {
+                found.push((id, rank));
+            }
+        }
+        scores = Some(match scores {
+            None => found,
+            Some(before) => before
+                .into_iter()
+                .filter_map(|(id, score)| found.iter().find(|(f, _)| *f == id).map(|(_, s)| (id, score + s)))
+                .collect(),
+        });
+    }
+    let mut scores = scores.unwrap_or_default();
+    scores.sort_by(|a, b| a.1.total_cmp(&b.1).then_with(|| b.0.cmp(&a.0)));
+    Ok(scores.into_iter().map(|(id, _)| MeetingId(id)).collect())
 }

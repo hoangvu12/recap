@@ -47,6 +47,16 @@ impl Store {
         self.root.join("meetings").join(id.as_str())
     }
 
+    /// Meeting `id`'s recording (`audio.ogg`), whether or not it exists.
+    pub fn recording(&self, id: &MeetingId) -> PathBuf {
+        self.folder(id).join(files::AUDIO)
+    }
+
+    /// Whether meeting `id` has its recording still (Recover needs it).
+    pub fn has_recording(&self, id: &MeetingId) -> bool {
+        self.recording(id).is_file()
+    }
+
     fn conn(&self) -> MutexGuard<'_, Connection> {
         // A panic mid-write leaves the connection usable: the transaction
         // rolled back when it dropped.
