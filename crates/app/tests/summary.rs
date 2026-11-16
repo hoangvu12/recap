@@ -288,6 +288,13 @@ fn a_name_is_taken_only_when_it_is_sure_said_and_nobody_elses() {
     let cases: Vec<(&str, naming::Guess, Option<&str>)> = vec![
         ("sure and said", guess(Some("Tom"), "Thanks, Tom.", "high"), Some("Tom")),
         ("the quote differs in case and punctuation only", guess(Some("Tom"), "thanks tom", "high"), Some("Tom")),
+        // Claude Code quotes the lines as it was shown them (seen for real).
+        ("the quote keeps the lines' time and label", guess(Some("Tom"), "[0:11] S2: Thanks, Tom.", "high"), Some("Tom")),
+        (
+            "a quote over two lines",
+            guess(Some("Priya"), "[0:38] S1: Thanks, Tom. [0:45] Speaker 2: Priya, can you finish?", "high"),
+            Some("Priya"),
+        ),
         ("no name", guess(None, "", "low"), None),
         ("not sure enough", guess(Some("Tom"), "Thanks, Tom.", "medium"), None),
         ("evidence not in the transcript", guess(Some("Tom"), "I'm Tom.", "high"), None),

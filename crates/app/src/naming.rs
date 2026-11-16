@@ -91,8 +91,8 @@ pub fn prompt(segments: &[Segment], ids: &[&str], my_name: &str) -> String {
          or someone names them as the one who said or will do what they said. Never guess from \
          roles, topics or what is likely. When it is not plain, set name to null.\n\
          - name: the first name as said in the transcript, or null.\n\
-         - evidence: the exact words of the transcript that show it, copied as they are (one \
-           sentence or two); empty when name is null.\n\
+         - evidence: the exact words spoken that show it, copied as they are (one sentence or \
+           two), without the [m:ss] time and the label; empty when name is null.\n\
          - confidence: high only when the evidence leaves no doubt; medium or low otherwise.\n\
          {me_rule}\n\nTranscript:\n{lines}",
         me_line = if my_name.trim().is_empty() {
@@ -116,6 +116,34 @@ fn words(text: &str) -> String {
     spaced.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
+/// A quote without the line marks the transcript was shown with
+/// (`[1:41] S1: `): what was said in it.
+fn spoken(quote: &str) -> String {
+    let mut out = String::new();
+    let mut rest = quote;
+    while let Some(open) = rest.find('[') {
+        let Some(close) = rest[open..].find(']').map(|c| open + c) else { break };
+        let inside = &rest[open + 1..close];
+        if inside.is_empty() || !inside.chars().all(|c| c.is_ascii_digit() || c == ':') {
+            out.push_str(&rest[..=close]);
+            rest = &rest[close + 1..];
+            continue;
+        }
+        out.push_str(&rest[..open]);
+        out.push(' ');
+        rest = &rest[close + 1..];
+        // The label after the time: a short run of words up to a colon.
+        if let Some(colon) = rest.find(':')
+            && colon <= 40
+            && !rest[..colon].contains(['.', '?', '!', ','])
+        {
+            rest = &rest[colon + 1..];
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
 /// Whether `inner` (words) is in `outer` (words) on word boundaries.
 fn holds(outer: &str, inner: &str) -> bool {
     !inner.is_empty() && format!(" {outer} ").contains(&format!(" {inner} "))
@@ -132,7 +160,7 @@ pub fn accept(guesses: &BTreeMap<String, Guess>, said: &str, my_name: &str) -> B
             continue;
         };
         let key = words(name);
-        let evidence = words(&guess.evidence);
+        let evidence = words(&spoken(&guess.evidence));
         let placeholder = matches!(key.as_str(), "me" | "them" | "you")
             || key.starts_with("speaker")
             || key.starts_with("unknown")
