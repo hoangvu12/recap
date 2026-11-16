@@ -7,8 +7,19 @@
 -- To add a window: a `window.<id>` state in host.luau, a `ui.window` here
 -- with a screen from screens/, and its options in windows.rs.
 local host = require("@app/host")
+local Home = require("@screens/home")
 local Notes = require("@screens/notes")
 local Overlay = require("@screens/overlay")
+
+ui.window {
+	id = "home",
+	title = "Recap",
+	open = host.windows.home,
+	width = 860,
+	height = 600,
+	frame_autosave = "home",
+	Home(),
+}
 
 ui.window {
 	id = "notes",

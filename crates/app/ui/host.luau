@@ -17,6 +17,10 @@ export type Row = {
 	final: string,
 	partial: string,
 	open: boolean,
+	-- A stored meeting's speaker (name or "Speaker N") and its place; live
+	-- rows have none (their chip is Me or Them).
+	speaker: string?,
+	speaker_n: number?,
 }
 
 export type MeetingState = "idle" | "recording" | "paused" | "stopped"
@@ -27,6 +31,34 @@ export type Meeting = {
 	title: string,
 	-- When it started, ms since the epoch (0: not yet).
 	started_ms: number,
+	-- A stored meeting's id (read mode); "" while live.
+	id: string?,
+}
+
+export type MeetingStatus = "recording" | "processing" | "done"
+
+-- A stored meeting in Home's list.
+export type MeetingItem = {
+	id: string,
+	title: string,
+	started_ms: number,
+	duration_ms: number,
+	-- Not "done" (and not live): it never finished, Recover it.
+	status: MeetingStatus,
+}
+
+-- A speaker chip: the label, and its place (from 1), which picks the hue.
+export type SpeakerChip = { label: string, n: number }
+
+-- Home's detail pane for one meeting.
+export type MeetingDetail = {
+	id: string,
+	title: string,
+	overview: string,
+	started_ms: number,
+	duration_ms: number,
+	status: MeetingStatus,
+	speakers: { SpeakerChip },
 }
 
 export type Transcript = {
@@ -57,17 +89,32 @@ M.transcript = ui.shared("transcript", { count = 0, open = {} } :: Transcript)
 -- The overlay's lines, oldest first: the last few rows it may show.
 M.captions = ui.shared("captions", {} :: { CaptionLine })
 
+-- The stored meetings, newest first (Home).
+M.meetings = ui.shared("meetings", {} :: { MeetingItem })
+
 -- Which windows are open (crates/app/src/windows.rs makes them).
 M.windows = {
+	home = ui.shared("window.home", false),
 	notes = ui.shared("window.notes", false),
 	overlay = ui.shared("window.overlay", false),
 }
 
--- Without a host: what the UI asked for, and the rows a test serves.
+-- Without a host: what the UI asked for, and the rows and details a test
+-- serves.
 M.calls = ui.state("calls", {} :: { Call })
 M.mock_rows = ui.state("mock_rows", {} :: { Row })
+M.mock_details = ui.state("mock_details", {} :: { [string]: MeetingDetail })
 
--- Ask the host to do `name` (stop, pause, resume…).
+-- Meeting `id`'s detail pane.
+function M.detail(id: string): MeetingDetail?
+	if M.connected:peek() then
+		return ui.call_sync("meeting_detail", id)
+	end
+	return M.mock_details:peek()[id]
+end
+
+-- Ask the host to do `name` (stop, pause, resume, start_notes,
+-- open_meeting…).
 function M.invoke(name: string, arg: any?)
 	if M.connected:peek() then
 		ui.invoke(name, arg)

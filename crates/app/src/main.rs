@@ -1,20 +1,46 @@
-//! Recap. `recap [--inspect]`: `--inspect` serves devtools (`zgx inspect`).
+//! Recap. `recap [--inspect] [--seed]`
+//!
+//! - `--inspect` serves devtools (`zgx inspect`).
+//! - `--seed` stores the test meeting first (once), so Home has one.
+//!
+//! Meetings live in `RECAP_DATA` if set, else `%LOCALAPPDATA%\Recap`.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::{
     cell::RefCell,
+    path::PathBuf,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use recap::{
     fake, fonts,
     host::{self, Host},
+    seed,
     windows::{self, Quit},
 };
+use recap_storage::Store;
 use zgx_desktop::Application;
+
+fn now_ms() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64)
+}
+
+/// The store, or none (Home stays empty) when it can't open.
+fn open_store(seed_it: bool) -> Option<Store> {
+    let root = std::env::var_os("RECAP_DATA").map(PathBuf::from).or_else(Store::default_root)?;
+    let store = Store::open(&root).map_err(|error| eprintln!("recap: {}: {error}", root.display())).ok()?;
+    if seed_it {
+        match seed::test_meeting(&store, now_ms()) {
+            Ok(info) => eprintln!("recap: seeded {} in {}", info.id, store.folder(&info.id).display()),
+            Err(error) => eprintln!("recap: seed: {error}"),
+        }
+    }
+    Some(store)
+}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let devtools = std::env::args().any(|a| a == "--inspect") || zgx_script::inspect::asked();
+    let store = open_store(std::env::args().any(|a| a == "--seed"));
     // The engine's tasks and audio run here, off the UI thread; their
     // events reach it over channels.
     let engine = tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build()?;
@@ -32,7 +58,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if devtools {
             zgx_script::inspect::prepare();
         }
-        let host = Host::new(&cx.ui.runtime, script.clone());
+        let host = Host::new(&cx.ui.runtime, script.clone(), store.clone());
+        // Start new notes: until audio capture lands, the test meeting, live.
+        let starter = {
+            let (host, tasks, runtime) = (host.clone(), cx.tasks.clone(), engine.handle().clone());
+            move |_| {
+                if !host.is_live() {
+                    let (events, control) = fake::start(&runtime);
+                    tasks.spawn(host.follow_meeting(now_ms(), events, control));
+                    host.open_window("overlay");
+                }
+                host.open_window("notes");
+            }
+        };
+        host.script.action("start_notes", starter);
         if let Err(error) = host.script.reload() {
             eprintln!("recap: {error}");
         }
@@ -51,12 +90,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             })
             .flatten();
 
-        // Until audio capture lands: the test meeting, live.
-        let started_ms = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64);
-        let (events, control) = fake::start(engine.handle());
-        cx.tasks.spawn(host.follow_meeting(started_ms, events, control));
-        host.open_window("notes");
-        host.open_window("overlay");
+        host.open_window("home");
 
         let saving = host.script.clone();
         let keep = RefCell::new(Some((follow, server, host, engine)));

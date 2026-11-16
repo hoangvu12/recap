@@ -19,7 +19,10 @@ local function JumpPill(list: Ref): Node
 	end
 	return ui.show(
 		function()
-			return not state.transcript_at_end:get() and count() > 0
+			-- Only a live meeting has a live end to go back to.
+			local s = host.meeting:get().state
+			local live = s == "recording" or s == "paused"
+			return live and not state.transcript_at_end:get() and count() > 0
 		end,
 		ui.row {
 			absolute = true,

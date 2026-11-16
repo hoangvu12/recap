@@ -29,6 +29,8 @@ pub fn options(id: &str, title: &str, width: f64, height: f64, frame_autosave: O
     match id {
         // A Raycast-like panel: no title bar (its header moves it).
         "notes" => WindowOptions { titlebar: Titlebar::Hidden, min_size: Some((360., 480.)), ..base },
+        // The meetings list: a Raycast window, its search header moves it.
+        "home" => WindowOptions { titlebar: Titlebar::Hidden, min_size: Some((640., 400.)), ..base },
         // Captions over the call: frameless and above every window.
         "overlay" => WindowOptions {
             titlebar: Titlebar::Hidden,
@@ -118,6 +120,14 @@ mod tests {
         assert_eq!(o.titlebar, Titlebar::Hidden);
         assert_eq!(o.level, WindowLevel::Normal);
         assert_eq!(o.min_size, Some((360., 480.)));
+    }
+
+    #[test]
+    fn home_is_a_frameless_window_wide_enough_for_list_and_detail() {
+        let o = options("home", "Recap", 860., 600., Some("home".into()));
+        assert_eq!(o.titlebar, Titlebar::Hidden);
+        assert_eq!(o.level, WindowLevel::Normal);
+        assert_eq!(o.min_size, Some((640., 400.)));
     }
 
     #[test]

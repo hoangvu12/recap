@@ -28,4 +28,13 @@ local function Source(source: string): Node
 	return Chip { label = s.label, hue = s.hue }
 end
 
-return { Chip = Chip, Source = Source }
+-- Speakers take hues in this order (screens/7: Tom, Priya, David).
+local SPEAKER_HUES = { "purple", "green", "orange", "blue", "yellow" }
+
+-- The chip for a meeting's speaker `n` (from 1; 0 when not known).
+local function Speaker(label: string, n: number, id: string?): Node
+	local hue = if n >= 1 then SPEAKER_HUES[(n - 1) % #SPEAKER_HUES + 1] else "blue"
+	return Chip { label = label, hue = hue, id = id }
+end
+
+return { Chip = Chip, Source = Source, Speaker = Speaker }

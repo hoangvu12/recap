@@ -1,6 +1,8 @@
 --!nonstrict
 -- Host state for UI tests: the test meeting (testdata/meeting_tts_script.txt)
 -- as the host would publish it a minute in.
+local format = require("../lib/format")
+
 local M = {}
 
 M.LINES = {
@@ -33,6 +35,59 @@ M.OPEN = {
 -- Nov 16 2026, 10:00 local time is not portable across zones: tests read
 -- the date's shape, not its value.
 M.STARTED_MS = 1794823200000
+
+-- Local time `days` from today at `hour:min`, in ms (Home groups by local day).
+local function at(days: number, hour: number, min: number): number
+	local t = os.date("*t") :: any
+	return format.local_ms({ year = t.year, month = t.month, day = t.day + days, hour = hour, min = min })
+end
+
+M.OVERVIEW = "Tom, Priya and David agreed to launch the mobile app on December 1, one week later than planned, so the backend can add caching. An India-only soft launch is the fallback."
+
+-- Home's list, newest first: two today, two yesterday (one never
+-- finished), one three days ago.
+function M.home_meetings()
+	return {
+		{ id = "launch", title = "Mobile app launch on Dec 1", started_ms = at(0, 10, 0), duration_ms = 120000, status = "done" },
+		{ id = "sync", title = "Weekly design sync", started_ms = at(0, 9, 0), duration_ms = 1930000, status = "done" },
+		{ id = "walk", title = "Checkout flow walkthrough", started_ms = at(-1, 17, 0), duration_ms = 2825000, status = "done" },
+		{ id = "crashed", title = "", started_ms = at(-1, 16, 12), duration_ms = 0, status = "recording" },
+		{ id = "review", title = "Load test results review", started_ms = at(-3, 10, 0), duration_ms = 3723000, status = "done" },
+	}
+end
+
+-- What `meeting_detail(id)` answers.
+function M.home_details()
+	local out = {}
+	for _, m in M.home_meetings() do
+		out[m.id] = {
+			id = m.id,
+			title = m.title,
+			overview = "",
+			started_ms = m.started_ms,
+			duration_ms = m.duration_ms,
+			status = m.status,
+			speakers = {},
+		}
+	end
+	out.launch.overview = M.OVERVIEW
+	out.launch.speakers = { { label = "Tom", n = 1 }, { label = "Priya", n = 2 }, { label = "David", n = 3 } }
+	return out
+end
+
+-- A stored meeting's rows, named.
+function M.named_rows()
+	local rows = M.rows()
+	local names = { "Tom", "Priya", "David" }
+	local out = {}
+	for i = 1, 3 do
+		local row = table.clone(rows[i])
+		row.speaker = names[i]
+		row.speaker_n = i
+		out[i] = row
+	end
+	return out
+end
 
 -- A Notes window a minute into the test meeting.
 function M.live_meeting(app)

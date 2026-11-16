@@ -16,5 +16,8 @@ M.transcript_at_end = ui.state("transcript_at_end", true)
 M.seen_count = ui.state("seen_count", 0)
 -- How many caption lines the overlay shows (1–3).
 M.caption_lines = ui.state("caption_lines", 2)
+-- Home: the selected meeting's id ("": the first shown) and the search text.
+M.home_selected = ui.state("home_selected", "")
+M.home_query = ui.state("home_query", "")
 
 return M

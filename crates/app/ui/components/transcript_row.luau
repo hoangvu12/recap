@@ -1,5 +1,6 @@
 --!strict
--- A live transcript row (DESIGN §9.3): the side's chip and the time, then
+-- A transcript row (DESIGN §9.3): the side's chip (a stored meeting's: the
+-- speaker's) and the time, then
 -- the text: final words in primary (Me in secondary), the partial after them
 -- in tertiary, one paragraph with two colour runs (ADR 0001).
 local host = require("@app/host")
@@ -38,7 +39,9 @@ return ui.component(function(props: Props): Node
 		ui.row {
 			gap = 8,
 			items = "center",
-			Chip.Source(source),
+			if first and first.speaker
+				then Chip.Speaker(first.speaker, first.speaker_n or 0)
+				else Chip.Source(source),
 			ui.text {
 				function()
 					local r = row:get()
