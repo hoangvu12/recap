@@ -2,11 +2,12 @@
 #
 #   crates/engine  recap-engine: events in, MeetingResult out. No UI, no zgx.
 #   crates/storage recap-storage: meeting folders + app.db (SQLite), no UI.
+#   crates/providers recap-providers: provider registry, jobs (main/backup), keys.
 #   crates/app     recap: the zgx host (Rust) and the Luau UI (crates/app/ui).
 
 [workspace]
 resolver = "3"
-members = ["crates/engine", "crates/storage", "crates/app"]
+members = ["crates/engine", "crates/storage", "crates/providers", "crates/app"]
 
 [workspace.package]
 version = "0.1.0"
@@ -17,6 +18,7 @@ publish = false
 [workspace.dependencies]
 recap-engine = { path = "crates/engine" }
 recap-storage = { path = "crates/storage" }
+recap-providers = { path = "crates/providers" }
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
