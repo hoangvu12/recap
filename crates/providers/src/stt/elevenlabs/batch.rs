@@ -3,11 +3,12 @@
 //! timestamps_granularity=word`, `diarize` as asked and the keyterms
 //! (reference/el_batch.sh). The side goes up as a 16 kHz mono WAV.
 
-use recap_engine::{BatchRequest, BatchTranscript, ProviderError, ProviderErrorKind, SAMPLE_RATE, Word};
+use recap_engine::{BatchRequest, BatchTranscript, ProviderError, ProviderErrorKind, Word};
 use reqwest::multipart::{Form, Part};
 use serde::Deserialize;
 
-use super::{Inner, http_error, keyterms};
+use super::super::{Speakers, keyterms, wav};
+use super::{Inner, http_error};
 
 #[derive(Deserialize)]
 struct Response {
@@ -70,45 +71,14 @@ pub(super) async fn transcribe(inner: &Inner, request: BatchRequest) -> Result<B
 /// Words only (no spacing or audio events), in ms; diarized speakers as
 /// `S1`… in order of first appearance.
 fn words(raw: Vec<ResponseWord>, diarize: bool) -> Vec<Word> {
-    let mut speakers: Vec<String> = Vec::new();
+    let mut speakers = Speakers::default();
     raw.into_iter()
         .filter(|w| w.kind.is_empty() || w.kind == "word")
         .map(|w| {
-            let speaker = w.speaker_id.filter(|_| diarize).map(|id| {
-                let n = match speakers.iter().position(|s| *s == id) {
-                    Some(i) => i + 1,
-                    None => {
-                        speakers.push(id);
-                        speakers.len()
-                    }
-                };
-                format!("S{n}")
-            });
+            let speaker = w.speaker_id.filter(|_| diarize).map(|id| speakers.label(id));
             let ms = |s: Option<f64>| (s.unwrap_or(0.0).max(0.0) * 1000.0).round() as u64;
             let (start_ms, end_ms) = (ms(w.start), ms(w.end));
             Word { text: w.text.trim().to_owned(), start_ms, end_ms: end_ms.max(start_ms), speaker }
         })
         .collect()
-}
-
-/// 16 kHz mono 16-bit PCM as a WAV file.
-fn wav(samples: &[i16]) -> Vec<u8> {
-    let data_len = (samples.len() * 2) as u32;
-    let mut out = Vec::with_capacity(44 + data_len as usize);
-    out.extend_from_slice(b"RIFF");
-    out.extend_from_slice(&(36 + data_len).to_le_bytes());
-    out.extend_from_slice(b"WAVEfmt ");
-    out.extend_from_slice(&16u32.to_le_bytes());
-    out.extend_from_slice(&1u16.to_le_bytes()); // PCM
-    out.extend_from_slice(&1u16.to_le_bytes()); // mono
-    out.extend_from_slice(&SAMPLE_RATE.to_le_bytes());
-    out.extend_from_slice(&(SAMPLE_RATE * 2).to_le_bytes());
-    out.extend_from_slice(&2u16.to_le_bytes());
-    out.extend_from_slice(&16u16.to_le_bytes());
-    out.extend_from_slice(b"data");
-    out.extend_from_slice(&data_len.to_le_bytes());
-    for s in samples {
-        out.extend_from_slice(&s.to_le_bytes());
-    }
-    out
 }

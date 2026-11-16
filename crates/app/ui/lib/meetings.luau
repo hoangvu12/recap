@@ -4,15 +4,25 @@
 local format = require("./format")
 
 -- A meeting as host.luau's MeetingItem.
-type Item = { id: string, title: string, started_ms: number, duration_ms: number, status: string }
+type Item = { id: string, title: string, started_ms: number, duration_ms: number, status: string, recover: boolean? }
 
 export type Section = { label: string, items: { Item } }
 
 local M = {}
 
--- Never finished (crash, killed app): Home offers Recover.
+-- Never finished (crash, killed app).
 function M.unfinished(item: Item): boolean
 	return item.status ~= "done"
+end
+
+-- Never finished, and its recording is still there: Home offers Recover.
+function M.recoverable(item: Item): boolean
+	return M.unfinished(item) and item.recover == true
+end
+
+-- What a row says at its end: Recover, else its length.
+function M.trailing(item: Item): string
+	return if M.recoverable(item) then "Recover" else format.duration(item.duration_ms)
 end
 
 -- What the row says: its title; an unfinished meeting says when it started.
@@ -23,8 +33,18 @@ function M.title(item: Item): string
 	return if item.title == "" then "Untitled meeting" else item.title
 end
 
--- The meetings whose row holds every word of `query` (any case).
-function M.visible(items: { Item }, query: string): { Item }
+-- The meetings Home shows for `query`, newest first: those in `found` (the
+-- host's search over titles, people and transcript words), else those whose
+-- row holds every word of `query` (any case). A row's own words count
+-- either way ("Unfinished meeting" isn't in the host's index).
+function M.visible(items: { Item }, query: string, found: { string }?): { Item }
+	if not string.match(query, "%S") then
+		return items
+	end
+	local hit: { [string]: boolean } = {}
+	for _, id in found or {} do
+		hit[id] = true
+	end
 	local words = string.split(string.lower(query), " ")
 	local out = {}
 	for _, item in items do
@@ -36,7 +56,7 @@ function M.visible(items: { Item }, query: string): { Item }
 				break
 			end
 		end
-		if all then
+		if all or hit[item.id] then
 			table.insert(out, item)
 		end
 	end

@@ -1,0 +1,952 @@
+{
+ "metadata": {
+  "transaction_key": "deprecated",
+  "request_id": "5c1d0e7a-0000-4000-8000-000000000014",
+  "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "created": "2026-11-17T09:00:00.000Z",
+  "duration": 40.0,
+  "channels": 1,
+  "models": [
+   "40bd3654-e622-47c4-a111-63a61b23bfe8"
+  ],
+  "model_info": {
+   "40bd3654-e622-47c4-a111-63a61b23bfe8": {
+    "name": "general-nova-3",
+    "version": "2025-04-17.21547",
+    "arch": "nova-3"
+   }
+  }
+ },
+ "results": {
+  "channels": [
+   {
+    "alternatives": [
+     {
+      "transcript": "Okay, let's get started. Thanks for joining, Priya and David. Today, I want to settle the launch date for the mobile app and agree on who owns the remaining work. Thanks, Tom. Quick status from design. The onboarding screens are done, and the new checkout flow is about 90% finished. I still need to fix the dark mode colors on the payment page. From the backend side, the payments API is ready, but load testing showed slow responses above 2,000 users. I think we need one more week to add caching before we go live. One more week pushes us to December",
+      "confidence": 0.99,
+      "words": [
+       {
+        "word": "okay",
+        "start": 0.16,
+        "end": 0.44,
+        "confidence": 0.99,
+        "punctuated_word": "Okay,",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "let's",
+        "start": 0.8,
+        "end": 1.0,
+        "confidence": 0.99,
+        "punctuated_word": "let's",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "get",
+        "start": 1.04,
+        "end": 1.16,
+        "confidence": 0.99,
+        "punctuated_word": "get",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "started",
+        "start": 1.26,
+        "end": 1.62,
+        "confidence": 0.99,
+        "punctuated_word": "started.",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "thanks",
+        "start": 2.28,
+        "end": 2.64,
+        "confidence": 0.99,
+        "punctuated_word": "Thanks",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "for",
+        "start": 2.68,
+        "end": 2.76,
+        "confidence": 0.99,
+        "punctuated_word": "for",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "joining",
+        "start": 2.86,
+        "end": 3.16,
+        "confidence": 0.99,
+        "punctuated_word": "joining,",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "priya",
+        "start": 3.52,
+        "end": 3.86,
+        "confidence": 0.99,
+        "punctuated_word": "Priya",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "and",
+        "start": 3.88,
+        "end": 3.98,
+        "confidence": 0.99,
+        "punctuated_word": "and",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "david",
+        "start": 4.059,
+        "end": 4.4,
+        "confidence": 0.99,
+        "punctuated_word": "David.",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "today",
+        "start": 5.08,
+        "end": 5.32,
+        "confidence": 0.99,
+        "punctuated_word": "Today,",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "i",
+        "start": 5.48,
+        "end": 5.48,
+        "confidence": 0.99,
+        "punctuated_word": "I",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "want",
+        "start": 5.52,
+        "end": 5.68,
+        "confidence": 0.99,
+        "punctuated_word": "want",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "to",
+        "start": 5.72,
+        "end": 5.82,
+        "confidence": 0.99,
+        "punctuated_word": "to",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "settle",
+        "start": 5.86,
+        "end": 6.12,
+        "confidence": 0.99,
+        "punctuated_word": "settle",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "the",
+        "start": 6.14,
+        "end": 6.24,
+        "confidence": 0.99,
+        "punctuated_word": "the",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "launch",
+        "start": 6.28,
+        "end": 6.54,
+        "confidence": 0.99,
+        "punctuated_word": "launch",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "date",
+        "start": 6.62,
+        "end": 6.82,
+        "confidence": 0.99,
+        "punctuated_word": "date",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "for",
+        "start": 6.88,
+        "end": 6.96,
+        "confidence": 0.99,
+        "punctuated_word": "for",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "the",
+        "start": 7.0,
+        "end": 7.06,
+        "confidence": 0.99,
+        "punctuated_word": "the",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "mobile",
+        "start": 7.1,
+        "end": 7.36,
+        "confidence": 0.99,
+        "punctuated_word": "mobile",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "app",
+        "start": 7.44,
+        "end": 7.58,
+        "confidence": 0.99,
+        "punctuated_word": "app",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "and",
+        "start": 7.6,
+        "end": 7.68,
+        "confidence": 0.99,
+        "punctuated_word": "and",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "agree",
+        "start": 7.72,
+        "end": 7.96,
+        "confidence": 0.99,
+        "punctuated_word": "agree",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "on",
+        "start": 8.02,
+        "end": 8.1,
+        "confidence": 0.99,
+        "punctuated_word": "on",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "who",
+        "start": 8.16,
+        "end": 8.24,
+        "confidence": 0.99,
+        "punctuated_word": "who",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "owns",
+        "start": 8.3,
+        "end": 8.5,
+        "confidence": 0.99,
+        "punctuated_word": "owns",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "the",
+        "start": 8.54,
+        "end": 8.6,
+        "confidence": 0.99,
+        "punctuated_word": "the",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "remaining",
+        "start": 8.64,
+        "end": 9.02,
+        "confidence": 0.99,
+        "punctuated_word": "remaining",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "work",
+        "start": 9.12,
+        "end": 9.4,
+        "confidence": 0.99,
+        "punctuated_word": "work.",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "thanks",
+        "start": 11.04,
+        "end": 11.5,
+        "confidence": 0.99,
+        "punctuated_word": "Thanks,",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "tom",
+        "start": 11.86,
+        "end": 12.2,
+        "confidence": 0.99,
+        "punctuated_word": "Tom.",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "quick",
+        "start": 12.92,
+        "end": 13.1,
+        "confidence": 0.99,
+        "punctuated_word": "Quick",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "status",
+        "start": 13.22,
+        "end": 13.6,
+        "confidence": 0.99,
+        "punctuated_word": "status",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "from",
+        "start": 13.64,
+        "end": 13.82,
+        "confidence": 0.99,
+        "punctuated_word": "from",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "design",
+        "start": 13.86,
+        "end": 14.28,
+        "confidence": 0.99,
+        "punctuated_word": "design.",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "the",
+        "start": 14.92,
+        "end": 15.04,
+        "confidence": 0.99,
+        "punctuated_word": "The",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "onboarding",
+        "start": 15.1,
+        "end": 15.54,
+        "confidence": 0.99,
+        "punctuated_word": "onboarding",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "screens",
+        "start": 15.64,
+        "end": 16.02,
+        "confidence": 0.99,
+        "punctuated_word": "screens",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "are",
+        "start": 16.04,
+        "end": 16.16,
+        "confidence": 0.99,
+        "punctuated_word": "are",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "done",
+        "start": 16.18,
+        "end": 16.46,
+        "confidence": 0.99,
+        "punctuated_word": "done,",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "and",
+        "start": 16.76,
+        "end": 16.84,
+        "confidence": 0.99,
+        "punctuated_word": "and",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "the",
+        "start": 16.88,
+        "end": 16.96,
+        "confidence": 0.99,
+        "punctuated_word": "the",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "new",
+        "start": 17.0,
+        "end": 17.16,
+        "confidence": 0.99,
+        "punctuated_word": "new",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "checkout",
+        "start": 17.22,
+        "end": 17.62,
+        "confidence": 0.99,
+        "punctuated_word": "checkout",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "flow",
+        "start": 17.74,
+        "end": 18.0,
+        "confidence": 0.99,
+        "punctuated_word": "flow",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "is",
+        "start": 18.06,
+        "end": 18.14,
+        "confidence": 0.99,
+        "punctuated_word": "is",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "about",
+        "start": 18.22,
+        "end": 18.44,
+        "confidence": 0.99,
+        "punctuated_word": "about",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "90%",
+        "start": 18.66,
+        "end": 19.28,
+        "confidence": 0.99,
+        "punctuated_word": "90%",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "finished",
+        "start": 19.32,
+        "end": 19.76,
+        "confidence": 0.99,
+        "punctuated_word": "finished.",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "i",
+        "start": 20.46,
+        "end": 20.52,
+        "confidence": 0.99,
+        "punctuated_word": "I",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "still",
+        "start": 20.6,
+        "end": 20.82,
+        "confidence": 0.99,
+        "punctuated_word": "still",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "need",
+        "start": 20.88,
+        "end": 21.02,
+        "confidence": 0.99,
+        "punctuated_word": "need",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "to",
+        "start": 21.06,
+        "end": 21.18,
+        "confidence": 0.99,
+        "punctuated_word": "to",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "fix",
+        "start": 21.22,
+        "end": 21.44,
+        "confidence": 0.99,
+        "punctuated_word": "fix",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "the",
+        "start": 21.5,
+        "end": 21.6,
+        "confidence": 0.99,
+        "punctuated_word": "the",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "dark",
+        "start": 21.62,
+        "end": 21.84,
+        "confidence": 0.99,
+        "punctuated_word": "dark",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "mode",
+        "start": 21.94,
+        "end": 22.14,
+        "confidence": 0.99,
+        "punctuated_word": "mode",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "colors",
+        "start": 22.22,
+        "end": 22.56,
+        "confidence": 0.99,
+        "punctuated_word": "colors",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "on",
+        "start": 22.62,
+        "end": 22.7,
+        "confidence": 0.99,
+        "punctuated_word": "on",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "the",
+        "start": 22.74,
+        "end": 22.82,
+        "confidence": 0.99,
+        "punctuated_word": "the",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "payment",
+        "start": 22.88,
+        "end": 23.14,
+        "confidence": 0.99,
+        "punctuated_word": "payment",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "page",
+        "start": 23.28,
+        "end": 23.64,
+        "confidence": 0.99,
+        "punctuated_word": "page.",
+        "speaker": 0,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "from",
+        "start": 25.28,
+        "end": 25.44,
+        "confidence": 0.99,
+        "punctuated_word": "From",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "the",
+        "start": 25.48,
+        "end": 25.58,
+        "confidence": 0.99,
+        "punctuated_word": "the",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "backend",
+        "start": 25.62,
+        "end": 25.92,
+        "confidence": 0.99,
+        "punctuated_word": "backend",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "side",
+        "start": 26.06,
+        "end": 26.34,
+        "confidence": 0.99,
+        "punctuated_word": "side,",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "the",
+        "start": 26.8,
+        "end": 26.92,
+        "confidence": 0.99,
+        "punctuated_word": "the",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "payments",
+        "start": 26.96,
+        "end": 27.32,
+        "confidence": 0.99,
+        "punctuated_word": "payments",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "api",
+        "start": 27.38,
+        "end": 27.92,
+        "confidence": 0.99,
+        "punctuated_word": "API",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "is",
+        "start": 27.96,
+        "end": 28.1,
+        "confidence": 0.99,
+        "punctuated_word": "is",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "ready",
+        "start": 28.14,
+        "end": 28.4,
+        "confidence": 0.99,
+        "punctuated_word": "ready,",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "but",
+        "start": 28.92,
+        "end": 29.06,
+        "confidence": 0.99,
+        "punctuated_word": "but",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "load",
+        "start": 29.1,
+        "end": 29.32,
+        "confidence": 0.99,
+        "punctuated_word": "load",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "testing",
+        "start": 29.38,
+        "end": 29.72,
+        "confidence": 0.99,
+        "punctuated_word": "testing",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "showed",
+        "start": 29.84,
+        "end": 30.08,
+        "confidence": 0.99,
+        "punctuated_word": "showed",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "slow",
+        "start": 30.18,
+        "end": 30.42,
+        "confidence": 0.99,
+        "punctuated_word": "slow",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "responses",
+        "start": 30.46,
+        "end": 31.06,
+        "confidence": 0.99,
+        "punctuated_word": "responses",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "above",
+        "start": 31.12,
+        "end": 31.38,
+        "confidence": 0.99,
+        "punctuated_word": "above",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "2000",
+        "start": 31.54,
+        "end": 32.08,
+        "confidence": 0.99,
+        "punctuated_word": "2,000",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "users",
+        "start": 32.14,
+        "end": 32.54,
+        "confidence": 0.99,
+        "punctuated_word": "users.",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "i",
+        "start": 33.56,
+        "end": 33.62,
+        "confidence": 0.99,
+        "punctuated_word": "I",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "think",
+        "start": 33.66,
+        "end": 33.88,
+        "confidence": 0.99,
+        "punctuated_word": "think",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "we",
+        "start": 33.94,
+        "end": 34.04,
+        "confidence": 0.99,
+        "punctuated_word": "we",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "need",
+        "start": 34.08,
+        "end": 34.28,
+        "confidence": 0.99,
+        "punctuated_word": "need",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "one",
+        "start": 34.32,
+        "end": 34.48,
+        "confidence": 0.99,
+        "punctuated_word": "one",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "more",
+        "start": 34.52,
+        "end": 34.72,
+        "confidence": 0.99,
+        "punctuated_word": "more",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "week",
+        "start": 34.76,
+        "end": 34.92,
+        "confidence": 0.99,
+        "punctuated_word": "week",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "to",
+        "start": 34.96,
+        "end": 35.1,
+        "confidence": 0.99,
+        "punctuated_word": "to",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "add",
+        "start": 35.16,
+        "end": 35.32,
+        "confidence": 0.99,
+        "punctuated_word": "add",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "caching",
+        "start": 35.38,
+        "end": 35.78,
+        "confidence": 0.99,
+        "punctuated_word": "caching",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "before",
+        "start": 35.8,
+        "end": 36.14,
+        "confidence": 0.99,
+        "punctuated_word": "before",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "we",
+        "start": 36.18,
+        "end": 36.3,
+        "confidence": 0.99,
+        "punctuated_word": "we",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "go",
+        "start": 36.32,
+        "end": 36.46,
+        "confidence": 0.99,
+        "punctuated_word": "go",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "live",
+        "start": 36.5,
+        "end": 36.82,
+        "confidence": 0.99,
+        "punctuated_word": "live.",
+        "speaker": 2,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "one",
+        "start": 38.48,
+        "end": 38.64,
+        "confidence": 0.99,
+        "punctuated_word": "One",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "more",
+        "start": 38.68,
+        "end": 38.86,
+        "confidence": 0.99,
+        "punctuated_word": "more",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "week",
+        "start": 38.9,
+        "end": 39.1,
+        "confidence": 0.99,
+        "punctuated_word": "week",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "pushes",
+        "start": 39.14,
+        "end": 39.42,
+        "confidence": 0.99,
+        "punctuated_word": "pushes",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "us",
+        "start": 39.48,
+        "end": 39.6,
+        "confidence": 0.99,
+        "punctuated_word": "us",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "to",
+        "start": 39.64,
+        "end": 39.72,
+        "confidence": 0.99,
+        "punctuated_word": "to",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       },
+       {
+        "word": "december",
+        "start": 39.74,
+        "end": 39.98,
+        "confidence": 0.99,
+        "punctuated_word": "December",
+        "speaker": 1,
+        "speaker_confidence": 0.9
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ }
+}

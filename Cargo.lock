@@ -3845,7 +3845,6 @@ name = "recap-engine"
 version = "0.1.0"
 dependencies = [
  "audioadapter-buffers",
- "futures",
  "hound",
  "ogg",
  "opus",
