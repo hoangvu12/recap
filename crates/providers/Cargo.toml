@@ -12,9 +12,9 @@ tokio = { workspace = true, features = ["process", "io-util", "fs"] }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
-# AI providers over HTTP (OpenAI-compatible, Anthropic): rustls + the
-# platform verifier (Windows certificate store).
-reqwest = { version = "0.13", features = ["json"] }
+# AI providers over HTTP (OpenAI-compatible, Anthropic); shared with the
+# speech engines.
+reqwest.workspace = true
 # A `cli` provider runs from an empty temp folder.
 tempfile = "3"
 

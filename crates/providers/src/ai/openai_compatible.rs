@@ -6,7 +6,7 @@
 //! (`response_format: json_object`), which all of them accept; strict
 //! `json_schema` mode is not (DeepSeek and some OpenRouter models refuse
 //! it). So the schema travels in the prompt and the reply is validated and
-//! retried once with the error ([`super::json`], ADR 0006). No key: no
+//! retried once with the error ([`super::json`], ADR 0008). No key: no
 //! `Authorization` header (Ollama).
 
 use std::sync::Arc;

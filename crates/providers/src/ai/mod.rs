@@ -9,7 +9,7 @@
 //!
 //! All three share the JSON discipline in [`json`]: the schema goes with
 //! the task, the reply is validated, and a reply that doesn't fit is sent
-//! back once with the error (ADR 0006).
+//! back once with the error (ADR 0008).
 
 pub mod anthropic;
 pub mod cli;
