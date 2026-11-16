@@ -474,6 +474,14 @@ impl Host {
         self.script.shared(&format!("window.{id}"), false).set(Value::Bool(true));
     }
 
+    /// Close window `id`, if open.
+    pub fn close_window(&self, id: &str) {
+        let open = self.script.shared(&format!("window.{id}"), false);
+        if open.with_untracked(Value::truthy) {
+            open.set(Value::Bool(false));
+        }
+    }
+
     /// Whether window `id` is open (or asked to be).
     pub fn window_open(&self, id: &str) -> bool {
         self.script.shared(&format!("window.{id}"), false).with_untracked(Value::truthy)
@@ -735,6 +743,9 @@ impl Host {
                         host.publish(changed);
                         if matches!(event, EngineEvent::Finished(_)) {
                             host.control.borrow_mut().take();
+                            // Stopped: no more captions (screens/16), only
+                            // the Notes window processing.
+                            host.close_window("overlay");
                         }
                     }
                     SessionEvent::Notice(text) => host.notice(&text),
@@ -753,6 +764,7 @@ impl Host {
             // Ended without Saved (no store, or it failed): not live either.
             host.control.borrow_mut().take();
             host.live.borrow_mut().take();
+            host.close_window("overlay");
             let waiting: Vec<_> = host.when_idle.borrow_mut().drain(..).collect();
             for then in waiting {
                 then();
