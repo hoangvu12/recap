@@ -2,6 +2,7 @@
 -- The HUD pill ("Copied", motion_spec §2.8): centred above the footer for
 -- 1.2 s, fade only. Id `hud`.
 local state = require("@app/state")
+local motion = require("@lib/motion")
 
 return function(): Node
 	return ui.show(
@@ -16,6 +17,8 @@ return function(): Node
 			justify = "center",
 			pointer_events = "none",
 			ui.row {
+				-- Fade only (150 ms).
+				on_mount = motion.on_fade(),
 				h = 28,
 				px = 12,
 				items = "center",

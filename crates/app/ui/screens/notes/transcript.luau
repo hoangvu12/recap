@@ -11,6 +11,7 @@ local TranscriptRow = require("@components/transcript_row")
 local Chip = require("@components/chip")
 local processing = require("@lib/processing")
 local Processing = require("./processing")
+local motion = require("@lib/motion")
 
 local function count(): number
 	return host.transcript:get().count
@@ -20,14 +21,14 @@ local function JumpPill(list: Ref): Node
 	local unseen = function()
 		return math.max(count() - state.seen_count:get(), 0)
 	end
-	return ui.show(
-		function()
-			-- Only a live meeting has a live end to go back to.
-			local s = host.meeting:get().state
-			local live = s == "recording" or s == "paused"
-			return live and not state.transcript_at_end:get() and count() > 0
-		end,
-		ui.row {
+	-- Enter: 150 ms fade + 4 px rise; exit: a 100 ms fade.
+	return ui.presence(function(): string?
+		-- Only a live meeting has a live end to go back to.
+		local s = host.meeting:get().state
+		local live = s == "recording" or s == "paused"
+		return if live and not state.transcript_at_end:get() and count() > 0 then "on" else nil
+	end, function()
+		return ui.row {
 			absolute = true,
 			left = 0,
 			right = 0,
@@ -36,6 +37,7 @@ local function JumpPill(list: Ref): Node
 			pointer_events = "none",
 			ui.button {
 				id = "jump-to-live",
+				on_mount = motion.on_enter { duration = motion.base },
 				h = 28,
 				px = 12,
 				gap = 4,
@@ -65,7 +67,7 @@ local function JumpPill(list: Ref): Node
 				},
 			},
 		}
-	)
+	end, { exit = motion.exit(), absolute = true, left = 0, right = 0, bottom = 0, top = 0, pointer_events = "none" })
 end
 
 -- A refined transcript's speakers (screens/5): their chips, in order.

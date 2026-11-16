@@ -130,6 +130,51 @@ function M.on_fade(duration: number?): (any) -> ()
 	end
 end
 
+-- Reduced now, untracked (for what is decided as a node is built).
+local function reduced_now(): boolean
+	if forced and forced:peek() then
+		return true
+	end
+	local prefers = (ui :: any).prefers
+	return prefers ~= nil and prefers.reduced_motion:peek() == true
+end
+
+export type TweenOptions = { duration: number?, ease: string?, from: any?, to: any? }
+
+-- A property that eases as `source` (a state) changes: `ui.tween` with our
+-- defaults (150 ms ease-out). Colours may be tokens (`"$rc.text.primary"`):
+-- zgx mixes theme colours. Under reduced motion (as the node is built) it
+-- changes at once.
+function M.tween(source: any, opts: TweenOptions?): any
+	local o: { [string]: any } = {}
+	for k, v in (opts or {}) :: any do
+		o[k] = v
+	end
+	o.duration = if reduced_now() then 1 else (o.duration or M.base)
+	o.ease = o.ease or M.ease.out
+	return ui.tween(source, o)
+end
+
+-- A colour that eases to the token `token()` names whenever it changes
+-- (`motion.fast` colour swaps, 150 ms by default).
+function M.color(token: () -> string, duration: number?): any
+	return M.tween(ui.computed(token), { duration = duration or M.base })
+end
+
+-- `exit` parameters for `ui.presence` / `ui.each`: an opacity fade out
+-- (100 ms by default); nil (leave at once) under reduced motion when it is
+-- shorter than 150 ms, else 100 ms.
+function M.exit(duration: number?): { [string]: any }?
+	local ms = duration or M.fast_in
+	if reduced_now() then
+		if ms < M.base then
+			return nil
+		end
+		ms = M.REDUCED_FADE
+	end
+	return { opacity = 0, duration = ms, ease = M.ease.out }
+end
+
 -- A loop (`moving`, built with ui.loop) while motion is allowed, `still`
 -- when it is reduced; it swaps as the setting changes.
 function M.Looping(moving: Node, still: Node): Node

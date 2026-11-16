@@ -3,7 +3,8 @@
 -- 350 wide popover 8 above the footer at the window's right, with the
 -- meeting's title, its actions with their keys, and "Search for actions…"
 -- at the bottom. Keyboard only: type to filter, ↑/↓, Enter runs, Esc or
--- Ctrl K closes; an action's keys run it at once.
+-- Ctrl K closes; an action's keys run it at once. It opens instantly, as
+-- Raycast's does: a keyboard surface opened many times a day.
 --
 -- Ids: `action-panel`, `action-panel-title`, `action-<id>` (role option),
 -- `action-<id>-label`, `action-search`.

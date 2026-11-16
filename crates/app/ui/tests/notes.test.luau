@@ -142,7 +142,8 @@ test("the transcript follows the bottom until scrolled up, then the pill takes y
 	expect(app:state("transcript_at_end")).to_be(true)
 	more_rows(app, 2)
 	expect(app:state("transcript_at_end")).to_be(true)
-	expect(win:has("#jump-to-live")).to_be(false)
+	-- (gone, or fading out if it showed as the window opened)
+	expect(win:wait("#jump-to-live", { gone = true })).to_be(true)
 	expect(app:state("seen_count")).to_be(32)
 
 	-- Scrolled up: it stops following and the pill says Live.
@@ -158,7 +159,9 @@ test("the transcript follows the bottom until scrolled up, then the pill takes y
 	expect(win:wait("#jump-to-live", { text = "3 new" })).to_be(true)
 	expect(win:has("#jump-dot")).to_be(true)
 
-	-- The pill: back to the end, following again, the pill gone.
+	-- The pill (in once its 150 ms fade is done): back to the end,
+	-- following again, the pill gone.
+	app:frames(10)
 	win:click("#jump-to-live")
 	app:frames(20)
 	expect(app:state("seen_count")).to_be(35)
@@ -253,6 +256,7 @@ test("scrolled away from the end, a pill counts the new rows", function()
 	app:set_state("transcript_at_end", false)
 	app:set_state("seen_count", 4)
 	expect(win:wait("#jump-to-live", { text = "3 new" })).to_be(true)
+	app:frames(10)
 	win:click("#jump-to-live")
 	expect(app:state("seen_count")).to_be(7)
 end)

@@ -11,6 +11,8 @@ local motion = require("@lib/motion")
 
 -- The steps the card has, in order (Transcribing, Naming speakers, Writing summary).
 local STEPS = 3
+-- All done: how long the three ✓ stay before the card goes.
+local HOLD_MS = 400
 
 local function step(i: number): host.Step?
 	return host.processing:get().steps[i]
@@ -84,13 +86,14 @@ local function StepRow(i: number): Node
 			text_size = 13,
 			weight = 500,
 			line_height = 16,
-			color = function()
+			-- pending → running → done: the colour eases (150 ms).
+			color = motion.color(function()
 				local s = status()
 				return if s == "running" or s == "error"
 					then "$rc.text.primary"
 					elseif s == "done" then "$rc.text.secondary"
 					else "$rc.text.tertiary"
-			end,
+			end),
 		},
 		ui.text {
 			function()
@@ -167,16 +170,33 @@ local function Failure(): Node
 	)
 end
 
-return function(): Node
-	local rows = {}
-	for i = 1, STEPS do
-		table.insert(rows, StepRow(i))
+-- All done: the card holds 400 ms on the three ✓, then fades out over
+-- 150 ms. (Both tabs' cards follow the one state.)
+local holding = ui.state("processing_holding", false)
+local was_active = false
+ui.effect(function()
+	local p = host.processing:get()
+	local active = processing.active(p)
+	if was_active and not active and #p.steps > 0 then
+		holding:set(true)
+		ui.after(HOLD_MS, function()
+			holding:set(false)
+		end)
+	elseif active then
+		holding:set(false)
 	end
-	return ui.show(
-		function()
-			return processing.active(host.processing:get())
-		end,
-		ui.column {
+	was_active = active
+end)
+
+return function(): Node
+	return ui.presence(function(): string?
+		return if processing.active(host.processing:get()) or holding:get() then "card" else nil
+	end, function()
+		local rows = {}
+		for i = 1, STEPS do
+			table.insert(rows, StepRow(i))
+		end
+		return ui.column {
 			w_full = true,
 			shrink = 0,
 			px = 16,
@@ -194,5 +214,5 @@ return function(): Node
 				Failure(),
 			},
 		}
-	)
+	end, { exit = motion.exit(motion.base) })
 end

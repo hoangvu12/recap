@@ -129,6 +129,35 @@ test("reduced motion: the processing spinner stands still", function()
 	expect(win:has("#step-1-spin")).to_be(false)
 end)
 
+test("all steps done: the card holds 400 ms on the checks, then fades out", function()
+	local app = mount()
+	local function steps(last)
+		local function step(id, label, status)
+			return { id = id, label = label, status = status, took_ms = 1000, error = "" }
+		end
+		return {
+			id = "m",
+			steps = {
+				step("transcribing", "Transcribing", "done"),
+				step("naming_speakers", "Naming speakers", "done"),
+				step("writing_summary", "Writing summary", last),
+			},
+		}
+	end
+	app:set_state("mock_rows", fx.named_rows())
+	app:set_state("meeting", { state = "stopped", elapsed_ms = 118000, title = "", started_ms = fx.STARTED_MS, id = "m" })
+	app:set_state("transcript", { count = 3, open = {} })
+	app:set_state("processing", steps("running"))
+	app:set_state("window.notes", true)
+	app:frames(2)
+	local win = app:window("notes")
+	app:set_state("processing", steps("done"))
+	app:frames(18)
+	expect(win:has("#step-3-done")).to_be(true)
+	expect(hidden(win, "#processing")).to_be(false)
+	expect(win:wait("#processing", { gone = true })).to_be(true)
+end)
+
 -- Live transcript --------------------------------------------------------------
 
 -- The live meeting at its end; then row 7 turns final and `n` new rows come.
@@ -152,6 +181,21 @@ local function arrive(app, n)
 	app:frames(1)
 	return win
 end
+
+test("partial words turning final keep the paragraph as it reads", function()
+	local app = mount()
+	local win = fx.live_meeting(app)
+	win:scroll("#transcript", 100000)
+	app:frames(2)
+	local closed = table.clone(fx.OPEN)
+	closed.final, closed.partial, closed.open = fx.OPEN.partial, "", false
+	app:set_state("transcript", { count = 7, open = {}, revised = { ["7"] = closed } })
+	app:frames(1)
+	-- Mid colour ease, then merged: the same words either way.
+	expect(win:text("#row-7-text")).to_be(fx.OPEN.partial)
+	app:frames(12)
+	expect(win:text("#row-7-text")).to_be(fx.OPEN.partial)
+end)
 
 test("a new row fades in and rises 4 px", function()
 	local app = mount()

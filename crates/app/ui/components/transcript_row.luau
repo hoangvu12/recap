@@ -88,6 +88,39 @@ return ui.component(function(props: Props): Node
 		return r ~= nil and (r.final ~= "" or r.partial ~= "")
 	end
 
+	-- Partial → final (motion_spec §2.1): the words that just turned final
+	-- (the final text past `fresh_from`; -1 none) ease from tertiary to the
+	-- final colour over 150 ms, then join the final run. Nothing reflows: the
+	-- text stays the same, only its colour runs change.
+	local fresh_from = ui.use_state(-1)
+	local fresh_on = ui.use_state(false)
+	local last_final = if first then first.final else ""
+	local last_partial = if first then first.partial else ""
+	local seq = 0
+	ui.effect(function()
+		local r = row:get()
+		if r == nil then
+			return
+		end
+		local grew = #r.final > #last_final and last_partial ~= ""
+		if grew and not motion.reduced() then
+			if fresh_from:peek() < 0 then
+				fresh_from:set(#last_final)
+			end
+			fresh_on:set(true)
+			seq += 1
+			local mine = seq
+			ui.after(motion.base, function()
+				if mine == seq then
+					fresh_from:set(-1)
+					fresh_on:set(false)
+				end
+			end)
+		end
+		last_final, last_partial = r.final, r.partial
+	end)
+	local final_color = if source == "me" then "$rc.text.secondary" else "$rc.text.primary"
+
 	return ui.column {
 		id = `row-{index}`,
 		class = "transcript-row",
@@ -134,9 +167,21 @@ return ui.component(function(props: Props): Node
 					ui.span {
 						function()
 							local r = row:get()
-							return if r then r.final else ""
+							if r == nil then
+								return ""
+							end
+							local from = fresh_from:get()
+							return if from < 0 then r.final else string.sub(r.final, 1, from)
 						end,
-						color = if source == "me" then "$rc.text.secondary" else "$rc.text.primary",
+						color = final_color,
+					},
+					ui.span {
+						function()
+							local r = row:get()
+							local from = fresh_from:get()
+							return if r and from >= 0 and from < #r.final then string.sub(r.final, from + 1) else ""
+						end,
+						color = motion.tween(fresh_on, { from = "$rc.text.tertiary", to = final_color }),
 					},
 					ui.span {
 						function()
