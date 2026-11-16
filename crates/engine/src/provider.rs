@@ -1,7 +1,8 @@
 //! The provider seams (GLOSSARY: Provider, Job, Capability). STT adapters are
 //! Rust code implementing [`LiveStt`] and/or [`BatchStt`]; AI providers sit
-//! behind [`Llm`] (text in, JSON out). The registry, the main/backup choice
-//! per job and the fallback rules come with the provider framework ticket.
+//! behind [`Llm`] (text in, JSON out). A job's main and backup are one
+//! provider through [`crate::Fallback`]; the registry of provider kinds and
+//! presets is `recap-providers`.
 
 use std::future::Future;
 use std::pin::Pin;

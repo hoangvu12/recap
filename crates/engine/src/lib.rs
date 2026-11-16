@@ -22,6 +22,7 @@
 mod audio;
 mod event;
 pub mod fake;
+mod fallback;
 #[cfg(windows)]
 mod live_capture;
 mod live_meeting;
@@ -39,6 +40,7 @@ pub use timeline::{Packet, Timeline};
 pub use wav_source::WavSource;
 pub use event::{EngineEvent, MeetingResult, MeetingState, Segment, SegmentId, Source};
 pub use fake::{Script, ScriptLine, ScriptedLiveStt};
+pub use fallback::{Fallback, FallbackNotice};
 pub use live_meeting::{Meeting, MeetingConfig, MeetingControl};
 pub use provider::{
     BatchRequest, BatchStt, BatchTranscript, BoxFuture, Capabilities, LiveEvent, LiveOptions,
