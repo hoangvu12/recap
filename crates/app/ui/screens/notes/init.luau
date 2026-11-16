@@ -5,6 +5,10 @@ local state = require("@app/state")
 local host = require("@app/host")
 local processing = require("@lib/processing")
 local actions = require("@app/actions")
+local meeting_actions = require("@lib/meeting_actions")
+local ActionPanel = require("@components/action_panel")
+local ConfirmDelete = require("@components/confirm_delete")
+local Hud = require("@components/hud")
 local Header = require("@self/header")
 local Footer = require("@self/footer")
 local Transcript = require("@self/transcript")
@@ -56,7 +60,12 @@ return function(): Node
 		font = "$rc.font.ui",
 		on_key = function(e)
 			if e.ctrl and (e.key == "k" or e.key == "K") then
-				actions.toggle_actions()
+				actions.toggle_actions("notes")
+				return true
+			end
+			local action = meeting_actions.for_key(e)
+			if action and actions.action_target("notes") then
+				actions.run_action("notes", action)
 				return true
 			end
 			if e.key == "Enter" and state.notes_tab:peek() ~= "notes" then
@@ -77,5 +86,8 @@ return function(): Node
 			summary = Summary(),
 		}),
 		Footer(),
+		Hud(),
+		ActionPanel("notes"),
+		ConfirmDelete("notes"),
 	}
 end

@@ -241,6 +241,40 @@ fn search_finds_titles_people_and_transcript_words() {
     assert_eq!(store.search("budget").unwrap(), vec![other.id.clone()], "live words");
     assert!(store.search("\"unbalanced").unwrap().is_empty(), "odd input is not an error");
     assert!(store.search("   ").unwrap().is_empty());
+    assert_eq!(store.search("launch - *").unwrap(), vec![id.clone()], "punctuation alone is no word");
+}
+
+/// An untitled meeting whose transcript says the date as the speech engine
+/// writes it ("December 1st"), beside one that never says it.
+#[test]
+fn dec_1_finds_the_meeting_that_said_december_1st() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    let said = store.create(NOV_16_10AM).unwrap();
+    store
+        .set_refined(&said.id, &[seg(Source::Them, Some("S1"), 0, "Then we launch on December 1st, with caching in place.")])
+        .unwrap();
+    let other = store.create(NOV_16_10AM + 1).unwrap();
+    store.append_live(&other.id, &[seg(Source::Them, None, 0, "We meet again on the 12th of January.")]).unwrap();
+
+    assert_eq!(store.search("Dec 1").unwrap(), vec![said.id.clone()]);
+    assert_eq!(store.search("december 1st caching").unwrap(), vec![said.id]);
+}
+
+/// Each word may match a different part: a speaker's name, the title, the
+/// transcript, the summary.
+#[test]
+fn search_words_may_match_different_parts_of_a_meeting() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    let id = write_meeting(&store);
+    let other = store.create(NOV_16_10AM + 1).unwrap();
+    store.append_live(&other.id, &[seg(Source::Them, None, 0, "The payments API again.")]).unwrap();
+
+    assert_eq!(store.search("priya payments").unwrap(), vec![id.clone()], "a name and a transcript word");
+    assert_eq!(store.search("mobile ready").unwrap(), vec![id.clone()], "a title word and a transcript word");
+    assert_eq!(store.search("payments").unwrap().len(), 2);
+    assert!(store.search("priya budget").unwrap().is_empty(), "every word is needed");
 }
 
 #[test]
@@ -254,6 +288,22 @@ fn a_deleted_meeting_is_gone_with_its_folder() {
     assert!(store.list().unwrap().is_empty());
     assert!(store.meeting(&id).unwrap().is_none());
     assert!(store.search("payments").unwrap().is_empty());
+    assert!(store.segments(&id, TranscriptKind::Live).unwrap().is_empty());
+    assert!(store.segments(&id, TranscriptKind::Refined).unwrap().is_empty());
+    // And it stays gone when the database is made again from the folders.
+    store.rebuild().unwrap();
+    assert!(store.list().unwrap().is_empty());
+}
+
+#[test]
+fn a_meeting_has_a_recording_once_its_audio_is_in_its_folder() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    let info = store.create(NOV_16_10AM).unwrap();
+    assert!(!store.has_recording(&info.id));
+    assert_eq!(store.recording(&info.id), store.folder(&info.id).join("audio.ogg"));
+    fs::write(store.recording(&info.id), b"OggS").unwrap();
+    assert!(store.has_recording(&info.id));
 }
 
 #[test]

@@ -55,7 +55,7 @@ fn seeding_twice_keeps_one_test_meeting() {
 fn home_lists_each_meeting_with_its_time_and_state() {
     let (_dir, store, id) = seeded();
     let unfinished = store.create(NOW - 86_400_000).unwrap();
-    let list = home::meetings(&store.list().unwrap());
+    let list = home::meetings(&store, &store.list().unwrap());
     assert_eq!(list.as_array().unwrap().len(), 2);
     assert_eq!(list[0]["id"], id.as_str());
     assert_eq!(list[0]["title"], "Mobile app launch on Dec 1");

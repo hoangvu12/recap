@@ -31,6 +31,13 @@ return function(): Node
 		local s = host.meeting:get().state
 		return s == "recording" or s == "paused"
 	end
+	-- ↵ plays the stored transcript from the line last clicked.
+	local playing_from_here = function()
+		return not live()
+			and not processing.active(host.processing:get())
+			and state.notes_tab:get() == "transcript"
+			and state.selected_row:get() > 0
+	end
 	local paused = function()
 		return host.meeting:get().state == "paused"
 	end
@@ -143,12 +150,7 @@ return function(): Node
 			),
 			-- A stored transcript: Play from here ↵ (the line last clicked).
 			ui.show(
-				function()
-					return not live()
-						and not processing.active(host.processing:get())
-						and state.notes_tab:get() == "transcript"
-						and state.selected_row:get() > 0
-				end,
+				playing_from_here,
 				ui.row {
 					items = "center",
 					gap = 4,
@@ -164,11 +166,38 @@ return function(): Node
 					ui.div { w = 1, h = 16, mx = 4, bg = "$rc.stroke.hairline" },
 				}
 			),
+			-- Done (screens/9): Copy Markdown ↵ (↵ plays a line once one is
+			-- clicked).
+			ui.show(
+				function()
+					local m = host.meeting:get()
+					return m.state == "stopped"
+						and (m.id or "") ~= ""
+						and not processing.active(host.processing:get())
+						and not playing_from_here()
+				end,
+				ui.row {
+					items = "center",
+					gap = 4,
+					bare_button {
+						id = "copy-markdown",
+						label = "Copy Markdown",
+						color = "$rc.text.primary",
+						on_click = function()
+							actions.run_action("notes", "copy_markdown")
+						end,
+						Keycap("↵"),
+					},
+					ui.div { w = 1, h = 16, mx = 4, bg = "$rc.stroke.hairline" },
+				}
+			),
 			bare_button {
 				id = "actions",
 				label = "Actions",
 				color = "$rc.text.secondary",
-				on_click = actions.toggle_actions,
+				on_click = function()
+					actions.toggle_actions("notes")
+				end,
 				ui.row { id = "actions-keys", gap = 4, Keycap("Ctrl"), Keycap("K") },
 			},
 		},

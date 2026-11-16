@@ -119,9 +119,14 @@ export type MeetingItem = {
 	title: string,
 	started_ms: number,
 	duration_ms: number,
-	-- Not "done" (and not live): it never finished, Recover it.
+	-- Not "done" (and not live): it never finished.
 	status: MeetingStatus,
+	-- It never finished and its recording is still there: Recover it.
+	recover: boolean?,
 }
+
+-- `meeting_markdown { id, date }`'s answer: Copy as Markdown, Export.
+export type MeetingMarkdown = { markdown: string, file_name: string }
 
 -- A speaker chip: the label, and its place (from 1), which picks the hue.
 export type SpeakerChip = { label: string, n: number }
@@ -382,6 +387,11 @@ M.calls = ui.state("calls", {} :: { Call })
 M.mock_rows = ui.state("mock_rows", {} :: { Row })
 M.mock_details = ui.state("mock_details", {} :: { [string]: MeetingDetail })
 M.mock_people = ui.state("mock_people", {} :: { string })
+-- What `search_meetings` answers, by query (a query not here: nil, and
+-- Home matches titles itself).
+M.mock_search = ui.state("mock_search", {} :: { [string]: { string } })
+-- What `meeting_markdown` answers, by meeting id.
+M.mock_markdown = ui.state("mock_markdown", {} :: { [string]: MeetingMarkdown })
 
 -- The known people (rename suggestions), by name.
 function M.people(): { string }
@@ -397,6 +407,27 @@ function M.detail(id: string): MeetingDetail?
 		return ui.call_sync("meeting_detail", id)
 	end
 	return M.mock_details:peek()[id]
+end
+
+-- The ids of the meetings holding every word of `query` (titles, people,
+-- transcript words, the summary), best first; nil when the host can't say.
+function M.search(query: string): { string }?
+	if not string.match(query, "%S") then
+		return nil
+	end
+	if M.connected:peek() then
+		return ui.call_sync("search_meetings", query)
+	end
+	return M.mock_search:peek()[query]
+end
+
+-- Meeting `id` as Markdown (summary and transcript) and the file name
+-- Export suggests; `date` is its date as the UI shows it.
+function M.markdown(id: string, date: string): MeetingMarkdown?
+	if M.connected:peek() then
+		return ui.call_sync("meeting_markdown", { id = id, date = date })
+	end
+	return M.mock_markdown:peek()[id]
 end
 
 -- Ask the host to do `name` (stop, pause, resume, start_notes,

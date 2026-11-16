@@ -9,6 +9,10 @@ local actions = require("@app/actions")
 local meetings = require("@lib/meetings")
 local Icon = require("@components/icon")
 local Keycap = require("@components/keycap")
+local meeting_actions = require("@lib/meeting_actions")
+local ActionPanel = require("@components/action_panel")
+local ConfirmDelete = require("@components/confirm_delete")
+local Hud = require("@components/hud")
 local List = require("@self/list")
 local Detail = require("@self/detail")
 
@@ -36,7 +40,6 @@ local function Header(): Node
 			border = 0,
 			p = 0,
 		},
-		-- The filter (All / With summary) comes with search (#13).
 		ui.row {
 			id = "home-filter",
 			w = 197,
@@ -107,7 +110,9 @@ local function Footer(selected: ReadOnlyState<string>): Node
 				id = "home-actions",
 				label = "Actions",
 				color = "$rc.text.secondary",
-				on_click = actions.toggle_actions,
+				on_click = function()
+					actions.toggle_actions("home")
+				end,
 				ui.row { gap = 4, Keycap("Ctrl"), Keycap("K") },
 			},
 		},
@@ -116,7 +121,8 @@ end
 
 return function(): Node
 	local shown = ui.computed(function()
-		return meetings.visible(host.meetings:get(), state.home_query:get())
+		local query = state.home_query:get()
+		return meetings.visible(host.meetings:get(), query, host.search(query))
 	end)
 	local selected = ui.computed(function(): string
 		return meetings.pick(shown:get(), state.home_selected:get())
@@ -137,7 +143,12 @@ return function(): Node
 		font = "$rc.font.ui",
 		on_key = function(e)
 			if e.ctrl and (e.key == "k" or e.key == "K") then
-				actions.toggle_actions()
+				actions.toggle_actions("home")
+				return true
+			end
+			local action = meeting_actions.for_key(e)
+			if action and actions.action_target("home") then
+				actions.run_action("home", action)
 				return true
 			end
 			if e.ctrl and e.key == "," then
@@ -167,5 +178,8 @@ return function(): Node
 			Detail { selected = selected },
 		},
 		Footer(selected),
+		Hud(),
+		ActionPanel("home"),
+		ConfirmDelete("home"),
 	}
 end

@@ -153,22 +153,6 @@ impl BatchStt for ElevenLabs {
     }
 }
 
-/// At most 50 keyterms of at most 20 characters (the realtime limits; the
-/// batch gets the same list).
-fn keyterms(terms: &[String]) -> Vec<String> {
-    let mut out: Vec<String> = Vec::new();
-    for term in terms {
-        let term: String = term.trim().chars().take(20).collect();
-        if !term.is_empty() && !out.contains(&term) {
-            out.push(term);
-        }
-        if out.len() == 50 {
-            break;
-        }
-    }
-    out
-}
-
 /// An HTTP error status (the upload, or a refused websocket upgrade) as a
 /// typed error. ElevenLabs answers an exhausted quota with 401 and
 /// `detail.status = "quota_exceeded"`.
@@ -198,13 +182,6 @@ fn http_error(status: u16, body: &str) -> ProviderError {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn keyterms_are_capped_trimmed_and_unique() {
-        let terms: Vec<String> =
-            [" Priya ", "Priya", "", "abcdefghijklmnopqrstuvwxyz"].iter().map(|s| s.to_string()).collect();
-        assert_eq!(keyterms(&terms), ["Priya", "abcdefghijklmnopqrst"]);
-    }
 
     #[test]
     fn http_errors_map_to_kinds() {

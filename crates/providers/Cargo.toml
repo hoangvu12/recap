@@ -13,8 +13,8 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 futures.workspace = true
-# ElevenLabs (and later Deepgram): the realtime websocket and the batch
-# upload; the HTTP AI providers (OpenAI-compatible, Anthropic).
+# ElevenLabs and Deepgram: the live websockets and the batch uploads; the
+# HTTP AI providers (OpenAI-compatible, Anthropic).
 reqwest.workspace = true
 tokio-tungstenite.workspace = true
 base64.workspace = true

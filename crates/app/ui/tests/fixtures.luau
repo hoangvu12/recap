@@ -51,7 +51,7 @@ function M.home_meetings()
 		{ id = "launch", title = "Mobile app launch on Dec 1", started_ms = at(0, 10, 0), duration_ms = 120000, status = "done" },
 		{ id = "sync", title = "Weekly design sync", started_ms = at(0, 9, 0), duration_ms = 1930000, status = "done" },
 		{ id = "walk", title = "Checkout flow walkthrough", started_ms = at(-1, 17, 0), duration_ms = 2825000, status = "done" },
-		{ id = "crashed", title = "", started_ms = at(-1, 16, 12), duration_ms = 0, status = "recording" },
+		{ id = "crashed", title = "", started_ms = at(-1, 16, 12), duration_ms = 0, status = "recording", recover = true },
 		{ id = "review", title = "Load test results review", started_ms = at(-3, 10, 0), duration_ms = 3723000, status = "done" },
 	}
 end
