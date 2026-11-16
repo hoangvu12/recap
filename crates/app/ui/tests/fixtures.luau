@@ -89,6 +89,36 @@ function M.named_rows()
 	return out
 end
 
+-- The test meeting's summary as the host publishes it (screens/4).
+function M.summary()
+	local function step(i, owner, n, text, due, done)
+		return { index = i, owner = owner, owner_n = n, text = text, due = due, done = done or false }
+	end
+	return {
+		id = "20261116-100000",
+		overview = M.OVERVIEW,
+		topics = {
+			{
+				heading = "Launch readiness",
+				bullets = {
+					"Design: onboarding done, checkout ~90%. Dark mode colours on the payment page still open.",
+					"Backend: payments API ready, but slow above 2,000 users. Caching needs one more week.",
+				},
+			},
+			{ heading = "Release notes", bullets = { "Nobody owned them last time and they shipped late. Tom owns them now." } },
+		},
+		next_steps = {
+			step(1, "David", 3, "Add caching and rerun the load test", "Before Dec 1"),
+			step(2, "David", 3, "Send the load test report to the team", "Thu, Nov 19"),
+			step(3, "Priya", 2, "Fix dark mode colours on the payment page", "Fri, Nov 20", true),
+			step(4, "Priya", 2, "Book a checkout review with support", "Mon, Nov 23"),
+			step(5, "Tom", 1, "Write release notes and share a draft", "Wed, Nov 18"),
+			step(6, "", 0, "Tell support about the new flow", ""),
+		},
+		decisions = { "Launch on December 1, with caching in place.", "If load testing still fails: soft launch in India only." },
+	}
+end
+
 -- A Notes window a minute into the test meeting.
 function M.live_meeting(app)
 	app:set_state("mock_rows", M.rows())
