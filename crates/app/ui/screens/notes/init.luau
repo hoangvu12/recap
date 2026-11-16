@@ -2,6 +2,8 @@
 -- The Notes window (screens/2 "Notes live"): header with the tabs, the tab's
 -- content, the footer action bar.
 local state = require("@app/state")
+local host = require("@app/host")
+local processing = require("@lib/processing")
 local actions = require("@app/actions")
 local Header = require("@self/header")
 local Footer = require("@self/footer")
@@ -50,6 +52,11 @@ return function(): Node
 			end
 			if e.key == "Enter" and state.notes_tab:peek() ~= "notes" then
 				actions.primary()
+				return true
+			end
+			-- Processing goes on with the window closed (Hide Esc).
+			if e.key == "Escape" and processing.working(host.processing:peek()) then
+				actions.hide_notes()
 				return true
 			end
 			return false

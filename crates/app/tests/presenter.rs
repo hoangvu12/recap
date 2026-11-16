@@ -59,7 +59,7 @@ fn the_meeting_follows_state_and_time() {
         p.meeting(),
         json!({
             "state": "recording", "elapsed_ms": 62000, "title": "", "started_ms": 1_794_823_200_000u64, "id": "",
-            "notice": "",
+            "notice": "", "speakers": [],
         })
     );
     let changed = p.apply(&EngineEvent::State(MeetingState::Paused));

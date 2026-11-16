@@ -21,6 +21,11 @@ use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 /// Where a meeting's pauses are kept, in its folder.
 pub const PAUSES: &str = "pauses.json";
 
+/// The pauses kept in meeting folder `folder` (none when it never paused).
+pub fn read_pauses(folder: &std::path::Path) -> Vec<recap_engine::PauseMark> {
+    std::fs::read(folder.join(PAUSES)).ok().and_then(|json| serde_json::from_slice(&json).ok()).unwrap_or_default()
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct SessionConfig {
     /// When Start was pressed, ms since the epoch.

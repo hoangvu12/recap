@@ -42,7 +42,26 @@ export type Meeting = {
 	-- What the user should know now: a provider failed, the backup took
 	-- over, the meeting can't be saved ("" or nil: nothing).
 	notice: string?,
+	-- A refined transcript's speakers, in order (the header's chips); empty
+	-- for a live one.
+	speakers: { SpeakerChip }?,
 }
+
+-- After Stop: a step of the meeting's processing (crates/app/src/processing.rs).
+export type StepStatus = "pending" | "running" | "done" | "error"
+export type Step = {
+	id: "transcribing" | "naming_speakers" | "writing_summary",
+	label: string,
+	status: StepStatus,
+	-- How long it took, once done.
+	took_ms: number,
+	-- Why it failed ("" unless status is "error").
+	error: string,
+}
+
+-- The processing of the meeting the Notes window shows; no steps when
+-- there is none to show (live, or done).
+export type Processing = { id: string, steps: { Step } }
 
 export type MeetingStatus = "recording" | "processing" | "done"
 
@@ -77,6 +96,9 @@ export type Transcript = {
 	open: { [string]: Row },
 	-- Final rows sent again because they changed (an echo taken back).
 	revised: { [string]: Row }?,
+	-- Changes when the transcript is another one (another meeting, or the
+	-- refined one replacing the live one): read every row again.
+	generation: number?,
 }
 
 -- A caption line: its transcript row's index (a new one is a new turn),
@@ -244,6 +266,10 @@ M.meeting = ui.shared("meeting", {
 } :: Meeting)
 
 M.transcript = ui.shared("transcript", { count = 0, open = {} } :: Transcript)
+
+-- The Notes window's meeting's processing (Transcribing, Naming speakers,
+-- Writing summary).
+M.processing = ui.shared("processing", { id = "", steps = {} } :: Processing)
 
 -- The overlay's lines, oldest first: the last few rows it may show.
 M.captions = ui.shared("captions", {} :: { CaptionLine })

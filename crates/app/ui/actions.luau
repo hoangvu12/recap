@@ -5,6 +5,7 @@ local host = require("@app/host")
 local state = require("@app/state")
 local meetings = require("@lib/meetings")
 local providers = require("@lib/providers")
+local processing = require("@lib/processing")
 
 local M = {}
 
@@ -16,13 +17,35 @@ function M.stop()
 	end
 end
 
--- The footer's primary action (↵): Stop while recording, Resume while paused.
+-- The footer's primary action (↵): Stop while recording, Resume while
+-- paused, Retry when a processing step failed.
 function M.primary()
-	if host.meeting:peek().state == "paused" then
+	local s = host.meeting:peek().state
+	if s == "paused" then
 		host.invoke("resume")
-	else
+	elseif s == "recording" then
 		M.stop()
+	elseif processing.failed(host.processing:peek()) then
+		M.retry_processing()
 	end
+end
+
+-- Process the meeting again from the step that failed (Retry).
+function M.retry_processing()
+	local p = host.processing:peek()
+	if p.id ~= "" then
+		host.invoke("retry_processing", p.id)
+	end
+end
+
+-- Close the Notes window while it processes (Hide Esc); it goes on.
+function M.hide_notes()
+	host.windows.notes:set(false)
+end
+
+-- "Use API key…": the providers, to fix what failed.
+function M.fix_providers()
+	M.open_settings("providers")
 end
 
 function M.toggle_pause()
