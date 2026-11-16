@@ -12,10 +12,13 @@ tokio = { workspace = true, features = ["process", "io-util", "fs"] }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
-# AI providers over HTTP (OpenAI-compatible, Anthropic); shared with the
-# speech engines.
+futures.workspace = true
+# ElevenLabs (and later Deepgram): the realtime websocket and the batch
+# upload; the HTTP AI providers (OpenAI-compatible, Anthropic).
 reqwest.workspace = true
-# A `cli` provider runs from an empty temp folder.
+tokio-tungstenite.workspace = true
+base64.workspace = true
+# A `cli` AI provider runs from an empty temp folder.
 tempfile = "3"
 
 [target.'cfg(windows)'.dependencies]

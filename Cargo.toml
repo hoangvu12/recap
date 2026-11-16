@@ -24,7 +24,10 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
 futures = "0.3"
+# Provider adapters: HTTP and websockets over SChannel (native-tls on Windows).
 reqwest = { version = "0.12", features = ["json", "multipart"] }
+tokio-tungstenite = { version = "0.30", features = ["native-tls"] }
+base64 = "0.22"
 # zgx is pinned by commit, at or after 24b3587 (earlier revisions leak a GDI
 # DC per DPI read and crash after 1-2 h). Keep every zgx line and the patch
 # block below on the same rev.

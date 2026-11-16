@@ -265,10 +265,22 @@ async fn test_without_a_key_asks_for_one() {
 #[tokio::test]
 async fn adapters_not_built_yet_say_so() {
     let (providers, secrets) = providers();
-    secrets.set("elevenlabs", "sk_test").unwrap();
-    let outcome = providers.test(Draft { id: Some("elevenlabs".into()), ..Draft::new("elevenlabs") }).await;
+    secrets.set("deepgram", "dg_test").unwrap();
+    let outcome = providers.test(Draft { id: Some("deepgram".into()), ..Draft::new("deepgram") }).await;
     assert!(!outcome.ok);
     assert!(outcome.error.unwrap().contains("not built yet"));
+}
+
+#[test]
+fn elevenlabs_offers_live_captions_and_the_transcript() {
+    let (providers, secrets) = providers();
+    secrets.set("elevenlabs", "sk_test").unwrap();
+    let elevenlabs = providers.build("elevenlabs").unwrap();
+    assert!(elevenlabs.live().is_some() && elevenlabs.batch().is_some());
+    assert!(elevenlabs.llm().is_none());
+    // The Live job's main is ElevenLabs by default.
+    let live = providers.live(|_| {}).unwrap();
+    assert_eq!(recap_engine::LiveStt::name(&live), "ElevenLabs");
 }
 
 #[tokio::test]
@@ -293,7 +305,8 @@ fn a_job_whose_adapter_is_not_built_says_so() {
     let (providers, secrets) = providers();
     let error = providers.live(|_| {}).err().unwrap();
     assert_eq!(error.kind, ProviderErrorKind::Auth, "no key yet: {error:?}");
-    secrets.set("elevenlabs", "sk_test").unwrap();
+    providers.set_job(Job::Live, Slot::Main, Some("deepgram")).unwrap();
+    secrets.set("deepgram", "dg_test").unwrap();
     let error = providers.live(|_| {}).err().unwrap();
     assert!(error.message.contains("not built yet"), "{error:?}");
 }

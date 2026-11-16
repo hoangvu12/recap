@@ -31,5 +31,7 @@ pub use config::TranscriptInput;
 pub use job::{Job, Slot};
 pub use provider::{NotBuilt, Provider, ProviderSettings};
 pub use registry::{Family, Fields, Group, Kind, Preset, Registry};
+/// The ElevenLabs adapter, for tests that point it at a local fake.
+pub use stt::elevenlabs;
 pub use secrets::{Keyring, MemorySecrets, SecretError, Secrets, mask};
 pub use service::{Draft, Providers, ProvidersError, TestOutcome};
