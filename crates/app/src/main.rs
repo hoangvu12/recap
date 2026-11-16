@@ -1,9 +1,11 @@
-//! Recap. `recap [--inspect] [--seed]`
+//! Recap. `recap [--inspect] [--seed] [--settings]`
 //!
 //! - `--inspect` serves devtools (`zgx inspect`).
 //! - `--seed` stores the test meeting first (once), so Home has one.
+//! - `--settings` opens Settings too.
 //!
-//! Meetings live in `RECAP_DATA` if set, else `%LOCALAPPDATA%\Recap`.
+//! Meetings live in `RECAP_DATA` if set, else `%LOCALAPPDATA%\Recap`; the
+//! providers in `providers.json` there, their keys in Credential Manager.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::{
@@ -16,8 +18,10 @@ use recap::{
     fake, fonts,
     host::{self, Host},
     seed,
+    settings::ProvidersHost,
     windows::{self, Quit},
 };
+use recap_providers::{Keyring, Providers, Registry};
 use recap_storage::Store;
 use zgx_desktop::Application;
 
@@ -41,6 +45,12 @@ fn open_store(seed_it: bool) -> Option<Store> {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let devtools = std::env::args().any(|a| a == "--inspect") || zgx_script::inspect::asked();
     let store = open_store(std::env::args().any(|a| a == "--seed"));
+    let open_settings = std::env::args().any(|a| a == "--settings");
+    let providers = Providers::open(
+        Registry::builtin(),
+        store.as_ref().map(|s| s.root().join("providers.json")),
+        std::sync::Arc::new(Keyring::new()),
+    );
     // The engine's tasks and audio run here, off the UI thread; their
     // events reach it over channels.
     let engine = tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build()?;
@@ -72,6 +82,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         };
         host.script.action("start_notes", starter);
+        let providers_host = ProvidersHost::register(&host.script, providers.clone(), engine.handle().clone());
         if let Err(error) = host.script.reload() {
             eprintln!("recap: {error}");
         }
@@ -91,13 +102,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .flatten();
 
         host.open_window("home");
+        if open_settings {
+            host.open_window("settings");
+        }
 
         let saving = host.script.clone();
-        let keep = RefCell::new(Some((follow, server, host, engine)));
+        let keep = RefCell::new(Some((follow, server, host, providers_host, engine)));
         cx.on_closed(move || {
             saving.save();
-            if let Some((follow, server, host, engine)) = keep.borrow_mut().take() {
-                drop((follow, server, host));
+            if let Some((follow, server, host, providers_host, engine)) = keep.borrow_mut().take() {
+                drop((follow, server, host, providers_host));
                 engine.shutdown_background();
             }
         });

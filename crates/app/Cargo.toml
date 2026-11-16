@@ -13,7 +13,9 @@ path = "src/main.rs"
 [dependencies]
 recap-engine.workspace = true
 recap-storage.workspace = true
+recap-providers.workspace = true
 tokio.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 zgx.workspace = true
 zgx-desktop.workspace = true

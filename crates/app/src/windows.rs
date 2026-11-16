@@ -31,6 +31,9 @@ pub fn options(id: &str, title: &str, width: f64, height: f64, frame_autosave: O
         "notes" => WindowOptions { titlebar: Titlebar::Hidden, min_size: Some((360., 480.)), ..base },
         // The meetings list: a Raycast window, its search header moves it.
         "home" => WindowOptions { titlebar: Titlebar::Hidden, min_size: Some((640., 400.)), ..base },
+        // Settings (screens/8): its own "‹ › Settings" strip, Windows'
+        // caption buttons over its top right.
+        "settings" => WindowOptions { titlebar: Titlebar::Inset, min_size: Some((680., 480.)), ..base },
         // Captions over the call: frameless and above every window.
         "overlay" => WindowOptions {
             titlebar: Titlebar::Hidden,
@@ -131,8 +134,15 @@ mod tests {
     }
 
     #[test]
+    fn settings_draws_its_own_title_strip_under_the_caption_buttons() {
+        let o = options("settings", "Settings", 800., 732., Some("settings".into()));
+        assert_eq!(o.titlebar, Titlebar::Inset);
+        assert_eq!(o.min_size, Some((680., 480.)));
+    }
+
+    #[test]
     fn a_window_without_options_of_its_own_is_a_plain_window() {
-        let o = options("settings", "Settings", 640., 480., None);
+        let o = options("dialog", "Dialog", 640., 480., None);
         assert_eq!(o.titlebar, Titlebar::Standard);
         assert_eq!(o.level, WindowLevel::Normal);
     }

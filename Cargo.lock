@@ -2905,7 +2905,9 @@ name = "recap"
 version = "0.1.0"
 dependencies = [
  "recap-engine",
+ "recap-providers",
  "recap-storage",
+ "serde",
  "serde_json",
  "tempfile",
  "tokio",

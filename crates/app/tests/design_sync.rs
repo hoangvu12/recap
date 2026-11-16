@@ -42,6 +42,25 @@ fn every_design_token_is_in_both_themes() {
 }
 
 #[test]
+fn every_provider_logo_is_drawn_from_the_logo_board() {
+    let board = read("docs/design/screens.html");
+    let luau = read("crates/app/ui/lib/logos.luau");
+    let logos: Vec<&str> = luau.lines().filter(|l| l.trim_start().starts_with("[\"")).collect();
+    assert_eq!(logos.len(), 14);
+    for logo in &logos {
+        for path in logo.split("d=\"").skip(1) {
+            let d = &path[..path.find('"').unwrap()];
+            assert!(board.contains(d), "a logo path is not on the board: {logo}");
+        }
+    }
+    // Every preset's logo is there.
+    for preset in recap_providers::Registry::builtin().presets() {
+        let key = format!("[\"{}\"]", preset.logo);
+        assert!(logos.iter().any(|l| l.contains(&key)), "{} has no logo {}", preset.id, preset.logo);
+    }
+}
+
+#[test]
 fn every_icon_is_drawn_from_the_icons_board() {
     let board = read("docs/design/screens.html");
     let luau = read("crates/app/ui/lib/icons.luau");
