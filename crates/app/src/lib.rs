@@ -15,11 +15,18 @@
 //! - [`settings`]: Settings' host side: the providers, their jobs and Test.
 //! - [`user_settings`]: the other Settings pages: `Settings` (recap-storage)
 //!   saved, published and watched; storage folder and audio retention applied.
+//! - [`commands`]: what the tray, the hotkeys and the call toasts do.
+//! - [`tray`], [`hotkeys`], [`calls`], [`autostart`]: Recap living in the
+//!   tray (ticket #15, ADR 0011).
 
+pub mod autostart;
+pub mod calls;
+pub mod commands;
 pub mod export;
 pub mod fonts;
 pub mod home;
 pub mod host;
+pub mod hotkeys;
 pub mod live;
 pub mod naming;
 pub mod presenter;
@@ -28,5 +35,6 @@ pub mod seed;
 pub mod session;
 pub mod settings;
 pub mod summary;
+pub mod tray;
 pub mod user_settings;
 pub mod windows;

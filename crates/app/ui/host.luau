@@ -333,6 +333,14 @@ M.settings_error = ui.shared("settings_error", { field = "", message = "" } :: S
 -- The active microphones (Audio).
 M.microphones = ui.shared("microphones", {} :: { Microphone })
 
+-- Hotkeys the system refused (another app holds them), by id: what to say.
+M.hotkey_conflicts = ui.shared("hotkey_conflicts", {} :: { [string]: string })
+
+-- A call toast to show (crates/app/src/calls.rs): a new `seq` is a new one.
+-- Clicking it asks the host for `call_toast_clicked`.
+export type CallToast = { seq: number, title: string, body: string }
+M.call_toast = ui.shared("call_toast", { seq = 0, title = "", body = "" } :: CallToast)
+
 -- Which windows are open (crates/app/src/windows.rs makes them).
 M.windows = {
 	home = ui.shared("window.home", false),

@@ -8,6 +8,33 @@ local Keycap = require("@components/keycap")
 
 export type Props = { shown: ReadOnlyState<{ host.MeetingItem }>, selected: ReadOnlyState<string> }
 
+-- The Start notes hotkey as Settings has it, as keycaps; none when cleared.
+local function StartKeys(): Node
+	local keys = function(): string
+		return host.settings:get().hotkeys.start_notes
+	end
+	return ui.show(
+		function()
+			return keys() ~= ""
+		end,
+		ui.row {
+			id = "start-notes-keys",
+			gap = 2,
+			shrink = 0,
+			ui.each(
+				ui.computed(function(): { string }
+					return string.split(keys(), "+")
+				end),
+				function(key: string)
+					return Keycap(key)
+				end
+			),
+			-- The whole hotkey, for tests and assistive technology; not drawn.
+			ui.text { keys, id = "start-notes-hotkey", w = 0, h = 0, overflow = "clip", opacity = 0 },
+		}
+	)
+end
+
 local function StartRow(): Node
 	return ui.button {
 		id = "start-notes",
@@ -23,7 +50,7 @@ local function StartRow(): Node
 		on_click = actions.start_notes,
 		ui.row { w = 18, h = 18, shrink = 0, items = "center", Icon { name = "record", color = "$rc.rec" } },
 		ui.text { "Start new notes", grow = 1, basis = 0, text_size = 13, weight = 500, color = "$rc.text.primary" },
-		ui.row { gap = 2, Keycap("Ctrl"), Keycap("Alt"), Keycap("N") },
+		StartKeys(),
 	}
 end
 
