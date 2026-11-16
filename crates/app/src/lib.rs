@@ -17,6 +17,10 @@
 //!   saved, published and watched; storage folder and audio retention applied.
 //! - [`overlay`]: the caption overlay's window: hidden from capture, a tool
 //!   window, click-through and pin; switching the live engine.
+//! - [`speakers`]: naming speakers by hand: the Name speakers dialog's state
+//!   and renames kept.
+//! - [`playback`]: a line or a voice of the recording, played on a thread
+//!   of its own (rodio).
 //! - [`commands`]: what the tray, the hotkeys and the call toasts do.
 //! - [`tray`], [`hotkeys`], [`calls`], [`autostart`]: Recap living in the
 //!   tray (ticket #15, ADR 0011).
@@ -32,11 +36,13 @@ pub mod hotkeys;
 pub mod live;
 pub mod naming;
 pub mod overlay;
+pub mod playback;
 pub mod presenter;
 pub mod processing;
 pub mod seed;
 pub mod session;
 pub mod settings;
+pub mod speakers;
 pub mod summary;
 pub mod tray;
 pub mod user_settings;

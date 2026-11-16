@@ -30,6 +30,7 @@ use recap::{
     host::{self, Host},
     live::{StartOptions, capture_options},
     overlay::OverlayHost,
+    playback::{Output, Player, RodioOutput},
     processing::{Processing, ProcessingConfig},
     seed,
     session::{self, SessionConfig},
@@ -146,7 +147,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let tasks = cx.tasks.clone();
             Rc::new(move |task| tasks.spawn(task))
         };
-        host.set_processor(process, spawn);
+        host.set_processor(process, spawn.clone());
+        // Lines and voices of a stored meeting, played on their own thread.
+        let (player, played) = Player::spawn(|| Box::new(RodioOutput::default()) as Box<dyn Output>);
+        host.set_player(player, played, &spawn);
         // Start new notes: capture (or a dev replay), live captions, saved.
         let starter = {
             let (host, tasks, runtime) = (host.clone(), cx.tasks.clone(), engine.handle().clone());

@@ -29,6 +29,14 @@ M.seen_count = ui.state("seen_count", 0)
 M.overlay_toolbar = ui.state("overlay_toolbar", false)
 M.captions_idle = ui.state("captions_idle", false)
 M.caption_shift = ui.state("caption_shift", { px = 0, count = 0 })
+-- The stored transcript's row last clicked (Play from here ↵); 0 none.
+M.selected_row = ui.state("selected_row", 0)
+-- The row whose speaker chip is being renamed inline (screens/5): its
+-- index (0 none) and speaker id; what the field holds; the suggestion
+-- highlighted (from 1).
+M.renaming = ui.state("renaming", { index = 0, speaker = "" })
+M.rename_text = ui.state("rename_text", "")
+M.rename_pick = ui.state("rename_pick", 1)
 -- Home: the selected meeting's id ("": the first shown) and the search text.
 M.home_selected = ui.state("home_selected", "")
 M.home_query = ui.state("home_query", "")

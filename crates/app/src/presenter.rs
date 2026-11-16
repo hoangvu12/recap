@@ -440,6 +440,7 @@ fn speaker_rows(info: &MeetingInfo, segments: &[recap_storage::Segment], pauses:
             "open": false,
             "speaker": label,
             "speaker_n": place.map_or(0, |i| i + 1),
+            "speaker_id": speaker,
         }));
     }
     for mark in pauses {

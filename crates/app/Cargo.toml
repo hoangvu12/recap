@@ -21,6 +21,9 @@ zgx.workspace = true
 zgx-desktop.workspace = true
 # `inspect`: devtools for `zgx inspect`, asked for with `--inspect`.
 zgx-script = { workspace = true, features = ["inspect"] }
+# Line playback and speaker clips, on a thread of their own (only PCM from
+# the recording is played: no decoders).
+rodio = { version = "0.23", default-features = false, features = ["playback"] }
 
 [target.'cfg(windows)'.dependencies]
 # The overlay's HWND: display affinity, tool-window style (src/overlay.rs).
