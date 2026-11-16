@@ -12,13 +12,13 @@ export type Page = {
 	icon: string,
 	page: (() -> Node)?,
 	-- Keys pressed in Settings while the page shows; true when taken.
-	on_key: ((e: { key: string, ctrl: boolean, shift: boolean, alt: boolean }) -> boolean)?,
+	on_key: ((e: { key: string, ctrl: boolean, shift: boolean, alt: boolean, meta: boolean? }) -> boolean)?,
 }
 
 local pages: { Page } = {
-	{ id = "general", label = "General", icon = "settings" },
-	{ id = "captions", label = "Captions", icon = "captions" },
-	{ id = "audio", label = "Audio", icon = "audio" },
+	{ id = "general", label = "General", icon = "settings", page = require("./general") },
+	{ id = "captions", label = "Captions", icon = "captions", page = require("./captions") },
+	{ id = "audio", label = "Audio", icon = "audio", page = require("./audio") },
 	{
 		id = "providers",
 		label = "Providers",
@@ -32,9 +32,9 @@ local pages: { Page } = {
 			return false
 		end,
 	},
-	{ id = "glossary", label = "Glossary", icon = "glossary" },
-	{ id = "shortcuts", label = "Shortcuts", icon = "keyboard" },
-	{ id = "storage", label = "Storage", icon = "storage" },
+	{ id = "glossary", label = "Glossary", icon = "glossary", page = require("./glossary") },
+	{ id = "shortcuts", label = "Shortcuts", icon = "keyboard", page = require("./shortcuts"), on_key = actions.hotkey_key },
+	{ id = "storage", label = "Storage", icon = "storage", page = require("./storage") },
 }
 
 return pages

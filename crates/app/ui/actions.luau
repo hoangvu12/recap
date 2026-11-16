@@ -79,6 +79,76 @@ end
 
 function M.show_settings_page(page: string)
 	state.settings_page:set(page)
+	state.hotkey_recording:set("")
+end
+
+-- Change settings: `patch` holds the fields that change
+-- ({ partial_text = false }); the host saves them.
+function M.set_settings(patch: { [string]: any })
+	host.invoke("set_settings", patch)
+end
+
+-- Add the glossary's draft term (Enter, + Add).
+function M.add_term()
+	local term = state.glossary_draft:peek()
+	if string.match(term, "%S") then
+		host.invoke("add_term", term)
+		state.glossary_draft:set("")
+	end
+end
+
+function M.remove_term(term: string)
+	host.invoke("remove_term", term)
+end
+
+-- Record the next keys pressed as hotkey `id`; again stops.
+function M.record_hotkey(id: string)
+	state.hotkey_recording:set(if state.hotkey_recording:peek() == id then "" else id)
+end
+
+-- The keys a hotkey being recorded takes from `e`: true when taken.
+-- Esc stops, Backspace clears it, modifiers alone wait for a key.
+function M.hotkey_key(e: { key: string, ctrl: boolean, shift: boolean, alt: boolean, meta: boolean? }): boolean
+	local id = state.hotkey_recording:peek()
+	if id == "" then
+		return false
+	end
+	local key = e.key
+	if key == "Escape" then
+		state.hotkey_recording:set("")
+		return true
+	end
+	if key == "Control" or key == "Shift" or key == "Alt" or key == "Meta" then
+		return true
+	end
+	if key == "Backspace" or key == "Delete" then
+		host.invoke("set_hotkey", { id = id, keys = "" })
+		state.hotkey_recording:set("")
+		return true
+	end
+	local parts = {}
+	if e.ctrl then
+		table.insert(parts, "Ctrl")
+	end
+	if e.alt then
+		table.insert(parts, "Alt")
+	end
+	if e.shift then
+		table.insert(parts, "Shift")
+	end
+	if e.meta then
+		table.insert(parts, "Win")
+	end
+	local names = { ArrowUp = "Up", ArrowDown = "Down", ArrowLeft = "Left", ArrowRight = "Right", [" "] = "Space" }
+	table.insert(parts, names[key] or (if #key == 1 then string.upper(key) else key))
+	host.invoke("set_hotkey", { id = id, keys = table.concat(parts, "+") })
+	state.hotkey_recording:set("")
+	return true
+end
+
+-- The Storage page's Change: a folder dialog, then the meetings there.
+function M.choose_storage_folder()
+	host.call("choose_storage_folder")
 end
 
 -- Make `provider` the main or backup of `job` (nil: no backup).
