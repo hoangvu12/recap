@@ -8,15 +8,18 @@ publish.workspace = true
 
 [dependencies]
 recap-engine.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["process", "io-util", "fs"] }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 futures.workspace = true
-# ElevenLabs (and later Deepgram): the realtime websocket and the batch upload.
+# ElevenLabs (and later Deepgram): the realtime websocket and the batch
+# upload; the HTTP AI providers (OpenAI-compatible, Anthropic).
 reqwest.workspace = true
 tokio-tungstenite.workspace = true
 base64.workspace = true
+# A `cli` AI provider runs from an empty temp folder.
+tempfile = "3"
 
 [target.'cfg(windows)'.dependencies]
 # API keys live in Windows Credential Manager, never in files (ADR 0005).
@@ -24,4 +27,3 @@ keyring = { version = "3.6", features = ["windows-native"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util", "net", "io-util"] }
-tempfile = "3"
