@@ -8,15 +8,19 @@ publish.workspace = true
 
 [dependencies]
 recap-engine.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["process", "io-util", "fs"] }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+# AI providers over HTTP (OpenAI-compatible, Anthropic): rustls + the
+# platform verifier (Windows certificate store).
+reqwest = { version = "0.13", features = ["json"] }
+# A `cli` provider runs from an empty temp folder.
+tempfile = "3"
 
 [target.'cfg(windows)'.dependencies]
 # API keys live in Windows Credential Manager, never in files (ADR 0005).
 keyring = { version = "3.6", features = ["windows-native"] }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["test-util"] }
-tempfile = "3"
+tokio = { workspace = true, features = ["test-util", "net", "io-util"] }

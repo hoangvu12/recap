@@ -255,8 +255,10 @@ async fn test_without_a_key_asks_for_one() {
     let outcome = providers.test(Draft::new("openrouter")).await;
     assert!(!outcome.ok);
     assert_eq!(outcome.error.as_deref(), Some("Add an API key"));
-    // A typed (unsaved) key is what is tested.
-    let outcome = providers.test(Draft { key: Some("sk-typed".into()), ..Draft::new("anthropic") }).await;
+    // A typed (unsaved) key is what is tested (against nothing: port 9).
+    let outcome = providers
+        .test(Draft { key: Some("sk-typed".into()), base_url: Some("http://127.0.0.1:9".into()), ..Draft::new("anthropic") })
+        .await;
     assert_ne!(outcome.error.as_deref(), Some("Add an API key"));
 }
 
