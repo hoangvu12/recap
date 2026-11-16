@@ -1,5 +1,5 @@
-//! How Start begins a meeting: its audio, its live captions provider and the
-//! settings it reads.
+//! How Start begins a meeting: its audio and its live captions provider
+//! (what it reads from Settings comes from SettingsHost, in main.rs).
 //!
 //! By default: live capture (mic + meeting audio) and the user's Live
 //! captions job (main with backup). Dev flags for tests and demos:
@@ -10,10 +10,7 @@
 //! - `--scripted`: the test script (testdata/meeting_tts_script.txt) instead
 //!   of a provider; without `--replay`, over silence.
 
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{path::PathBuf, sync::Arc};
 
 use recap_engine::{
     AudioFrame, AudioSource, BoxFuture, Capabilities, LiveEvent, LiveOptions, LiveStt, ProviderError, Script,
@@ -123,39 +120,5 @@ impl LiveStt for Unavailable {
     ) -> BoxFuture<'static, Result<(), ProviderError>> {
         let error = self.0.clone();
         Box::pin(async move { Err(error) })
-    }
-}
-
-/// What a live meeting reads from the user's settings (`settings.json` in
-/// `home`, ticket #16's file). A minimal reader until `SettingsHost` lands
-/// here: "Caption my own speech" and the glossary as keyterms.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct LiveSettings {
-    pub caption_my_speech: bool,
-    pub live: LiveOptions,
-}
-
-impl LiveSettings {
-    pub fn load(home: &Path) -> Self {
-        let Some(json) = std::fs::read(home.join("settings.json"))
-            .ok()
-            .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
-        else {
-            return Self::default();
-        };
-        let keyterms = json["glossary"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter_map(|t| t.as_str())
-            .map(str::trim)
-            .filter(|t| !t.is_empty() && t.chars().count() <= 20)
-            .take(50)
-            .map(String::from)
-            .collect();
-        Self {
-            caption_my_speech: json["caption_my_speech"].as_bool().unwrap_or(false),
-            live: LiveOptions { keyterms, language: None },
-        }
     }
 }

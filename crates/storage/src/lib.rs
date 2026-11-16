@@ -23,15 +23,21 @@
 //! [`Store::set_summary`] after Stop. Readers: [`Store::list`],
 //! [`Store::meeting`], [`Store::transcript`] / [`Store::segments`] and
 //! [`Store::search`]. It is cheap to clone and shared across threads.
+//! [`Store::prune_audio`] applies audio retention.
+//!
+//! The user's [`Settings`] live in `settings.json` in Recap's home folder
+//! (beside the store unless a storage folder moves the meetings away).
 
 mod db;
 mod files;
 mod id;
+pub mod settings;
 mod store;
 
 use recap_engine::Source;
 use serde::{Deserialize, Serialize};
 
+pub use settings::{GlossaryError, Hotkeys, MeetingAudio, Settings, Theme};
 pub use store::Store;
 
 /// A meeting's id: its folder's name (when it started, UTC, `20261116-100000`).

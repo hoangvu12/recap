@@ -37,6 +37,26 @@ pub enum CaptureError {
     MeetingAudio(String),
 }
 
+/// The active capture devices as `(id, friendly name)`, for Settings to
+/// offer; empty when they can't be listed.
+pub fn microphones() -> Vec<(String, String)> {
+    // On a thread of its own: COM there is ours to set up (the UI thread's
+    // is the window system's).
+    std::thread::spawn(|| {
+        let _com = wasapi::initialize_mta();
+        let Ok(devices) = DeviceEnumerator::new().and_then(|e| e.get_device_collection(Direction::Capture)) else {
+            return Vec::new();
+        };
+        let count = devices.get_nbr_devices().unwrap_or(0);
+        (0..count)
+            .filter_map(|i| devices.get_device_at_index(i).ok())
+            .filter_map(|d| Some((d.get_id().ok()?, d.get_friendlyname().ok()?)))
+            .collect()
+    })
+    .join()
+    .unwrap_or_default()
+}
+
 /// The live [`AudioSource`]: mic and meeting audio, aligned. Dropping it stops
 /// capture.
 pub struct LiveCapture {

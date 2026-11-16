@@ -1,6 +1,6 @@
-//! How Start begins a meeting: dev flags, and the settings it reads.
+//! How Start begins a meeting: the dev flags.
 
-use recap::live::{Audio, LiveSettings, StartOptions};
+use recap::live::{Audio, StartOptions};
 
 fn options(args: &[&str]) -> StartOptions {
     StartOptions::from_args(args.iter().map(|a| a.to_string()))
@@ -27,18 +27,4 @@ fn a_replay_source_opens_the_wav_and_a_missing_one_says_so() {
     assert!(options(&["--replay", wav]).source().is_ok());
     let error = options(&["--replay", "no/such.wav"]).source().err().unwrap();
     assert!(error.contains("no/such.wav"), "{error}");
-}
-
-#[test]
-fn live_settings_read_my_captions_and_the_glossary() {
-    let dir = tempfile::tempdir().unwrap();
-    assert_eq!(LiveSettings::load(dir.path()), LiveSettings::default());
-    std::fs::write(
-        dir.path().join("settings.json"),
-        r#"{ "my_name": "Vu", "caption_my_speech": true, "glossary": ["Priya", " Zeron ", "", "a term far longer than twenty"] }"#,
-    )
-    .unwrap();
-    let settings = LiveSettings::load(dir.path());
-    assert!(settings.caption_my_speech);
-    assert_eq!(settings.live.keyterms, ["Priya", "Zeron"]);
 }

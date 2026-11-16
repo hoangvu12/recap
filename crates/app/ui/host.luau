@@ -182,6 +182,37 @@ export type ProviderTest = {
 	error: string,
 }
 
+-- The user's settings (crates/storage: Settings; crates/app/src/user_settings.rs).
+export type Hotkeys = { start_notes: string, pause: string, click_through: string, captions: string }
+export type Settings = {
+	my_name: string,
+	theme: "system" | "dark" | "light",
+	autostart: boolean,
+	caption_my_speech: boolean,
+	caption_size: number,
+	caption_lines: number,
+	partial_text: boolean,
+	hide_from_share: boolean,
+	-- A capture device's id; "" is the default communications device.
+	microphone: string,
+	-- "system", or an app's executable ("ms-teams.exe").
+	meeting_audio: string,
+	suggest_on_call: boolean,
+	glossary: { string },
+	-- "Ctrl+Alt+N"; "" is none.
+	hotkeys: Hotkeys,
+	-- "" is Recap's home folder.
+	storage_folder: string,
+	-- 0 keeps audio.
+	keep_audio_days: number,
+}
+
+-- Why the last change to `field` ("glossary", "hotkey.<id>", "storage",
+-- "save") was refused; "" when it wasn't.
+export type SettingsError = { field: string, message: string }
+
+export type Microphone = { id: string, name: string }
+
 export type Call = { name: string, arg: any }
 
 local M = {}
@@ -214,6 +245,30 @@ M.provider_test = ui.shared("provider_test", {
 	latency_ms = 0,
 	error = "",
 } :: ProviderTest)
+
+-- The user's settings, as saved (Settings' pages but Providers).
+M.settings = ui.shared("settings", {
+	my_name = "",
+	theme = "system",
+	autostart = false,
+	caption_my_speech = false,
+	caption_size = 20,
+	caption_lines = 2,
+	partial_text = true,
+	hide_from_share = true,
+	microphone = "",
+	meeting_audio = "system",
+	suggest_on_call = true,
+	glossary = {},
+	hotkeys = { start_notes = "Ctrl+Alt+N", pause = "Ctrl+Alt+P", click_through = "Ctrl+Alt+C", captions = "Ctrl+Alt+O" },
+	storage_folder = "",
+	keep_audio_days = 0,
+} :: Settings)
+
+M.settings_error = ui.shared("settings_error", { field = "", message = "" } :: SettingsError)
+
+-- The active microphones (Audio).
+M.microphones = ui.shared("microphones", {} :: { Microphone })
 
 -- Which windows are open (crates/app/src/windows.rs makes them).
 M.windows = {

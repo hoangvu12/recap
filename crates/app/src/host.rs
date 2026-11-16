@@ -52,7 +52,8 @@ pub struct Host {
     control: Rc<RefCell<Option<MeetingControl>>>,
     /// The stored meeting live now, until it is saved.
     live: Rc<RefCell<Option<MeetingId>>>,
-    store: Option<Store>,
+    /// Changes when Settings moves the storage folder.
+    store: Rc<RefCell<Option<Store>>>,
 }
 
 fn value(json: serde_json::Value) -> Value {
@@ -81,7 +82,7 @@ impl Host {
             presenter: Rc::new(RefCell::new(presenter)),
             control: Rc::default(),
             live: Rc::default(),
-            store,
+            store: Rc::new(RefCell::new(store)),
             script,
         };
         let presenter = host.presenter.clone();
@@ -103,6 +104,7 @@ impl Host {
         }
         let store = host.store.clone();
         host.script.function("meeting_detail", move |arg| {
+            let store = store.borrow().clone();
             let (Some(store), Some(id)) = (&store, meeting_id(&arg)) else {
                 return Value::Nil;
             };
@@ -130,11 +132,6 @@ impl Host {
         self.script.shared(&format!("window.{id}"), false).set(Value::Bool(true));
     }
 
-    /// Where meetings are saved (none: they run unsaved).
-    pub fn store(&self) -> Option<Store> {
-        self.store.clone()
-    }
-
     /// Tell the user `text` in the meeting's notice line.
     pub fn notice(&self, text: &str) {
         eprintln!("recap: {text}");
@@ -147,10 +144,22 @@ impl Host {
         self.control.borrow().is_some()
     }
 
+    /// The store meetings are read from and written to now.
+    pub fn store(&self) -> Option<Store> {
+        self.store.borrow().clone()
+    }
+
+    /// Read and write meetings in `store` from now on (Settings moved the
+    /// storage folder); Home lists its meetings.
+    pub fn set_store(&self, store: Option<Store>) {
+        *self.store.borrow_mut() = store;
+        self.refresh_meetings();
+    }
+
     /// Publish the stored meetings again (Home's list). The meeting live now
     /// joins it once it is saved.
     pub fn refresh_meetings(&self) {
-        let Some(store) = &self.store else { return };
+        let Some(store) = self.store() else { return };
         match store.list() {
             Ok(mut list) => {
                 if let Some(live) = &*self.live.borrow() {
@@ -169,7 +178,7 @@ impl Host {
             eprintln!("recap: a meeting is live; {id} stays closed");
             return;
         }
-        let Some(store) = &self.store else { return };
+        let Some(store) = self.store() else { return };
         let loaded = store.meeting(id).and_then(|m| Ok((m, store.transcript(id)?)));
         match loaded {
             Ok((Some(meeting), segments)) => {

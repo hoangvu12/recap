@@ -14,6 +14,8 @@ pub(crate) const INFO: &str = "info.json";
 pub(crate) const MY_NOTES: &str = "my_notes.md";
 pub(crate) const SUMMARY: &str = "summary.json";
 pub(crate) const SUMMARY_MD: &str = "summary.md";
+/// The recording (the recorder writes it; audio retention deletes it).
+pub(crate) const AUDIO: &str = "audio.ogg";
 
 pub(crate) fn transcript_file(kind: TranscriptKind) -> &'static str {
     match kind {
@@ -136,6 +138,15 @@ pub(crate) fn remove_dir(path: &Path) -> Result<()> {
     match fs::remove_dir_all(path) {
         Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(io(path)(e)),
         _ => Ok(()),
+    }
+}
+
+/// Remove the file at `path`; whether there was one.
+pub(crate) fn remove_file(path: &Path) -> Result<bool> {
+    match fs::remove_file(path) {
+        Ok(()) => Ok(true),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(e) => Err(io(path)(e)),
     }
 }
 
