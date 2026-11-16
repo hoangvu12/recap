@@ -70,6 +70,107 @@ export type Transcript = {
 
 export type CaptionLine = { source: Source, final: string, partial: string }
 
+-- Providers (crates/providers: Providers::view). Ids are the registry's.
+export type JobId = "live" | "transcript" | "summary"
+export type Family = "stt" | "ai"
+
+-- A job and its main and backup (provider ids).
+export type JobChoice = {
+	id: JobId,
+	label: string,
+	family: Family,
+	-- The capabilities a speech engine needs for it ("live", "batch",
+	-- "diarize", "keyterms", "word_timestamps").
+	needs: { string },
+	main: string?,
+	backup: string?,
+}
+
+-- What a form asks for.
+export type Fields = { key: boolean, model: boolean, base_url: boolean, command: boolean, name: boolean }
+
+export type Capabilities = {
+	live: boolean,
+	batch: boolean,
+	diarize: boolean,
+	keyterms: boolean,
+	word_timestamps: boolean,
+}
+
+export type TestOutcome = { ok: boolean, latency_ms: number, error: string? }
+
+-- A provider: a speech engine (always there) or an AI provider the user
+-- added.
+export type ProviderRow = {
+	id: string,
+	preset: string,
+	kind: string,
+	family: Family,
+	name: string,
+	-- A logo of lib/logos.luau.
+	logo: string,
+	capabilities: Capabilities,
+	fields: Fields,
+	key_hint: string,
+	-- The key, masked ("sk_••••3f9a"); "" without one. Never the key.
+	key_mask: string,
+	-- Beside the name: a model, or a command's program.
+	subtitle: string,
+	-- At the end: the masked key, or where a local one runs.
+	trailing: string,
+	model: string,
+	base_url: string,
+	command: string,
+	input: "stdin" | "file",
+	-- Its last Test this run.
+	tested: TestOutcome?,
+}
+
+export type Group = "speech" | "api" | "local" | "cli" | "custom"
+
+-- What a provider can be added from (screens/8c).
+export type Preset = {
+	id: string,
+	name: string,
+	logo: string,
+	group: Group,
+	kind: string,
+	fields: Fields,
+	base_url: string,
+	model: string,
+	command: string,
+	detail: string,
+	key_hint: string,
+}
+
+export type Providers = {
+	jobs: { JobChoice },
+	stt: { ProviderRow },
+	ai: { ProviderRow },
+	presets: { Preset },
+}
+
+-- A provider as its form has it (crates/providers: Draft): `id` when
+-- saved, `key` only when typed.
+export type Draft = {
+	id: string?,
+	preset: string,
+	name: string?,
+	model: string?,
+	base_url: string?,
+	command: string?,
+	input: ("stdin" | "file")?,
+	key: string?,
+}
+
+-- The Test button of the form `target` (a provider id, or "new:<preset>").
+export type ProviderTest = {
+	target: string,
+	status: "idle" | "running" | "ok" | "error",
+	latency_ms: number,
+	error: string,
+}
+
 export type Call = { name: string, arg: any }
 
 local M = {}
@@ -92,11 +193,23 @@ M.captions = ui.shared("captions", {} :: { CaptionLine })
 -- The stored meetings, newest first (Home).
 M.meetings = ui.shared("meetings", {} :: { MeetingItem })
 
+-- The providers and each job's main and backup (Settings, Providers).
+M.providers = ui.shared("providers", { jobs = {}, stt = {}, ai = {}, presets = {} } :: Providers)
+
+-- The open provider form's Test.
+M.provider_test = ui.shared("provider_test", {
+	target = "",
+	status = "idle",
+	latency_ms = 0,
+	error = "",
+} :: ProviderTest)
+
 -- Which windows are open (crates/app/src/windows.rs makes them).
 M.windows = {
 	home = ui.shared("window.home", false),
 	notes = ui.shared("window.notes", false),
 	overlay = ui.shared("window.overlay", false),
+	settings = ui.shared("window.settings", false),
 }
 
 -- Without a host: what the UI asked for, and the rows and details a test
@@ -118,6 +231,16 @@ end
 function M.invoke(name: string, arg: any?)
 	if M.connected:peek() then
 		ui.invoke(name, arg)
+	else
+		M.calls:push({ name = name, arg = arg or ui.null })
+	end
+end
+
+-- Ask the host for `name`, an async action whose answer comes back as
+-- shared state (test_provider). Without a host it is kept in `calls`.
+function M.call(name: string, arg: any?)
+	if M.connected:peek() then
+		ui.call(name, arg)
 	else
 		M.calls:push({ name = name, arg = arg or ui.null })
 	end

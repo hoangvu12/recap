@@ -140,6 +140,10 @@ return function(): Node
 				actions.toggle_actions()
 				return true
 			end
+			if e.ctrl and e.key == "," then
+				actions.open_settings()
+				return true
+			end
 			if e.key == "ArrowDown" or e.key == "ArrowUp" then
 				actions.move_selection(if e.key == "ArrowDown" then 1 else -1)
 				return true

@@ -4,6 +4,7 @@
 local host = require("@app/host")
 local state = require("@app/state")
 local meetings = require("@lib/meetings")
+local providers = require("@lib/providers")
 
 local M = {}
 
@@ -64,6 +65,133 @@ end
 -- Open Home's selected meeting (Enter, Open Meeting).
 function M.open_selected()
 	M.open_meeting(meetings.pick(M.home_shown(), state.home_selected:peek()))
+end
+
+-- Settings ----------------------------------------------------------------
+
+-- Open Settings (Ctrl+, in Home), on `page` if given.
+function M.open_settings(page: string?)
+	if page then
+		state.settings_page:set(page)
+	end
+	host.windows.settings:set(true)
+end
+
+function M.show_settings_page(page: string)
+	state.settings_page:set(page)
+end
+
+-- Make `provider` the main or backup of `job` (nil: no backup).
+function M.choose_provider(job: string, slot: "main" | "backup", provider: string?)
+	host.invoke("set_job", { job = job, slot = slot, provider = provider or ui.null })
+end
+
+-- The Add provider list (Ctrl N).
+function M.open_add_provider()
+	state.provider_query:set("")
+	state.provider_selected:set("")
+	state.provider_sheet:set({ screen = "pick", preset = "", id = "" })
+end
+
+function M.close_provider_sheet()
+	state.provider_sheet:set({ screen = "closed", preset = "", id = "" })
+end
+
+-- The form of saved provider `id` (`row`) or of a new one from `preset`.
+local function open_form(preset: host.Preset?, row: host.ProviderRow?)
+	local f = state.form
+	f.key:set("")
+	f.name:set(if row then row.name else "")
+	f.model:set(if row then row.model elseif preset then preset.model else "")
+	f.base_url:set(if row then row.base_url elseif preset then preset.base_url else "")
+	f.command:set(if row then row.command elseif preset then preset.command else "")
+	f.input:set(if row then row.input else "stdin")
+	state.provider_sheet:set({
+		screen = "form",
+		preset = if row then row.preset elseif preset then preset.id else "",
+		id = if row then row.id else "",
+	})
+end
+
+-- Continue from the list to the selected preset's form.
+function M.pick_preset(id: string)
+	local preset = providers.preset(host.providers:peek().presets, id)
+	if preset then
+		open_form(preset, nil)
+	end
+end
+
+-- The list's selection, moved `delta` rows (the arrows).
+function M.move_preset(delta: number)
+	local shown = providers.shown(host.providers:peek().presets, state.provider_query:peek())
+	if #shown == 0 then
+		return
+	end
+	local at = 1
+	for i, preset in shown do
+		if preset.id == state.provider_selected:peek() then
+			at = i
+		end
+	end
+	at = math.clamp(at + delta, 1, #shown)
+	state.provider_selected:set(shown[at].id)
+end
+
+-- The list's selected preset (the first shown when none is).
+function M.selected_preset(): string
+	local shown = providers.shown(host.providers:peek().presets, state.provider_query:peek())
+	for _, preset in shown do
+		if preset.id == state.provider_selected:peek() then
+			return preset.id
+		end
+	end
+	return if shown[1] then shown[1].id else ""
+end
+
+-- Edit saved provider `id` (a row's click, Change).
+function M.edit_provider(id: string)
+	local row = providers.find(host.providers:peek(), id)
+	if row then
+		open_form(nil, row)
+	end
+end
+
+-- The open form as a Draft: what it shows, the key only if typed.
+function M.draft(): host.Draft
+	local sheet = state.provider_sheet:peek()
+	local f = state.form
+	local key = f.key:peek()
+	return {
+		id = if sheet.id ~= "" then sheet.id else nil,
+		preset = sheet.preset,
+		name = f.name:peek(),
+		model = f.model:peek(),
+		base_url = f.base_url:peek(),
+		command = f.command:peek(),
+		input = f.input:peek() :: any,
+		key = if key ~= "" then key else nil,
+	}
+end
+
+-- The form's Test button.
+function M.test_provider()
+	local sheet = state.provider_sheet:peek()
+	local draft = M.draft()
+	host.call("test_provider", { target = providers.target(sheet.id, sheet.preset), draft = draft })
+end
+
+-- The form's Add Provider / Save (Ctrl Enter).
+function M.save_provider()
+	if state.provider_sheet:peek().screen ~= "form" then
+		return
+	end
+	host.invoke("save_provider", M.draft())
+	M.close_provider_sheet()
+end
+
+function M.remove_provider(id: string)
+	host.invoke("remove_provider", id)
+	M.close_provider_sheet()
 end
 
 -- Back to the newest row of the live transcript.

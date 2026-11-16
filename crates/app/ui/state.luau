@@ -20,4 +20,28 @@ M.caption_lines = ui.state("caption_lines", 2)
 M.home_selected = ui.state("home_selected", "")
 M.home_query = ui.state("home_query", "")
 
+-- Settings: the page shown (screens/settings/pages.luau ids) and the
+-- sidebar's search.
+M.settings_page = ui.state("settings_page", "general")
+M.settings_query = ui.state("settings_query", "")
+
+-- The Add provider sheet over Settings: closed, the preset list
+-- (screens/8c) or a provider's form (8d, 8e). `id` is the saved provider a
+-- form edits ("" for a new one).
+export type ProviderSheet = { screen: "closed" | "pick" | "form", preset: string, id: string }
+M.provider_sheet = ui.state("provider_sheet", { screen = "closed", preset = "", id = "" } :: ProviderSheet)
+M.provider_query = ui.state("provider_query", "")
+-- The preset the list has selected ("": the first shown).
+M.provider_selected = ui.state("provider_selected", "")
+
+-- The open form's fields. The key is only what was typed.
+M.form = {
+	name = ui.state("form_name", ""),
+	key = ui.state("form_key", ""),
+	model = ui.state("form_model", ""),
+	base_url = ui.state("form_base_url", ""),
+	command = ui.state("form_command", ""),
+	input = ui.state("form_input", "stdin"),
+}
+
 return M

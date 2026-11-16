@@ -10,6 +10,7 @@ local host = require("@app/host")
 local Home = require("@screens/home")
 local Notes = require("@screens/notes")
 local Overlay = require("@screens/overlay")
+local Settings = require("@screens/settings")
 
 ui.window {
 	id = "home",
@@ -29,6 +30,16 @@ ui.window {
 	height = 900,
 	frame_autosave = "notes",
 	Notes(),
+}
+
+ui.window {
+	id = "settings",
+	title = "Settings",
+	open = host.windows.settings,
+	width = 800,
+	height = 732,
+	frame_autosave = "settings",
+	Settings(),
 }
 
 ui.window {
