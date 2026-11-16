@@ -47,6 +47,20 @@ test("after Stop the card shows the three steps over the live transcript", funct
 	expect(win:has("#processing-error")).to_be(false)
 end)
 
+-- Seen in the real app: Summary was clickable at once after Stop, onto an
+-- empty summary (screens/16 has it dimmed while the card works).
+test("the Summary tab waits while the card works, and opens once it failed or is done", function()
+	local app = mount()
+	local win = stopped(app, steps("running", "pending", "pending"))
+	local function dimmed()
+		return string.find(string.split(win:tree("#tab-summary"), "\n")[1], "disabled", 1, true) ~= nil
+	end
+	expect(dimmed()).to_be(true)
+	app:set_state("processing", steps("error", "pending", "pending", "ElevenLabs has no API key"))
+	app:frames(2)
+	expect(dimmed()).to_be(false)
+end)
+
 test("a done step turns into a check with the time it took", function()
 	local app = mount()
 	local win = stopped(app, steps("running", "pending", "pending"))
