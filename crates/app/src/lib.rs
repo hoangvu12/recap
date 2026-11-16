@@ -9,7 +9,8 @@
 //! - [`processing`]: the after-Stop pipeline, a resumable job queue of steps.
 //! - [`naming`], [`summary`]: its AI steps, Naming speakers and Writing
 //!   summary; the summary's Markdown, its ticks and the Summary tab's state.
-//! - [`home`]: the meetings list and detail pane, from the store (pure).
+//! - [`home`]: the meetings list, search and detail pane, from the store (pure).
+//! - [`export`]: a meeting as Markdown, its export file name, Show in folder.
 //! - [`seed`]: `--seed` stores the test meeting, so Home has one.
 //! - [`settings`]: Settings' host side: the providers, their jobs and Test.
 //! - [`user_settings`]: the other Settings pages: `Settings` (recap-storage)
@@ -21,6 +22,7 @@
 pub mod autostart;
 pub mod calls;
 pub mod commands;
+pub mod export;
 pub mod fonts;
 pub mod home;
 pub mod host;

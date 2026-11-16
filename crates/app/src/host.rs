@@ -6,7 +6,8 @@
 //!          meeting          { state, elapsed_ms, title, started_ms, id, notice }
 //!          transcript       { count, open = { ["7"] = Row }, revised? = { ["2"] = Row } }
 //!          captions         { { source, final, partial } }, oldest first
-//!          meetings         { { id, title, started_ms, duration_ms, status } }, newest first
+//!          meetings         { { id, title, started_ms, duration_ms, status, recover } },
+//!                           newest first
 //!          processing       { id, steps = { { id, label, status, took_ms, error } } }: the
 //!                           Notes window's meeting's processing (no steps: none to show)
 //!          summary          { id, overview, topics, next_steps, decisions }: the Notes
@@ -14,6 +15,10 @@
 //!          window.<id>     whether window <id> is open
 //! function transcript_row(i)    Row i (from 1), or nil
 //!          meeting_detail(id)   { id, title, overview, started_ms, duration_ms, status, speakers }
+//!          search_meetings(q)   the ids of the meetings holding every word of q
+//!          meeting_markdown { id, date }  { markdown, file_name }: Copy as Markdown, Export
+//! action   show_in_folder(id)   the recording selected in Explorer (else the folder)
+//!          delete_meeting(id)   its rows and its folder (the UI confirms first)
 //! action   stop, pause, resume  the running meeting
 //!          open_meeting(id)     a stored meeting in the Notes window, read mode; an
 //!                               unfinished one is processed again (Recover)
@@ -40,7 +45,7 @@ use tokio::sync::mpsc::UnboundedReceiver;
 use zgx_script::{ScriptHost, Shared, Value};
 
 use crate::{
-    home,
+    export, home,
     presenter::{Changed, Presenter},
     processing::{self, ProcessingEvent, Progress, StepId},
     session::{self, LiveSession, SessionConfig, SessionEvent},
@@ -203,8 +208,70 @@ impl Host {
                 eprintln!("recap: my notes of {id}: {error}");
             }
         });
+        let searcher = host.clone();
+        host.script.function("search_meetings", move |arg| {
+            let (Value::Str(query), Some(store)) = (&arg, searcher.store()) else {
+                return value(serde_json::json!([]));
+            };
+            value(home::search(&store, &query.to_string()))
+        });
+        let exporter = host.clone();
+        host.script.function("meeting_markdown", move |arg| {
+            let json: serde_json::Value = serde_json::from_str(&arg.to_json()).unwrap_or_default();
+            let (Some(id), Some(store)) = (json["id"].as_str().filter(|id| !id.is_empty()), exporter.store()) else {
+                return Value::Nil;
+            };
+            let id = MeetingId::from(id);
+            let markdown = export::meeting_markdown(&store, &id, json["date"].as_str().unwrap_or(""));
+            match (markdown, store.meeting(&id)) {
+                (Ok(markdown), Ok(Some(meeting))) => {
+                    value(serde_json::json!({ "markdown": markdown, "file_name": export::file_name(&meeting.info) }))
+                }
+                (Err(error), _) => {
+                    eprintln!("recap: markdown of {id}: {error}");
+                    Value::Nil
+                }
+                _ => Value::Nil,
+            }
+        });
+        let revealer = host.clone();
+        host.script.action("show_in_folder", move |arg| {
+            let (Some(id), Some(store)) = (meeting_id(&arg), revealer.store()) else { return };
+            if let Err(error) = export::reveal(&export::reveal_target(&store, &id)) {
+                revealer.notice(&format!("Can't show the folder: {error}"));
+            }
+        });
+        let deleter = host.clone();
+        host.script.action("delete_meeting", move |arg| {
+            if let Some(id) = meeting_id(&arg) {
+                deleter.delete_meeting(&id);
+            }
+        });
         host.refresh_meetings();
         host
+    }
+
+    /// Delete meeting `id`: its rows and its folder (the UI asked first).
+    /// Not while it is live or being processed. The Notes window closes if
+    /// it showed it.
+    pub fn delete_meeting(&self, id: &MeetingId) {
+        let Some(store) = self.store() else { return };
+        if self.live.borrow().as_ref() == Some(id) || self.is_processing(id) {
+            eprintln!("recap: {id} is live or processing; not deleted");
+            return;
+        }
+        if let Err(error) = store.delete(id) {
+            self.notice(&format!("Can't delete the meeting: {error}"));
+            return;
+        }
+        if !self.is_live() && self.presenter.borrow().id() == id.as_str() {
+            self.replace_presenter(Presenter::new(0));
+            self.processing.set(value(no_processing()));
+            self.summary.set(value(summary::no_view()));
+            self.publish(Changed { meeting: true, transcript: true, captions: true });
+            self.script.shared("window.notes", false).set(Value::Bool(false));
+        }
+        self.refresh_meetings();
     }
 
     /// Open window `id` (`ui/windows.luau` declares it).
@@ -285,7 +352,7 @@ impl Host {
                 if let Some(live) = &*self.live.borrow() {
                     list.retain(|m| m.id != *live);
                 }
-                self.meetings.set(value(home::meetings(&list)));
+                self.meetings.set(value(home::meetings(&store, &list)));
             }
             Err(error) => eprintln!("recap: meetings: {error}"),
         }

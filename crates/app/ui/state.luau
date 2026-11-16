@@ -8,8 +8,17 @@ local M = {}
 M.notes_tab = ui.state("notes_tab", "transcript" :: NotesTab)
 -- My notes (GLOSSARY): what the user types in the Notes tab.
 M.my_notes = ui.state("my_notes", "")
--- The action panel (Ctrl K); its content comes with ticket #13.
-M.actions_open = ui.state("actions_open", false)
+-- The action panel (Ctrl K): the window it is open in ("" closed), its
+-- search and its selected action ("": the first shown).
+export type Where = "home" | "notes"
+M.actions_open = ui.state("actions_open", "" :: Where | "")
+M.actions_query = ui.state("actions_query", "")
+M.actions_selected = ui.state("actions_selected", "")
+-- Delete meeting asks first: the meeting, and the window asking ("" none).
+export type ConfirmDelete = { id: string, title: string, where: Where | "" }
+M.confirm_delete = ui.state("confirm_delete", { id = "", title = "", where = "" } :: ConfirmDelete)
+-- The HUD pill ("Copied"), briefly; `seq` tells one from the next.
+M.hud = ui.state("hud", { text = "", seq = 0 })
 -- Whether the live transcript rests at its end (follows new rows).
 M.transcript_at_end = ui.state("transcript_at_end", true)
 -- Rows that arrived since the transcript was scrolled away from the end.
