@@ -13,8 +13,8 @@
 use std::{path::PathBuf, sync::Arc};
 
 use recap_engine::{
-    AudioFrame, AudioSource, BoxFuture, Capabilities, CaptureOptions, LiveEvent, LiveOptions, LiveStt, ProviderError,
-    Script, ScriptedLiveStt, SilenceSource, Source, WavSource,
+    AudioFrame, AudioSource, BatchStt, BoxFuture, Capabilities, CaptureOptions, LiveEvent, LiveOptions, LiveStt,
+    ProviderError, Script, ScriptedLiveStt, SilenceSource, Source, WavSource,
 };
 use recap_providers::{Providers, elevenlabs};
 use recap_storage::{MeetingAudio, Settings};
@@ -116,6 +116,25 @@ pub fn capture_options(settings: &Settings) -> CaptureOptions {
             MeetingAudio::System => None,
             MeetingAudio::App(exe) => Some(exe.clone()),
         },
+    }
+}
+
+impl StartOptions {
+    /// The after-Stop transcript's batch STT (the Transcript job), or why
+    /// there is none. A `--replay` with `ELEVENLABS_API_KEY` uses that key.
+    pub fn batch(
+        &self,
+        providers: &Providers,
+        notify: impl Fn(String) + Send + Sync + 'static,
+    ) -> Result<Arc<dyn BatchStt>, ProviderError> {
+        if matches!(self.audio, Audio::Replay(_))
+            && let Some(key) = std::env::var("ELEVENLABS_API_KEY").ok().filter(|k| !k.trim().is_empty())
+        {
+            return Ok(Arc::new(elevenlabs::ElevenLabs::new("ElevenLabs", key.trim(), elevenlabs::Config::default())));
+        }
+        let on_switch =
+            move |n: recap_engine::FallbackNotice| notify(format!("{} failed ({}); switched to {}", n.from, n.error.message, n.to));
+        providers.batch(on_switch).map(|job| Arc::new(job) as Arc<dyn BatchStt>)
     }
 }
 

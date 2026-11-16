@@ -1,0 +1,1744 @@
+{
+  "words": [
+    {
+      "text": "Okay,",
+      "start_ms": 160,
+      "end_ms": 460,
+      "speaker": null
+    },
+    {
+      "text": "let's",
+      "start_ms": 800,
+      "end_ms": 1000,
+      "speaker": null
+    },
+    {
+      "text": "get",
+      "start_ms": 1020,
+      "end_ms": 1160,
+      "speaker": null
+    },
+    {
+      "text": "started.",
+      "start_ms": 1260,
+      "end_ms": 1620,
+      "speaker": null
+    },
+    {
+      "text": "Thanks",
+      "start_ms": 2340,
+      "end_ms": 2600,
+      "speaker": null
+    },
+    {
+      "text": "for",
+      "start_ms": 2680,
+      "end_ms": 2760,
+      "speaker": null
+    },
+    {
+      "text": "joining,",
+      "start_ms": 2860,
+      "end_ms": 3160,
+      "speaker": null
+    },
+    {
+      "text": "Priya",
+      "start_ms": 3520,
+      "end_ms": 3860,
+      "speaker": null
+    },
+    {
+      "text": "and",
+      "start_ms": 3880,
+      "end_ms": 3980,
+      "speaker": null
+    },
+    {
+      "text": "David.",
+      "start_ms": 4059,
+      "end_ms": 4400,
+      "speaker": null
+    },
+    {
+      "text": "Today,",
+      "start_ms": 5080,
+      "end_ms": 5320,
+      "speaker": null
+    },
+    {
+      "text": "I",
+      "start_ms": 5440,
+      "end_ms": 5480,
+      "speaker": null
+    },
+    {
+      "text": "want",
+      "start_ms": 5520,
+      "end_ms": 5680,
+      "speaker": null
+    },
+    {
+      "text": "to",
+      "start_ms": 5720,
+      "end_ms": 5820,
+      "speaker": null
+    },
+    {
+      "text": "settle",
+      "start_ms": 5860,
+      "end_ms": 6100,
+      "speaker": null
+    },
+    {
+      "text": "the",
+      "start_ms": 6140,
+      "end_ms": 6220,
+      "speaker": null
+    },
+    {
+      "text": "launch",
+      "start_ms": 6280,
+      "end_ms": 6540,
+      "speaker": null
+    },
+    {
+      "text": "date",
+      "start_ms": 6620,
+      "end_ms": 6820,
+      "speaker": null
+    },
+    {
+      "text": "for",
+      "start_ms": 6860,
+      "end_ms": 6960,
+      "speaker": null
+    },
+    {
+      "text": "the",
+      "start_ms": 7000,
+      "end_ms": 7060,
+      "speaker": null
+    },
+    {
+      "text": "mobile",
+      "start_ms": 7100,
+      "end_ms": 7340,
+      "speaker": null
+    },
+    {
+      "text": "app",
+      "start_ms": 7440,
+      "end_ms": 7580,
+      "speaker": null
+    },
+    {
+      "text": "and",
+      "start_ms": 7600,
+      "end_ms": 7680,
+      "speaker": null
+    },
+    {
+      "text": "agree",
+      "start_ms": 7720,
+      "end_ms": 7960,
+      "speaker": null
+    },
+    {
+      "text": "on",
+      "start_ms": 8020,
+      "end_ms": 8100,
+      "speaker": null
+    },
+    {
+      "text": "who",
+      "start_ms": 8140,
+      "end_ms": 8240,
+      "speaker": null
+    },
+    {
+      "text": "owns",
+      "start_ms": 8300,
+      "end_ms": 8500,
+      "speaker": null
+    },
+    {
+      "text": "the",
+      "start_ms": 8540,
+      "end_ms": 8600,
+      "speaker": null
+    },
+    {
+      "text": "remaining",
+      "start_ms": 8640,
+      "end_ms": 9020,
+      "speaker": null
+    },
+    {
+      "text": "work.",
+      "start_ms": 9120,
+      "end_ms": 9400,
+      "speaker": null
+    },
+    {
+      "text": "Thanks,",
+      "start_ms": 11080,
+      "end_ms": 11500,
+      "speaker": null
+    },
+    {
+      "text": "Tom.",
+      "start_ms": 11860,
+      "end_ms": 12220,
+      "speaker": null
+    },
+    {
+      "text": "Quick",
+      "start_ms": 12920,
+      "end_ms": 13100,
+      "speaker": null
+    },
+    {
+      "text": "status",
+      "start_ms": 13220,
+      "end_ms": 13600,
+      "speaker": null
+    },
+    {
+      "text": "from",
+      "start_ms": 13640,
+      "end_ms": 13820,
+      "speaker": null
+    },
+    {
+      "text": "design.",
+      "start_ms": 13860,
+      "end_ms": 14280,
+      "speaker": null
+    },
+    {
+      "text": "The",
+      "start_ms": 14920,
+      "end_ms": 15040,
+      "speaker": null
+    },
+    {
+      "text": "onboarding",
+      "start_ms": 15100,
+      "end_ms": 15540,
+      "speaker": null
+    },
+    {
+      "text": "screens",
+      "start_ms": 15640,
+      "end_ms": 15980,
+      "speaker": null
+    },
+    {
+      "text": "are",
+      "start_ms": 16040,
+      "end_ms": 16160,
+      "speaker": null
+    },
+    {
+      "text": "done,",
+      "start_ms": 16180,
+      "end_ms": 16460,
+      "speaker": null
+    },
+    {
+      "text": "and",
+      "start_ms": 16760,
+      "end_ms": 16840,
+      "speaker": null
+    },
+    {
+      "text": "the",
+      "start_ms": 16880,
+      "end_ms": 16960,
+      "speaker": null
+    },
+    {
+      "text": "new",
+      "start_ms": 17000,
+      "end_ms": 17160,
+      "speaker": null
+    },
+    {
+      "text": "checkout",
+      "start_ms": 17220,
+      "end_ms": 17620,
+      "speaker": null
+    },
+    {
+      "text": "flow",
+      "start_ms": 17740,
+      "end_ms": 18000,
+      "speaker": null
+    },
+    {
+      "text": "is",
+      "start_ms": 18060,
+      "end_ms": 18140,
+      "speaker": null
+    },
+    {
+      "text": "about",
+      "start_ms": 18180,
+      "end_ms": 18440,
+      "speaker": null
+    },
+    {
+      "text": "90%",
+      "start_ms": 18660,
+      "end_ms": 19280,
+      "speaker": null
+    },
+    {
+      "text": "finished.",
+      "start_ms": 19320,
+      "end_ms": 19760,
+      "speaker": null
+    },
+    {
+      "text": "I",
+      "start_ms": 20460,
+      "end_ms": 20520,
+      "speaker": null
+    },
+    {
+      "text": "still",
+      "start_ms": 20600,
+      "end_ms": 20820,
+      "speaker": null
+    },
+    {
+      "text": "need",
+      "start_ms": 20880,
+      "end_ms": 21020,
+      "speaker": null
+    },
+    {
+      "text": "to",
+      "start_ms": 21060,
+      "end_ms": 21180,
+      "speaker": null
+    },
+    {
+      "text": "fix",
+      "start_ms": 21220,
+      "end_ms": 21460,
+      "speaker": null
+    },
+    {
+      "text": "the",
+      "start_ms": 21500,
+      "end_ms": 21600,
+      "speaker": null
+    },
+    {
+      "text": "dark",
+      "start_ms": 21640,
+      "end_ms": 21840,
+      "speaker": null
+    },
+    {
+      "text": "mode",
+      "start_ms": 21940,
+      "end_ms": 22140,
+      "speaker": null
+    },
+    {
+      "text": "colors",
+      "start_ms": 22220,
+      "end_ms": 22560,
+      "speaker": null
+    },
+    {
+      "text": "on",
+      "start_ms": 22620,
+      "end_ms": 22700,
+      "speaker": null
+    },
+    {
+      "text": "the",
+      "start_ms": 22740,
+      "end_ms": 22820,
+      "speaker": null
+    },
+    {
+      "text": "payment",
+      "start_ms": 22880,
+      "end_ms": 23140,
+      "speaker": null
+    },
+    {
+      "text": "page.",
+      "start_ms": 23280,
+      "end_ms": 23640,
+      "speaker": null
+    },
+    {
+      "text": "From",
+      "start_ms": 25280,
+      "end_ms": 25440,
+      "speaker": null
+    },
+    {
+      "text": "the",
+      "start_ms": 25480,
+      "end_ms": 25580,
+      "speaker": null
+    },
+    {
+      "text": "backend",
+      "start_ms": 25620,
+      "end_ms": 25920,
+      "speaker": null
+    },
+    {
+      "text": "side,",
+      "start_ms": 26060,
+      "end_ms": 26340,
+      "speaker": null
+    },
+    {
+      "text": "the",
+      "start_ms": 26800,
+      "end_ms": 26920,
+      "speaker": null
+    },
+    {
+      "text": "payments",
+      "start_ms": 26960,
+      "end_ms": 27300,
+      "speaker": null
+    },
+    {
+      "text": "API",
+      "start_ms": 27380,
+      "end_ms": 27920,
+      "speaker": null
+    },
+    {
+      "text": "is",
+      "start_ms": 27960,
+      "end_ms": 28100,
+      "speaker": null
+    },
+    {
+      "text": "ready,",
+      "start_ms": 28140,
+      "end_ms": 28420,
+      "speaker": null
+    },
+    {
+      "text": "but",
+      "start_ms": 28920,
+      "end_ms": 29060,
+      "speaker": null
+    },
+    {
+      "text": "load",
+      "start_ms": 29100,
+      "end_ms": 29320,
+      "speaker": null
+    },
+    {
+      "text": "testing",
+      "start_ms": 29380,
+      "end_ms": 29720,
+      "speaker": null
+    },
+    {
+      "text": "showed",
+      "start_ms": 29840,
+      "end_ms": 30080,
+      "speaker": null
+    },
+    {
+      "text": "slow",
+      "start_ms": 30180,
+      "end_ms": 30400,
+      "speaker": null
+    },
+    {
+      "text": "responses",
+      "start_ms": 30460,
+      "end_ms": 31060,
+      "speaker": null
+    },
+    {
+      "text": "above",
+      "start_ms": 31120,
+      "end_ms": 31380,
+      "speaker": null
+    },
+    {
+      "text": "2,000",
+      "start_ms": 31540,
+      "end_ms": 32080,
+      "speaker": null
+    },
+    {
+      "text": "users.",
+      "start_ms": 32140,
+      "end_ms": 32540,
+      "speaker": null
+    },
+    {
+      "text": "I",
+      "start_ms": 33560,
+      "end_ms": 33620,
+      "speaker": null
+    },
+    {
+      "text": "think",
+      "start_ms": 33660,
+      "end_ms": 33880,
+      "speaker": null
+    },
+    {
+      "text": "we",
+      "start_ms": 33940,
+      "end_ms": 34040,
+      "speaker": null
+    },
+    {
+      "text": "need",
+      "start_ms": 34080,
+      "end_ms": 34280,
+      "speaker": null
+    },
+    {
+      "text": "one",
+      "start_ms": 34320,
+      "end_ms": 34480,
+      "speaker": null
+    },
+    {
+      "text": "more",
+      "start_ms": 34520,
+      "end_ms": 34720,
+      "speaker": null
+    },
+    {
+      "text": "week",
+      "start_ms": 34760,
+      "end_ms": 34920,
+      "speaker": null
+    },
+    {
+      "text": "to",
+      "start_ms": 34960,
+      "end_ms": 35100,
+      "speaker": null
+    },
+    {
+      "text": "add",
+      "start_ms": 35160,
+      "end_ms": 35280,
+      "speaker": null
+    },
+    {
+      "text": "caching",
+      "start_ms": 35380,
+      "end_ms": 35780,
+      "speaker": null
+    },
+    {
+      "text": "before",
+      "start_ms": 35800,
+      "end_ms": 36140,
+      "speaker": null
+    },
+    {
+      "text": "we",
+      "start_ms": 36180,
+      "end_ms": 36300,
+      "speaker": null
+    },
+    {
+      "text": "go",
+      "start_ms": 36320,
+      "end_ms": 36460,
+      "speaker": null
+    },
+    {
+      "text": "live.",
+      "start_ms": 36500,
+      "end_ms": 36820,
+      "speaker": null
+    },
+    {
+      "text": "One",
+      "start_ms": 38480,
+      "end_ms": 38640,
+      "speaker": null
+    },
+    {
+      "text": "more",
+      "start_ms": 38680,
+      "end_ms": 38860,
+      "speaker": null
+    },
+    {
+      "text": "week",
+      "start_ms": 38900,
+      "end_ms": 39100,
+      "speaker": null
+    },
+    {
+      "text": "pushes",
+      "start_ms": 39140,
+      "end_ms": 39420,
+      "speaker": null
+    },
+    {
+      "text": "us",
+      "start_ms": 39480,
+      "end_ms": 39600,
+      "speaker": null
+    },
+    {
+      "text": "to",
+      "start_ms": 39640,
+      "end_ms": 39720,
+      "speaker": null
+    },
+    {
+      "text": "December",
+      "start_ms": 39740,
+      "end_ms": 40120,
+      "speaker": null
+    },
+    {
+      "text": "1st.",
+      "start_ms": 40220,
+      "end_ms": 40600,
+      "speaker": null
+    },
+    {
+      "text": "Priya,",
+      "start_ms": 41280,
+      "end_ms": 41600,
+      "speaker": null
+    },
+    {
+      "text": "can",
+      "start_ms": 41960,
+      "end_ms": 42100,
+      "speaker": null
+    },
+    {
+      "text": "design",
+      "start_ms": 42140,
+      "end_ms": 42500,
+      "speaker": null
+    },
+    {
+      "text": "finish",
+      "start_ms": 42540,
+      "end_ms": 42820,
+      "speaker": null
+    },
+    {
+      "text": "the",
+      "start_ms": 42860,
+      "end_ms": 42940,
+      "speaker": null
+    },
+    {
+      "text": "dark",
+      "start_ms": 42980,
+      "end_ms": 43180,
+      "speaker": null
+    },
+    {
+      "text": "mode",
+      "start_ms": 43260,
+      "end_ms": 43440,
+      "speaker": null
+    },
+    {
+      "text": "work",
+      "start_ms": 43520,
+      "end_ms": 43720,
+      "speaker": null
+    },
+    {
+      "text": "by",
+      "start_ms": 43760,
+      "end_ms": 43880,
+      "speaker": null
+    },
+    {
+      "text": "then?",
+      "start_ms": 43920,
+      "end_ms": 44120,
+      "speaker": null
+    },
+    {
+      "text": "Yes,",
+      "start_ms": 45800,
+      "end_ms": 46100,
+      "speaker": null
+    },
+    {
+      "text": "I",
+      "start_ms": 46520,
+      "end_ms": 46520,
+      "speaker": null
+    },
+    {
+      "text": "can",
+      "start_ms": 46560,
+      "end_ms": 46720,
+      "speaker": null
+    },
+    {
+      "text": "finish",
+      "start_ms": 46780,
+      "end_ms": 47060,
+      "speaker": null
+    },
+    {
+      "text": "dark",
+      "start_ms": 47100,
+      "end_ms": 47320,
+      "speaker": null
+    },
+    {
+      "text": "mode",
+      "start_ms": 47420,
+      "end_ms": 47680,
+      "speaker": null
+    },
+    {
+      "text": "by",
+      "start_ms": 47720,
+      "end_ms": 47900,
+      "speaker": null
+    },
+    {
+      "text": "Friday,",
+      "start_ms": 47920,
+      "end_ms": 48340,
+      "speaker": null
+    },
+    {
+      "text": "so",
+      "start_ms": 48720,
+      "end_ms": 48860,
+      "speaker": null
+    },
+    {
+      "text": "that's",
+      "start_ms": 48920,
+      "end_ms": 49140,
+      "speaker": null
+    },
+    {
+      "text": "not",
+      "start_ms": 49180,
+      "end_ms": 49360,
+      "speaker": null
+    },
+    {
+      "text": "a",
+      "start_ms": 49400,
+      "end_ms": 49460,
+      "speaker": null
+    },
+    {
+      "text": "blocker.",
+      "start_ms": 49500,
+      "end_ms": 49900,
+      "speaker": null
+    },
+    {
+      "text": "Then",
+      "start_ms": 51560,
+      "end_ms": 51700,
+      "speaker": null
+    },
+    {
+      "text": "I'd",
+      "start_ms": 51760,
+      "end_ms": 51900,
+      "speaker": null
+    },
+    {
+      "text": "suggest",
+      "start_ms": 51940,
+      "end_ms": 52400,
+      "speaker": null
+    },
+    {
+      "text": "we",
+      "start_ms": 52460,
+      "end_ms": 52560,
+      "speaker": null
+    },
+    {
+      "text": "launch",
+      "start_ms": 52620,
+      "end_ms": 52880,
+      "speaker": null
+    },
+    {
+      "text": "on",
+      "start_ms": 52940,
+      "end_ms": 53040,
+      "speaker": null
+    },
+    {
+      "text": "December",
+      "start_ms": 53060,
+      "end_ms": 53480,
+      "speaker": null
+    },
+    {
+      "text": "1st",
+      "start_ms": 53600,
+      "end_ms": 53980,
+      "speaker": null
+    },
+    {
+      "text": "with",
+      "start_ms": 54480,
+      "end_ms": 54640,
+      "speaker": null
+    },
+    {
+      "text": "caching",
+      "start_ms": 54700,
+      "end_ms": 55080,
+      "speaker": null
+    },
+    {
+      "text": "in",
+      "start_ms": 55140,
+      "end_ms": 55220,
+      "speaker": null
+    },
+    {
+      "text": "place.",
+      "start_ms": 55300,
+      "end_ms": 55700,
+      "speaker": null
+    },
+    {
+      "text": "If",
+      "start_ms": 56680,
+      "end_ms": 56760,
+      "speaker": null
+    },
+    {
+      "text": "load",
+      "start_ms": 56820,
+      "end_ms": 57020,
+      "speaker": null
+    },
+    {
+      "text": "testing",
+      "start_ms": 57060,
+      "end_ms": 57440,
+      "speaker": null
+    },
+    {
+      "text": "still",
+      "start_ms": 57560,
+      "end_ms": 57720,
+      "speaker": null
+    },
+    {
+      "text": "fails,",
+      "start_ms": 57840,
+      "end_ms": 58200,
+      "speaker": null
+    },
+    {
+      "text": "we",
+      "start_ms": 58720,
+      "end_ms": 58860,
+      "speaker": null
+    },
+    {
+      "text": "fall",
+      "start_ms": 58900,
+      "end_ms": 59160,
+      "speaker": null
+    },
+    {
+      "text": "back",
+      "start_ms": 59200,
+      "end_ms": 59400,
+      "speaker": null
+    },
+    {
+      "text": "to",
+      "start_ms": 59440,
+      "end_ms": 59520,
+      "speaker": null
+    },
+    {
+      "text": "a",
+      "start_ms": 59580,
+      "end_ms": 59660,
+      "speaker": null
+    },
+    {
+      "text": "soft",
+      "start_ms": 59720,
+      "end_ms": 59980,
+      "speaker": null
+    },
+    {
+      "text": "launch",
+      "start_ms": 60060,
+      "end_ms": 60320,
+      "speaker": null
+    },
+    {
+      "text": "in",
+      "start_ms": 60380,
+      "end_ms": 60480,
+      "speaker": null
+    },
+    {
+      "text": "India",
+      "start_ms": 60540,
+      "end_ms": 60840,
+      "speaker": null
+    },
+    {
+      "text": "only.",
+      "start_ms": 60900,
+      "end_ms": 61220,
+      "speaker": null
+    },
+    {
+      "text": "Okay,",
+      "start_ms": 62860,
+      "end_ms": 63140,
+      "speaker": null
+    },
+    {
+      "text": "that",
+      "start_ms": 63540,
+      "end_ms": 63660,
+      "speaker": null
+    },
+    {
+      "text": "works",
+      "start_ms": 63720,
+      "end_ms": 63980,
+      "speaker": null
+    },
+    {
+      "text": "for",
+      "start_ms": 64019,
+      "end_ms": 64140,
+      "speaker": null
+    },
+    {
+      "text": "me.",
+      "start_ms": 64180,
+      "end_ms": 64360,
+      "speaker": null
+    },
+    {
+      "text": "Let's",
+      "start_ms": 65019,
+      "end_ms": 65220,
+      "speaker": null
+    },
+    {
+      "text": "make",
+      "start_ms": 65280,
+      "end_ms": 65420,
+      "speaker": null
+    },
+    {
+      "text": "it",
+      "start_ms": 65459,
+      "end_ms": 65519,
+      "speaker": null
+    },
+    {
+      "text": "official.",
+      "start_ms": 65560,
+      "end_ms": 65920,
+      "speaker": null
+    },
+    {
+      "text": "We",
+      "start_ms": 66580,
+      "end_ms": 66680,
+      "speaker": null
+    },
+    {
+      "text": "launch",
+      "start_ms": 66720,
+      "end_ms": 66940,
+      "speaker": null
+    },
+    {
+      "text": "on",
+      "start_ms": 67000,
+      "end_ms": 67100,
+      "speaker": null
+    },
+    {
+      "text": "December",
+      "start_ms": 67140,
+      "end_ms": 67500,
+      "speaker": null
+    },
+    {
+      "text": "1st,",
+      "start_ms": 67600,
+      "end_ms": 67960,
+      "speaker": null
+    },
+    {
+      "text": "and",
+      "start_ms": 68260,
+      "end_ms": 68340,
+      "speaker": null
+    },
+    {
+      "text": "the",
+      "start_ms": 68380,
+      "end_ms": 68480,
+      "speaker": null
+    },
+    {
+      "text": "India",
+      "start_ms": 68520,
+      "end_ms": 68800,
+      "speaker": null
+    },
+    {
+      "text": "soft",
+      "start_ms": 68900,
+      "end_ms": 69140,
+      "speaker": null
+    },
+    {
+      "text": "launch",
+      "start_ms": 69220,
+      "end_ms": 69460,
+      "speaker": null
+    },
+    {
+      "text": "is",
+      "start_ms": 69520,
+      "end_ms": 69600,
+      "speaker": null
+    },
+    {
+      "text": "the",
+      "start_ms": 69640,
+      "end_ms": 69720,
+      "speaker": null
+    },
+    {
+      "text": "backup",
+      "start_ms": 69760,
+      "end_ms": 70100,
+      "speaker": null
+    },
+    {
+      "text": "plan.",
+      "start_ms": 70180,
+      "end_ms": 70500,
+      "speaker": null
+    },
+    {
+      "text": "Agreed.",
+      "start_ms": 72100,
+      "end_ms": 72500,
+      "speaker": null
+    },
+    {
+      "text": "One",
+      "start_ms": 73200,
+      "end_ms": 73320,
+      "speaker": null
+    },
+    {
+      "text": "more",
+      "start_ms": 73400,
+      "end_ms": 73600,
+      "speaker": null
+    },
+    {
+      "text": "thing,",
+      "start_ms": 73660,
+      "end_ms": 73880,
+      "speaker": null
+    },
+    {
+      "text": "Tom.",
+      "start_ms": 74260,
+      "end_ms": 74600,
+      "speaker": null
+    },
+    {
+      "text": "Who",
+      "start_ms": 75280,
+      "end_ms": 75400,
+      "speaker": null
+    },
+    {
+      "text": "is",
+      "start_ms": 75460,
+      "end_ms": 75560,
+      "speaker": null
+    },
+    {
+      "text": "writing",
+      "start_ms": 75600,
+      "end_ms": 75900,
+      "speaker": null
+    },
+    {
+      "text": "the",
+      "start_ms": 75960,
+      "end_ms": 76020,
+      "speaker": null
+    },
+    {
+      "text": "release",
+      "start_ms": 76060,
+      "end_ms": 76380,
+      "speaker": null
+    },
+    {
+      "text": "notes?",
+      "start_ms": 76500,
+      "end_ms": 76860,
+      "speaker": null
+    },
+    {
+      "text": "Last",
+      "start_ms": 77560,
+      "end_ms": 77840,
+      "speaker": null
+    },
+    {
+      "text": "time,",
+      "start_ms": 77900,
+      "end_ms": 78120,
+      "speaker": null
+    },
+    {
+      "text": "nobody",
+      "start_ms": 78220,
+      "end_ms": 78540,
+      "speaker": null
+    },
+    {
+      "text": "owned",
+      "start_ms": 78600,
+      "end_ms": 78780,
+      "speaker": null
+    },
+    {
+      "text": "them,",
+      "start_ms": 78820,
+      "end_ms": 78940,
+      "speaker": null
+    },
+    {
+      "text": "and",
+      "start_ms": 79020,
+      "end_ms": 79100,
+      "speaker": null
+    },
+    {
+      "text": "they",
+      "start_ms": 79140,
+      "end_ms": 79260,
+      "speaker": null
+    },
+    {
+      "text": "went",
+      "start_ms": 79300,
+      "end_ms": 79480,
+      "speaker": null
+    },
+    {
+      "text": "out",
+      "start_ms": 79540,
+      "end_ms": 79680,
+      "speaker": null
+    },
+    {
+      "text": "late.",
+      "start_ms": 79740,
+      "end_ms": 80000,
+      "speaker": null
+    },
+    {
+      "text": "Good",
+      "start_ms": 81640,
+      "end_ms": 81760,
+      "speaker": null
+    },
+    {
+      "text": "point.",
+      "start_ms": 81860,
+      "end_ms": 82200,
+      "speaker": null
+    },
+    {
+      "text": "I'll",
+      "start_ms": 82840,
+      "end_ms": 82940,
+      "speaker": null
+    },
+    {
+      "text": "write",
+      "start_ms": 82960,
+      "end_ms": 83160,
+      "speaker": null
+    },
+    {
+      "text": "the",
+      "start_ms": 83200,
+      "end_ms": 83280,
+      "speaker": null
+    },
+    {
+      "text": "release",
+      "start_ms": 83320,
+      "end_ms": 83620,
+      "speaker": null
+    },
+    {
+      "text": "notes",
+      "start_ms": 83700,
+      "end_ms": 83940,
+      "speaker": null
+    },
+    {
+      "text": "and",
+      "start_ms": 83980,
+      "end_ms": 84060,
+      "speaker": null
+    },
+    {
+      "text": "share",
+      "start_ms": 84120,
+      "end_ms": 84300,
+      "speaker": null
+    },
+    {
+      "text": "a",
+      "start_ms": 84340,
+      "end_ms": 84400,
+      "speaker": null
+    },
+    {
+      "text": "draft",
+      "start_ms": 84440,
+      "end_ms": 84740,
+      "speaker": null
+    },
+    {
+      "text": "on",
+      "start_ms": 84780,
+      "end_ms": 84880,
+      "speaker": null
+    },
+    {
+      "text": "Wednesday.",
+      "start_ms": 84920,
+      "end_ms": 85340,
+      "speaker": null
+    },
+    {
+      "text": "I'll",
+      "start_ms": 86940,
+      "end_ms": 87080,
+      "speaker": null
+    },
+    {
+      "text": "also",
+      "start_ms": 87160,
+      "end_ms": 87500,
+      "speaker": null
+    },
+    {
+      "text": "send",
+      "start_ms": 87560,
+      "end_ms": 87720,
+      "speaker": null
+    },
+    {
+      "text": "the",
+      "start_ms": 87760,
+      "end_ms": 87840,
+      "speaker": null
+    },
+    {
+      "text": "load",
+      "start_ms": 87900,
+      "end_ms": 88100,
+      "speaker": null
+    },
+    {
+      "text": "test",
+      "start_ms": 88160,
+      "end_ms": 88400,
+      "speaker": null
+    },
+    {
+      "text": "report",
+      "start_ms": 88460,
+      "end_ms": 88820,
+      "speaker": null
+    },
+    {
+      "text": "to",
+      "start_ms": 88880,
+      "end_ms": 88960,
+      "speaker": null
+    },
+    {
+      "text": "the",
+      "start_ms": 89000,
+      "end_ms": 89080,
+      "speaker": null
+    },
+    {
+      "text": "whole",
+      "start_ms": 89120,
+      "end_ms": 89340,
+      "speaker": null
+    },
+    {
+      "text": "team",
+      "start_ms": 89400,
+      "end_ms": 89660,
+      "speaker": null
+    },
+    {
+      "text": "by",
+      "start_ms": 89700,
+      "end_ms": 89860,
+      "speaker": null
+    },
+    {
+      "text": "Thursday",
+      "start_ms": 89900,
+      "end_ms": 90380,
+      "speaker": null
+    },
+    {
+      "text": "so",
+      "start_ms": 90940,
+      "end_ms": 91060,
+      "speaker": null
+    },
+    {
+      "text": "everyone",
+      "start_ms": 91140,
+      "end_ms": 91560,
+      "speaker": null
+    },
+    {
+      "text": "can",
+      "start_ms": 91620,
+      "end_ms": 91780,
+      "speaker": null
+    },
+    {
+      "text": "see",
+      "start_ms": 91840,
+      "end_ms": 92000,
+      "speaker": null
+    },
+    {
+      "text": "the",
+      "start_ms": 92040,
+      "end_ms": 92120,
+      "speaker": null
+    },
+    {
+      "text": "numbers.",
+      "start_ms": 92160,
+      "end_ms": 92600,
+      "speaker": null
+    },
+    {
+      "text": "And",
+      "start_ms": 94240,
+      "end_ms": 94340,
+      "speaker": null
+    },
+    {
+      "text": "I'll",
+      "start_ms": 94420,
+      "end_ms": 94580,
+      "speaker": null
+    },
+    {
+      "text": "book",
+      "start_ms": 94620,
+      "end_ms": 94760,
+      "speaker": null
+    },
+    {
+      "text": "a",
+      "start_ms": 94820,
+      "end_ms": 94880,
+      "speaker": null
+    },
+    {
+      "text": "short",
+      "start_ms": 94940,
+      "end_ms": 95160,
+      "speaker": null
+    },
+    {
+      "text": "review",
+      "start_ms": 95220,
+      "end_ms": 95560,
+      "speaker": null
+    },
+    {
+      "text": "with",
+      "start_ms": 95600,
+      "end_ms": 95720,
+      "speaker": null
+    },
+    {
+      "text": "the",
+      "start_ms": 95760,
+      "end_ms": 95840,
+      "speaker": null
+    },
+    {
+      "text": "support",
+      "start_ms": 95880,
+      "end_ms": 96280,
+      "speaker": null
+    },
+    {
+      "text": "team",
+      "start_ms": 96340,
+      "end_ms": 96540,
+      "speaker": null
+    },
+    {
+      "text": "next",
+      "start_ms": 96620,
+      "end_ms": 96860,
+      "speaker": null
+    },
+    {
+      "text": "Monday",
+      "start_ms": 96940,
+      "end_ms": 97320,
+      "speaker": null
+    },
+    {
+      "text": "so",
+      "start_ms": 97700,
+      "end_ms": 97840,
+      "speaker": null
+    },
+    {
+      "text": "they",
+      "start_ms": 97880,
+      "end_ms": 98020,
+      "speaker": null
+    },
+    {
+      "text": "know",
+      "start_ms": 98060,
+      "end_ms": 98220,
+      "speaker": null
+    },
+    {
+      "text": "about",
+      "start_ms": 98320,
+      "end_ms": 98520,
+      "speaker": null
+    },
+    {
+      "text": "the",
+      "start_ms": 98560,
+      "end_ms": 98640,
+      "speaker": null
+    },
+    {
+      "text": "new",
+      "start_ms": 98700,
+      "end_ms": 98860,
+      "speaker": null
+    },
+    {
+      "text": "checkout",
+      "start_ms": 98920,
+      "end_ms": 99320,
+      "speaker": null
+    },
+    {
+      "text": "flow.",
+      "start_ms": 99440,
+      "end_ms": 99700,
+      "speaker": null
+    },
+    {
+      "text": "Great.",
+      "start_ms": 101360,
+      "end_ms": 101640,
+      "speaker": null
+    },
+    {
+      "text": "So",
+      "start_ms": 102320,
+      "end_ms": 102460,
+      "speaker": null
+    },
+    {
+      "text": "to",
+      "start_ms": 102500,
+      "end_ms": 102580,
+      "speaker": null
+    },
+    {
+      "text": "recap,",
+      "start_ms": 102620,
+      "end_ms": 103040,
+      "speaker": null
+    },
+    {
+      "text": "David",
+      "start_ms": 103360,
+      "end_ms": 103680,
+      "speaker": null
+    },
+    {
+      "text": "adds",
+      "start_ms": 103720,
+      "end_ms": 103920,
+      "speaker": null
+    },
+    {
+      "text": "caching",
+      "start_ms": 103980,
+      "end_ms": 104300,
+      "speaker": null
+    },
+    {
+      "text": "and",
+      "start_ms": 104320,
+      "end_ms": 104400,
+      "speaker": null
+    },
+    {
+      "text": "sends",
+      "start_ms": 104500,
+      "end_ms": 104720,
+      "speaker": null
+    },
+    {
+      "text": "the",
+      "start_ms": 104780,
+      "end_ms": 104840,
+      "speaker": null
+    },
+    {
+      "text": "load",
+      "start_ms": 104880,
+      "end_ms": 105020,
+      "speaker": null
+    },
+    {
+      "text": "test",
+      "start_ms": 105120,
+      "end_ms": 105320,
+      "speaker": null
+    },
+    {
+      "text": "report",
+      "start_ms": 105380,
+      "end_ms": 105740,
+      "speaker": null
+    },
+    {
+      "text": "Thursday.",
+      "start_ms": 105780,
+      "end_ms": 106220,
+      "speaker": null
+    },
+    {
+      "text": "Priya",
+      "start_ms": 106860,
+      "end_ms": 107200,
+      "speaker": null
+    },
+    {
+      "text": "fixes",
+      "start_ms": 107240,
+      "end_ms": 107580,
+      "speaker": null
+    },
+    {
+      "text": "dark",
+      "start_ms": 107600,
+      "end_ms": 107840,
+      "speaker": null
+    },
+    {
+      "text": "mode",
+      "start_ms": 107880,
+      "end_ms": 108100,
+      "speaker": null
+    },
+    {
+      "text": "by",
+      "start_ms": 108140,
+      "end_ms": 108300,
+      "speaker": null
+    },
+    {
+      "text": "Friday",
+      "start_ms": 108340,
+      "end_ms": 108680,
+      "speaker": null
+    },
+    {
+      "text": "and",
+      "start_ms": 108700,
+      "end_ms": 108800,
+      "speaker": null
+    },
+    {
+      "text": "sets",
+      "start_ms": 108880,
+      "end_ms": 109060,
+      "speaker": null
+    },
+    {
+      "text": "up",
+      "start_ms": 109120,
+      "end_ms": 109220,
+      "speaker": null
+    },
+    {
+      "text": "the",
+      "start_ms": 109260,
+      "end_ms": 109340,
+      "speaker": null
+    },
+    {
+      "text": "support",
+      "start_ms": 109380,
+      "end_ms": 109700,
+      "speaker": null
+    },
+    {
+      "text": "review.",
+      "start_ms": 109780,
+      "end_ms": 110140,
+      "speaker": null
+    },
+    {
+      "text": "I",
+      "start_ms": 110820,
+      "end_ms": 110860,
+      "speaker": null
+    },
+    {
+      "text": "write",
+      "start_ms": 110880,
+      "end_ms": 111060,
+      "speaker": null
+    },
+    {
+      "text": "the",
+      "start_ms": 111100,
+      "end_ms": 111180,
+      "speaker": null
+    },
+    {
+      "text": "release",
+      "start_ms": 111220,
+      "end_ms": 111560,
+      "speaker": null
+    },
+    {
+      "text": "notes",
+      "start_ms": 111620,
+      "end_ms": 111880,
+      "speaker": null
+    },
+    {
+      "text": "by",
+      "start_ms": 111920,
+      "end_ms": 112060,
+      "speaker": null
+    },
+    {
+      "text": "Wednesday.",
+      "start_ms": 112080,
+      "end_ms": 112500,
+      "speaker": null
+    },
+    {
+      "text": "Launch",
+      "start_ms": 113160,
+      "end_ms": 113380,
+      "speaker": null
+    },
+    {
+      "text": "is",
+      "start_ms": 113420,
+      "end_ms": 113520,
+      "speaker": null
+    },
+    {
+      "text": "December",
+      "start_ms": 113560,
+      "end_ms": 113920,
+      "speaker": null
+    },
+    {
+      "text": "1st.",
+      "start_ms": 114020,
+      "end_ms": 114400,
+      "speaker": null
+    },
+    {
+      "text": "Thanks,",
+      "start_ms": 115120,
+      "end_ms": 115380,
+      "speaker": null
+    },
+    {
+      "text": "everyone.",
+      "start_ms": 115480,
+      "end_ms": 115940,
+      "speaker": null
+    },
+    {
+      "text": "Talk",
+      "start_ms": 116300,
+      "end_ms": 116500,
+      "speaker": null
+    },
+    {
+      "text": "soon.",
+      "start_ms": 116600,
+      "end_ms": 116820,
+      "speaker": null
+    }
+  ]
+}

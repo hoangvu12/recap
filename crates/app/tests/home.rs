@@ -144,4 +144,63 @@ fn a_meeting_with_only_live_segments_reads_by_side() {
     assert_eq!(row["source"], "them");
     assert_eq!(row["final"], "Hello there.");
     assert_eq!(row.get("speaker"), None, "the chip says Them");
+    assert_eq!(p.meeting()["speakers"], serde_json::json!([]), "no speakers header for a live transcript");
+}
+
+fn segment(source: recap_engine::Source, speaker: Option<&str>, start_ms: u64, text: &str) -> recap_storage::Segment {
+    recap_storage::Segment { source, speaker: speaker.map(Into::into), start_ms, end_ms: start_ms + 2_000, text: text.into() }
+}
+
+fn pause(at_ms: u64) -> recap_engine::PauseMark {
+    recap_engine::PauseMark { at_ms, paused_ms: NOW + at_ms, resumed_ms: NOW + at_ms + 240_000 }
+}
+
+#[test]
+fn a_stored_meeting_shows_its_pauses_where_they_were() {
+    use recap_engine::Source::{Me, Them};
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    let info = store.create(NOW).unwrap();
+    store
+        .append_live(&info.id, &[segment(Them, None, 0, "Before the break."), segment(Them, None, 5_000, "After it.")])
+        .unwrap();
+    std::fs::write(
+        store.folder(&info.id).join(recap::session::PAUSES),
+        serde_json::to_vec(&[pause(4_000), pause(9_000)]).unwrap(),
+    )
+    .unwrap();
+    let pauses = recap::session::read_pauses(&store.folder(&info.id));
+    assert_eq!(pauses.len(), 2);
+
+    // The live transcript: the same side on both sides of a pause is two rows.
+    let p = Presenter::stored_with_pauses(&info, &store.transcript(&info.id).unwrap(), &pauses);
+    assert_eq!(p.transcript()["count"], 4);
+    assert_eq!(p.row(1)["final"], "Before the break.");
+    assert_eq!(p.row(2)["pause"], serde_json::json!({ "paused_ms": NOW + 4_000, "resumed_ms": NOW + 244_000 }));
+    assert_eq!(p.row(3)["final"], "After it.");
+    assert_eq!(p.row(4)["pause"]["paused_ms"], NOW + 9_000, "a pause at the end stays");
+
+    // The refined transcript too, with its speakers in the header.
+    store
+        .set_refined(
+            &info.id,
+            &[segment(Me, Some("me"), 0, "Let's start."), segment(Them, Some("S1"), 1_000, "Sure."), segment(Them, Some("S1"), 5_000, "Back again.")],
+        )
+        .unwrap();
+    let info = store
+        .update(&info.id, |m| {
+            m.speakers = vec![
+                recap_storage::Speaker { id: "me".into(), name: None },
+                recap_storage::Speaker { id: "S1".into(), name: None },
+            ]
+        })
+        .unwrap();
+    let p = Presenter::stored_with_pauses(&info, &store.transcript(&info.id).unwrap(), &pauses[..1]);
+    let rows: Vec<_> = (1..=4).map(|i| p.row(i)).collect();
+    assert_eq!(rows[0]["speaker"], "Me");
+    assert_eq!((rows[1]["speaker"].clone(), rows[1]["final"].clone()), ("Speaker 1".into(), "Sure.".into()));
+    assert!(rows[2]["pause"].is_object());
+    assert_eq!(rows[3]["final"], "Back again.", "a pause splits a speaker's turn");
+    assert_eq!(rows[3]["index"], 4);
+    assert_eq!(p.meeting()["speakers"], serde_json::json!([{ "label": "Me", "n": 1 }, { "label": "Speaker 1", "n": 2 }]));
 }

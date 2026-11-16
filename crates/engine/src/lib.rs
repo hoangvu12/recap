@@ -11,9 +11,9 @@
 //! the meeting is written to a stereo Ogg/Opus file by a [`Recorder`];
 //! [`Recording::read`] decodes one back.
 //!
-//! No UI and no storage live here. The app turns events into UI state; later
-//! tickets add the recorder, storage and the after-Stop processing behind the
-//! same seams ([`BatchStt`], [`Llm`]).
+//! No UI and no storage live here. The app turns events into UI state and
+//! runs the after-Stop processing (`recap::processing`) behind the same seams
+//! ([`BatchStt`], [`Llm`]); [`refine`] merges the two batch transcripts.
 //!
 //! [`fake`] holds the storage-free fakes: a [`SilenceSource`] and a
 //! [`ScriptedLiveStt`] that replays `testdata/meeting_tts_script.txt` as
@@ -31,6 +31,7 @@ mod live_meeting;
 pub mod process;
 mod provider;
 mod recorder;
+pub mod refine;
 mod timeline;
 mod transcript;
 mod wav_source;
@@ -39,6 +40,7 @@ pub use audio::{AudioFrame, AudioSource, CaptureOptions, FeedSource, FrameFeed, 
 #[cfg(windows)]
 pub use live_capture::{CaptureError, LiveCapture, microphones};
 pub use recorder::{Recorder, Recording};
+pub use refine::Turn;
 pub use timeline::{Packet, Timeline};
 pub use wav_source::WavSource;
 pub use event::{EngineEvent, MeetingResult, MeetingState, PauseMark, Segment, SegmentId, Source};

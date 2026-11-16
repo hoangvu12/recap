@@ -7,15 +7,16 @@
 //! back (its row loses its words) and a pause marker, a row of its own.
 //!
 //! A stored meeting ([`Presenter::stored`]) reads the same way, in read
-//! mode: stopped, every row final, rows of named speakers carrying the name.
+//! mode: stopped, every row final, rows of named speakers carrying the name,
+//! its pauses as marker rows.
 
 use std::collections::BTreeSet;
 
-use recap_engine::{EngineEvent, LiveTranscript, MeetingState, Row, Segment, SegmentId, Source};
+use recap_engine::{EngineEvent, LiveTranscript, MeetingState, PauseMark, Row, Segment, SegmentId, Source};
 use recap_storage::{MeetingInfo, Speaker};
 use serde_json::{Map, Value, json};
 
-use crate::home::speaker_label;
+use crate::home::{self, speaker_label};
 
 /// How many lines the overlay shows.
 pub const CAPTION_LINES: usize = 3;
@@ -49,6 +50,8 @@ pub struct Presenter {
     notice: String,
     /// Final rows changed after the UI read them (echoes taken back).
     revised: BTreeSet<usize>,
+    /// A refined transcript's speakers, as chips (`home::speakers`).
+    speakers: Value,
 }
 
 impl Presenter {
@@ -64,6 +67,7 @@ impl Presenter {
             my_captions: false,
             notice: String::new(),
             revised: BTreeSet::new(),
+            speakers: json!([]),
         }
     }
 
@@ -77,11 +81,23 @@ impl Presenter {
     /// Refined segments keep their speakers apart; live ones group by side as
     /// they did live.
     pub fn stored(info: &MeetingInfo, segments: &[recap_storage::Segment]) -> Self {
+        Self::stored_with_pauses(info, segments, &[])
+    }
+
+    /// [`Presenter::stored`] with the meeting's pauses (`pauses.json`): a
+    /// marker row where each was, before what was said after it.
+    pub fn stored_with_pauses(info: &MeetingInfo, segments: &[recap_storage::Segment], pauses: &[PauseMark]) -> Self {
+        let mut pauses: Vec<PauseMark> = pauses.to_vec();
+        pauses.sort_by_key(|p| p.at_ms);
         let rows = if segments.iter().any(|s| s.speaker.is_some()) {
-            speaker_rows(info, segments)
+            speaker_rows(info, segments, &pauses)
         } else {
             let mut live = LiveTranscript::default();
+            let mut pauses = pauses.iter().peekable();
             for (i, s) in segments.iter().enumerate() {
+                while let Some(mark) = pauses.next_if(|p| p.at_ms <= s.start_ms) {
+                    live.mark_pause(*mark);
+                }
                 live.apply(&Segment {
                     id: SegmentId(i as u64),
                     source: s.source,
@@ -90,6 +106,9 @@ impl Presenter {
                     text: s.text.clone(),
                     is_final: true,
                 });
+            }
+            for mark in pauses {
+                live.mark_pause(*mark);
             }
             live.rows().iter().map(row_value).collect()
         };
@@ -103,6 +122,7 @@ impl Presenter {
             my_captions: false,
             notice: String::new(),
             revised: BTreeSet::new(),
+            speakers: if segments.iter().any(|s| s.speaker.is_some()) { home::speakers(info) } else { json!([]) },
         }
     }
 
@@ -168,6 +188,11 @@ impl Presenter {
         self.state
     }
 
+    /// The stored meeting's id ("" until it is saved).
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
     /// `meeting`.
     pub fn meeting(&self) -> Value {
         json!({
@@ -177,6 +202,7 @@ impl Presenter {
             "started_ms": self.started_ms,
             "id": self.id,
             "notice": self.notice,
+            "speakers": self.speakers,
         })
     }
 
@@ -246,11 +272,29 @@ fn row_value(row: &Row) -> Value {
     value
 }
 
-/// One row per turn of a speaker: a speaker's segments in a row join.
-fn speaker_rows(info: &MeetingInfo, segments: &[recap_storage::Segment]) -> Vec<Value> {
+fn pause_value(index: usize, mark: &PauseMark) -> Value {
+    json!({
+        "index": index,
+        "source": "them",
+        "start_ms": mark.at_ms,
+        "final": "",
+        "partial": "",
+        "open": false,
+        "pause": { "paused_ms": mark.paused_ms, "resumed_ms": mark.resumed_ms },
+    })
+}
+
+/// One row per turn of a speaker: a speaker's segments in a row join. A
+/// pause (sorted) is a marker row before what was said after it.
+fn speaker_rows(info: &MeetingInfo, segments: &[recap_storage::Segment], pauses: &[PauseMark]) -> Vec<Value> {
     let mut rows: Vec<Value> = Vec::new();
     let mut last: Option<(&str, Source)> = None;
+    let mut pauses = pauses.iter().peekable();
     for s in segments {
+        while let Some(mark) = pauses.next_if(|p| p.at_ms <= s.start_ms) {
+            rows.push(pause_value(rows.len() + 1, mark));
+            last = None;
+        }
         let speaker = s.speaker.as_deref().unwrap_or("");
         if last == Some((speaker, s.source))
             && let Some(Value::String(text)) = rows.last_mut().and_then(|row| row.get_mut("final"))
@@ -275,6 +319,9 @@ fn speaker_rows(info: &MeetingInfo, segments: &[recap_storage::Segment]) -> Vec<
             "speaker": label,
             "speaker_n": place.map_or(0, |i| i + 1),
         }));
+    }
+    for mark in pauses {
+        rows.push(pause_value(rows.len() + 1, mark));
     }
     rows
 }
