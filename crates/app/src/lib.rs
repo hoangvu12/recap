@@ -3,17 +3,17 @@
 //! - [`presenter`]: engine events in, the UI's shared state out (pure).
 //! - [`host`]: the script host: shared keys, actions, functions.
 //! - [`windows`]: each `ui.window`'s native options, opened as its state says.
-//! - [`fake`]: a meeting replayed from the test script, for the UI without audio.
 //! - [`fonts`]: the bundled faces.
+//! - [`live`]: how Start begins a meeting (audio, live provider, dev flags).
+//! - [`session`]: a live meeting saved as it goes (engine + store).
 //! - [`home`]: the meetings list and detail pane, from the store (pure).
 //! - [`seed`]: `--seed` stores the test meeting, so Home has one.
-//! - [`session`]: a live meeting saved as it goes (engine + store).
 //! - [`settings`]: Settings' host side: the providers, their jobs and Test.
 
-pub mod fake;
 pub mod fonts;
 pub mod home;
 pub mod host;
+pub mod live;
 pub mod presenter;
 pub mod seed;
 pub mod session;

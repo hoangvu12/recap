@@ -1,8 +1,10 @@
-//! Recap. `recap [--inspect] [--seed] [--settings]`
+//! Recap. `recap [--inspect] [--seed] [--settings] [--replay <file.wav>] [--scripted]`
 //!
 //! - `--inspect` serves devtools (`zgx inspect`).
 //! - `--seed` stores the test meeting first (once), so Home has one.
 //! - `--settings` opens Settings too.
+//! - `--replay <file.wav>` / `--scripted`: dev meetings, started at once
+//!   (`recap::live` says what they replace).
 //!
 //! Meetings live in `RECAP_DATA` if set, else `%LOCALAPPDATA%\Recap`; the
 //! providers in `providers.json` there, their keys in Credential Manager.
@@ -15,9 +17,11 @@ use std::{
 };
 
 use recap::{
-    fake, fonts,
+    fonts,
     host::{self, Host},
+    live::{LiveSettings, StartOptions},
     seed,
+    session::{self, SessionConfig},
     settings::ProvidersHost,
     windows::{self, Quit},
 };
@@ -44,6 +48,9 @@ fn open_store(seed_it: bool) -> Option<Store> {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let devtools = std::env::args().any(|a| a == "--inspect") || zgx_script::inspect::asked();
+    let start_options = StartOptions::from_args(std::env::args().skip(1));
+    // settings.json's folder (ticket #16): RECAP_DATA, else %LOCALAPPDATA%\Recap.
+    let home = std::env::var_os("RECAP_DATA").map(PathBuf::from).or_else(Store::default_root);
     let store = open_store(std::env::args().any(|a| a == "--seed"));
     let open_settings = std::env::args().any(|a| a == "--settings");
     let providers = Providers::open(
@@ -69,19 +76,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             zgx_script::inspect::prepare();
         }
         let host = Host::new(&cx.ui.runtime, script.clone(), store.clone());
-        // Start new notes: until audio capture lands, the test meeting, live.
+        // Start new notes: capture (or a dev replay), live captions, saved.
         let starter = {
             let (host, tasks, runtime) = (host.clone(), cx.tasks.clone(), engine.handle().clone());
+            let (providers, options, home) = (providers.clone(), start_options.clone(), home.clone());
             move |_| {
                 if !host.is_live() {
-                    let (events, control) = fake::start(&runtime);
-                    tasks.spawn(host.follow_meeting(now_ms(), events, control));
-                    host.open_window("overlay");
+                    let settings = home.as_deref().map(LiveSettings::load).unwrap_or_default();
+                    let config = SessionConfig {
+                        started_ms: now_ms(),
+                        caption_me: settings.caption_my_speech,
+                        live: settings.live,
+                    };
+                    match options.source() {
+                        Ok(source) => {
+                            let _inside = runtime.enter();
+                            let (notify, notices) = session::notices();
+                            let live = options.live(&providers, notify);
+                            let started = session::start(host.store(), config.clone(), source, live, Some(notices));
+                            tasks.spawn(host.follow_session(&config, started));
+                            host.open_window("overlay");
+                        }
+                        Err(error) => host.notice(&format!("Can't start: {error}")),
+                    }
                 }
                 host.open_window("notes");
             }
         };
-        host.script.action("start_notes", starter);
+        host.script.action("start_notes", starter.clone());
         let providers_host = ProvidersHost::register(&host.script, providers.clone(), engine.handle().clone());
         if let Err(error) = host.script.reload() {
             eprintln!("recap: {error}");
@@ -104,6 +126,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         host.open_window("home");
         if open_settings {
             host.open_window("settings");
+        }
+        // A dev replay starts at once.
+        if start_options != StartOptions::default() {
+            starter(zgx_script::Value::Nil);
         }
 
         let saving = host.script.clone();

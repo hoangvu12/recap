@@ -3,8 +3,8 @@
 //!
 //! ```text
 //! shared   host.connected   true: the UI talks to this host, not its mocks
-//!          meeting          { state, elapsed_ms, title, started_ms, id }
-//!          transcript       { count, open = { ["7"] = Row } }
+//!          meeting          { state, elapsed_ms, title, started_ms, id, notice }
+//!          transcript       { count, open = { ["7"] = Row }, revised? = { ["2"] = Row } }
 //!          captions         { { source, final, partial } }, oldest first
 //!          meetings         { { id, title, started_ms, duration_ms, status } }, newest first
 //!          window.<id>      whether window <id> is open
@@ -23,12 +23,12 @@ use std::{
 
 use recap_engine::{EngineEvent, MeetingControl};
 use recap_storage::{MeetingId, Store};
-use tokio::sync::mpsc::UnboundedReceiver;
 use zgx_script::{ScriptHost, Shared, Value};
 
 use crate::{
     home,
     presenter::{Changed, Presenter},
+    session::{LiveSession, SessionConfig, SessionEvent},
 };
 
 /// Where the UI's scripts are: `RECAP_UI` (a folder with app.luau), else the
@@ -50,6 +50,8 @@ pub struct Host {
     meetings: Shared,
     presenter: Rc<RefCell<Presenter>>,
     control: Rc<RefCell<Option<MeetingControl>>>,
+    /// The stored meeting live now, until it is saved.
+    live: Rc<RefCell<Option<MeetingId>>>,
     store: Option<Store>,
 }
 
@@ -78,6 +80,7 @@ impl Host {
             meetings: script.shared("meetings", Value::from_json("[]").unwrap_or(Value::Nil)),
             presenter: Rc::new(RefCell::new(presenter)),
             control: Rc::default(),
+            live: Rc::default(),
             store,
             script,
         };
@@ -127,16 +130,32 @@ impl Host {
         self.script.shared(&format!("window.{id}"), false).set(Value::Bool(true));
     }
 
+    /// Where meetings are saved (none: they run unsaved).
+    pub fn store(&self) -> Option<Store> {
+        self.store.clone()
+    }
+
+    /// Tell the user `text` in the meeting's notice line.
+    pub fn notice(&self, text: &str) {
+        eprintln!("recap: {text}");
+        self.presenter.borrow_mut().notice(text);
+        self.publish(Changed { meeting: true, ..Default::default() });
+    }
+
     /// Whether a meeting is recording or paused now.
     pub fn is_live(&self) -> bool {
         self.control.borrow().is_some()
     }
 
-    /// Publish the stored meetings again (Home's list).
+    /// Publish the stored meetings again (Home's list). The meeting live now
+    /// joins it once it is saved.
     pub fn refresh_meetings(&self) {
         let Some(store) = &self.store else { return };
         match store.list() {
-            Ok(list) => {
+            Ok(mut list) => {
+                if let Some(live) = &*self.live.borrow() {
+                    list.retain(|m| m.id != *live);
+                }
                 self.meetings.set(value(home::meetings(&list)));
             }
             Err(error) => eprintln!("recap: meetings: {error}"),
@@ -163,27 +182,46 @@ impl Host {
         }
     }
 
-    /// Show a meeting that started at `started_ms`: its events, until it
-    /// finishes, become the UI's state. Await what this returns on the UI
-    /// thread (`cx.tasks.spawn`).
-    pub fn follow_meeting(
+    /// Show a live session (started at `config.started_ms`): its events,
+    /// until it is saved, become the UI's state; Home lists it once saved.
+    /// Await what this returns on the UI thread (`cx.tasks.spawn`).
+    pub fn follow_session(
         &self,
-        started_ms: u64,
-        mut events: UnboundedReceiver<EngineEvent>,
-        control: MeetingControl,
+        config: &SessionConfig,
+        session: LiveSession,
     ) -> impl std::future::Future<Output = ()> + 'static {
-        *self.presenter.borrow_mut() = Presenter::new(started_ms);
+        let LiveSession { id, mut events, control } = session;
+        let mut presenter = Presenter::new(config.started_ms).with_my_captions(config.caption_me);
+        if let Some(id) = &id {
+            presenter.saved_as(id.as_str());
+        }
+        *self.presenter.borrow_mut() = presenter;
         *self.control.borrow_mut() = Some(control);
+        *self.live.borrow_mut() = id;
         self.publish(Changed { meeting: true, transcript: true, captions: true });
         let host = self.clone();
         async move {
             while let Some(event) = events.recv().await {
-                let changed = host.presenter.borrow_mut().apply(&event);
-                host.publish(changed);
-                if matches!(event, EngineEvent::Finished(_)) {
-                    host.control.borrow_mut().take();
+                match event {
+                    SessionEvent::Engine(event) => {
+                        let changed = host.presenter.borrow_mut().apply(&event);
+                        host.publish(changed);
+                        if matches!(event, EngineEvent::Finished(_)) {
+                            host.control.borrow_mut().take();
+                        }
+                    }
+                    SessionEvent::Notice(text) => host.notice(&text),
+                    SessionEvent::Saved(info) => {
+                        host.live.borrow_mut().take();
+                        host.presenter.borrow_mut().saved_as(info.id.as_str());
+                        host.publish(Changed { meeting: true, ..Default::default() });
+                        host.refresh_meetings();
+                    }
                 }
             }
+            // Ended without Saved (no store, or it failed): not live either.
+            host.control.borrow_mut().take();
+            host.live.borrow_mut().take();
         }
     }
 
