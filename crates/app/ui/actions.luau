@@ -6,6 +6,7 @@ local state = require("@app/state")
 local meetings = require("@lib/meetings")
 local providers = require("@lib/providers")
 local processing = require("@lib/processing")
+local format = require("@lib/format")
 
 local M = {}
 
@@ -39,7 +40,8 @@ function M.regenerate_summary()
 end
 
 -- The footer's primary action (↵): Stop while recording, Resume while
--- paused, Retry when a processing step failed.
+-- paused, Retry when a processing step failed, Copy Markdown once done
+-- (screens/9).
 function M.primary()
 	local s = host.meeting:peek().state
 	if s == "paused" then
@@ -48,7 +50,15 @@ function M.primary()
 		M.stop()
 	elseif processing.failed(host.processing:peek()) then
 		M.retry_processing()
+	elseif M.can_copy_notes() then
+		M.run_action("notes", "copy_markdown")
 	end
+end
+
+-- Whether the Notes window's meeting is stored and done processing, so
+-- Copy Markdown is its primary action.
+function M.can_copy_notes(): boolean
+	return not processing.active(host.processing:peek()) and M.action_target("notes") ~= nil
 end
 
 -- Process the meeting again from the step that failed (Retry).
@@ -78,9 +88,112 @@ function M.toggle_pause()
 	end
 end
 
--- The action panel (Ctrl K).
-function M.toggle_actions()
-	state.actions_open:set(not state.actions_open:peek())
+-- Action panel (Ctrl K) -----------------------------------------------------
+
+-- The meeting the action panel of window `where` acts on: Home's selected
+-- one; the Notes window's once stopped and stored. Nil: none.
+export type Target = { id: string, title: string, started_ms: number }
+function M.action_target(where: state.Where | ""): Target?
+	if where == "home" then
+		local id = meetings.pick(M.home_shown(), state.home_selected:peek())
+		for _, item in host.meetings:peek() do
+			if item.id == id then
+				return { id = id, title = meetings.title(item), started_ms = item.started_ms }
+			end
+		end
+	elseif where == "notes" then
+		local m = host.meeting:peek()
+		if m.state == "stopped" and m.id and m.id ~= "" then
+			return { id = m.id, title = if m.title ~= "" then m.title else "Untitled meeting", started_ms = m.started_ms }
+		end
+	end
+	return nil
+end
+
+-- Open or close window `where`'s action panel (Ctrl K); it opens on a
+-- meeting only.
+function M.toggle_actions(where: state.Where)
+	if state.actions_open:peek() == where then
+		M.close_actions()
+	elseif M.action_target(where) then
+		state.actions_query:set("")
+		state.actions_selected:set("")
+		state.actions_open:set(where)
+	end
+end
+
+function M.close_actions()
+	state.actions_open:set("")
+end
+
+-- Show `text` in the HUD pill for 1.2 s (motion_spec §2.8).
+function M.hud(text: string)
+	local seq = state.hud:peek().seq + 1
+	state.hud:set({ text = text, seq = seq })
+	ui.after(1200, function()
+		if state.hud:peek().seq == seq then
+			state.hud:set({ text = "", seq = seq })
+		end
+	end)
+end
+
+local function markdown(target: Target): host.MeetingMarkdown?
+	local md = host.markdown(target.id, format.date(target.started_ms))
+	if not md then
+		M.hud("Can't read the meeting")
+	end
+	return md
+end
+
+-- Run action `id` (lib/meeting_actions) on window `where`'s meeting.
+function M.run_action(where: state.Where, id: string)
+	local target = M.action_target(where)
+	M.close_actions()
+	if not target then
+		return
+	end
+	if id == "copy_markdown" then
+		local md = markdown(target)
+		if md then
+			ui.clipboard.write(md.markdown)
+			M.hud("Copied")
+		end
+	elseif id == "export_markdown" then
+		local md = markdown(target)
+		if md then
+			ui.save_file({ title = "Export .md", name = md.file_name, filters = { { "Markdown", { "md" } } } }):after(function(file)
+				if file then
+					ui.write_file(file, md.markdown):after(function()
+						M.hud("Exported")
+					end, function()
+						M.hud("Can't export")
+					end)
+				end
+			end, function() end)
+		end
+	elseif id == "name_speakers" then
+		-- The Name speakers dialog (ticket #12) is the host's.
+		host.invoke("open_name_speakers", target.id)
+	elseif id == "regenerate_summary" then
+		host.invoke("regenerate_summary", target.id)
+	elseif id == "show_in_folder" then
+		host.invoke("show_in_folder", target.id)
+	elseif id == "delete_meeting" then
+		state.confirm_delete:set({ id = target.id, title = target.title, where = where })
+	end
+end
+
+-- Delete meeting, confirmed.
+function M.confirm_delete()
+	local c = state.confirm_delete:peek()
+	if c.id ~= "" then
+		host.invoke("delete_meeting", c.id)
+	end
+	state.confirm_delete:set({ id = "", title = "", where = "" })
+end
+
+function M.cancel_delete()
+	state.confirm_delete:set({ id = "", title = "", where = "" })
 end
 
 function M.show_tab(tab: state.NotesTab)
@@ -101,7 +214,8 @@ end
 
 -- The meetings Home shows now, newest first.
 function M.home_shown()
-	return meetings.visible(host.meetings:peek(), state.home_query:peek())
+	local query = state.home_query:peek()
+	return meetings.visible(host.meetings:peek(), query, host.search(query))
 end
 
 function M.select_meeting(id: string)

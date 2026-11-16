@@ -140,11 +140,36 @@ return function(): Node
 					ui.div { w = 1, h = 16, mx = 4, bg = "$rc.stroke.hairline" },
 				}
 			),
+			-- Done (screens/9): Copy Markdown ↵.
+			ui.show(
+				function()
+					local m = host.meeting:get()
+					return m.state == "stopped"
+						and (m.id or "") ~= ""
+						and not processing.active(host.processing:get())
+				end,
+				ui.row {
+					items = "center",
+					gap = 4,
+					bare_button {
+						id = "copy-markdown",
+						label = "Copy Markdown",
+						color = "$rc.text.primary",
+						on_click = function()
+							actions.run_action("notes", "copy_markdown")
+						end,
+						Keycap("↵"),
+					},
+					ui.div { w = 1, h = 16, mx = 4, bg = "$rc.stroke.hairline" },
+				}
+			),
 			bare_button {
 				id = "actions",
 				label = "Actions",
 				color = "$rc.text.secondary",
-				on_click = actions.toggle_actions,
+				on_click = function()
+					actions.toggle_actions("notes")
+				end,
 				ui.row { id = "actions-keys", gap = 4, Keycap("Ctrl"), Keycap("K") },
 			},
 		},

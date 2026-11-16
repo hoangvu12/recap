@@ -3,7 +3,6 @@
 local actions = require("@app/actions")
 local host = require("@app/host")
 local meetings = require("@lib/meetings")
-local format = require("@lib/format")
 local Icon = require("@components/icon")
 local Keycap = require("@components/keycap")
 
@@ -86,8 +85,7 @@ local function MeetingRow(selected: ReadOnlyState<string>, item: State<host.Meet
 		},
 		ui.text {
 			function()
-				local m = item:get()
-				return if meetings.unfinished(m) then "Recover" else format.duration(m.duration_ms)
+				return meetings.trailing(item:get())
 			end,
 			id = `meeting-{id}-duration`,
 			shrink = 0,
