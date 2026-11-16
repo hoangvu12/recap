@@ -170,7 +170,7 @@ pub(crate) fn set_summary(tx: &Transaction, id: &MeetingId, summary: &Summary) -
          ON CONFLICT (meeting_id) DO UPDATE SET summary = ?2, summary_md = ?3",
         params![id.as_str(), json, summary.markdown],
     )?;
-    set_search(tx, id, "summary", &[summary.markdown.clone()])
+    set_search(tx, id, "summary", std::slice::from_ref(&summary.markdown))
 }
 
 pub(crate) fn delete(tx: &Transaction, id: &MeetingId) -> Result<()> {

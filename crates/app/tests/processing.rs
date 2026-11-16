@@ -273,7 +273,7 @@ async fn steps_done_before_are_not_run_again_and_later_slots_take_their_steps() 
 
     let events = process(&processing, &store, &id).await;
     assert!(matches!(events.last(), Some(ProcessingEvent::Finished(_))), "{:?}", events.last());
-    assert_eq!(*ran.lock().unwrap(), [id.clone()], "the naming slot ran, after Transcribing");
+    assert_eq!(*ran.lock().unwrap(), std::slice::from_ref(&id), "the naming slot ran, after Transcribing");
     assert_eq!(fake.asked().len(), 2);
 
     // Recover a done meeting (Regenerate later): nothing runs again.
