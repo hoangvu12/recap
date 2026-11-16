@@ -54,6 +54,7 @@ fn open(page: &str, before: impl FnOnce(&Path), picked: Option<PathBuf>) -> (Fix
         });
         let settings = SettingsHost::register(&host.script, settings_path, pick);
         settings.connect_store(&host, h.clone(), || NOW);
+        settings.list_microphones_with(&host.script, Vec::new);
         host.script.shared("window.settings", true);
         *out.borrow_mut() = Some((host.clone(), settings));
         host.script.clone()
