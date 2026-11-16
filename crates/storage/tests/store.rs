@@ -345,7 +345,7 @@ fn renaming_a_speaker_keeps_the_name_and_the_person() {
     assert_eq!(store.meeting(&id).unwrap().unwrap().info.speakers[2].name.as_deref(), Some("David"));
     assert_eq!(store.people().unwrap(), ["David", "Priya", "Tom"]);
     // Home finds it by the new name.
-    assert_eq!(store.search("david").unwrap(), [id.clone()]);
+    assert_eq!(store.search("david").unwrap(), std::slice::from_ref(&id));
 
     // An empty name unnames the voice; the person stays known.
     let info = store.rename_speaker(&id, "S1", Some(" ")).unwrap();
