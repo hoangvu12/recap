@@ -107,7 +107,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let settings = settings.current();
                 let config = ProcessingConfig { keyterms: settings.keyterms(), my_name: settings.my_name.clone() };
                 let batch = options.batch(&providers, |notice| eprintln!("recap: {notice}"));
-                Processing::standard(batch).start(store, id, config)
+                let llm = options.llm(&providers, |notice| eprintln!("recap: {notice}"));
+                Processing::full(batch, llm).start(store, id, config)
             })
         };
         let spawn: host::Spawn = {

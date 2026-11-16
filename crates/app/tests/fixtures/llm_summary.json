@@ -1,0 +1,28 @@
+{
+  "title": "Mobile app launch on Dec 1",
+  "overview": "Tom, Priya and David agreed to launch the mobile app on December 1, one week later than planned, so the backend can add caching. An India-only soft launch is the fallback.",
+  "topics": [
+    {
+      "heading": "Launch readiness",
+      "bullets": [
+        "Design: onboarding done, checkout about 90%. Dark mode colours on the payment page still open.",
+        "Backend: payments API ready, but slow above 2,000 users. Caching needs one more week."
+      ]
+    },
+    {
+      "heading": "Release notes",
+      "bullets": ["Nobody owned them last time and they shipped late. Tom owns them now."]
+    }
+  ],
+  "next_steps": [
+    { "owner": "David", "text": "Add caching and rerun the load test", "due": "Before Dec 1" },
+    { "owner": "David", "text": "Send the load test report to the team", "due": "Thu, Nov 19" },
+    { "owner": "Priya", "text": "Fix dark mode colours on the payment page", "due": "Fri, Nov 20" },
+    { "owner": "Priya", "text": "Book a checkout review with support", "due": "Mon, Nov 23" },
+    { "owner": "Tom", "text": "Write release notes and share a draft", "due": "Wed, Nov 18" }
+  ],
+  "decisions": [
+    "Launch on December 1, with caching in place.",
+    "If load testing still fails: soft launch in India only."
+  ]
+}

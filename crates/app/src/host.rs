@@ -9,13 +9,19 @@
 //!          meetings         { { id, title, started_ms, duration_ms, status } }, newest first
 //!          processing       { id, steps = { { id, label, status, took_ms, error } } }: the
 //!                           Notes window's meeting's processing (no steps: none to show)
-//!          window.<id>      whether window <id> is open
+//!          summary          { id, overview, topics, next_steps, decisions }: the Notes
+//!                           window's meeting's summary (id "": none)
+//!          window.<id>     whether window <id> is open
 //! function transcript_row(i)    Row i (from 1), or nil
 //!          meeting_detail(id)   { id, title, overview, started_ms, duration_ms, status, speakers }
 //! action   stop, pause, resume  the running meeting
 //!          open_meeting(id)     a stored meeting in the Notes window, read mode; an
 //!                               unfinished one is processed again (Recover)
 //!          retry_processing(id) process meeting id again from its failed step
+//!          regenerate_summary(id)  name the speakers still unnamed and write the
+//!                               summary again (meetings processed without them)
+//!          tick_next_step { id, index, done }  next step `index` (from 1) ticked or not
+//!          set_my_notes { id, text }  what the user typed (kept at Stop)
 //!          start_notes          a new meeting (main.rs registers it)
 //! ```
 
@@ -36,8 +42,9 @@ use zgx_script::{ScriptHost, Shared, Value};
 use crate::{
     home,
     presenter::{Changed, Presenter},
-    processing::{Progress, ProcessingEvent},
+    processing::{self, ProcessingEvent, Progress, StepId},
     session::{self, LiveSession, SessionConfig, SessionEvent},
+    summary,
 };
 
 /// Starts processing meeting `id` in `store` (on the engine's runtime).
@@ -69,6 +76,7 @@ pub struct Host {
     /// Changes when Settings moves the storage folder.
     store: Rc<RefCell<Option<Store>>>,
     processing: Shared,
+    summary: Shared,
     /// How to process a meeting (main.rs sets it; none: meetings stay unprocessed).
     processor: Rc<RefCell<Option<(Process, Spawn)>>>,
     /// The meetings being processed now.
@@ -110,6 +118,7 @@ impl Host {
             live: Rc::default(),
             store: Rc::new(RefCell::new(store)),
             processing: script.shared("processing", value(no_processing())),
+            summary: script.shared("summary", value(summary::no_view())),
             processor: Rc::default(),
             running: Rc::default(),
             generation: Rc::default(),
@@ -161,6 +170,31 @@ impl Host {
             });
             if let Some(id) = id {
                 retrier.process(&id);
+            }
+        });
+        let regenerator = host.clone();
+        host.script.action("regenerate_summary", move |arg| {
+            if let Some(id) = meeting_id(&arg) {
+                regenerator.regenerate_summary(&id);
+            }
+        });
+        let ticker = host.clone();
+        host.script.action("tick_next_step", move |arg| {
+            let json: serde_json::Value = serde_json::from_str(&arg.to_json()).unwrap_or_default();
+            let (Some(id), Some(index)) = (json["id"].as_str().filter(|id| !id.is_empty()), json["index"].as_u64()) else {
+                return;
+            };
+            ticker.tick_next_step(&MeetingId::from(id), index as usize, json["done"].as_bool().unwrap_or(false));
+        });
+        let notes = host.clone();
+        host.script.action("set_my_notes", move |arg| {
+            let json: serde_json::Value = serde_json::from_str(&arg.to_json()).unwrap_or_default();
+            let (Some(id), Some(text), Some(store)) = (json["id"].as_str().filter(|id| !id.is_empty()), json["text"].as_str(), notes.store())
+            else {
+                return;
+            };
+            if let Err(error) = store.set_my_notes(&MeetingId::from(id), text) {
+                eprintln!("recap: my notes of {id}: {error}");
             }
         });
         host.refresh_meetings();
@@ -237,11 +271,12 @@ impl Host {
                 self.replace_presenter(Presenter::stored_with_pauses(&meeting.info, &segments, &pauses));
                 self.publish(Changed { meeting: true, transcript: true, captions: true });
                 let status = meeting.info.status;
-                self.processing.set(value(if status == Status::Done {
+                self.processing.set(value(if status == Status::Done && !self.is_processing(id) {
                     no_processing()
                 } else {
                     Progress::read(&store.folder(id)).view(id)
                 }));
+                self.show_summary(&store, id);
                 Some(status)
             }
             Ok((None, _)) => {
@@ -259,6 +294,47 @@ impl Host {
     /// starts it, `spawn` runs its follower on the UI thread.
     pub fn set_processor(&self, process: Process, spawn: Spawn) {
         *self.processor.borrow_mut() = Some((process, spawn));
+    }
+
+    /// Regenerate: name the speakers still unnamed and write meeting `id`'s
+    /// summary again, from its transcript (meetings processed before the AI
+    /// steps, or whose summary should change).
+    pub fn regenerate_summary(&self, id: &MeetingId) {
+        let Some(store) = self.store() else { return };
+        if self.is_processing(id) {
+            return;
+        }
+        if let Err(error) = processing::redo(&store.folder(id), &[StepId::NamingSpeakers, StepId::WritingSummary]) {
+            self.notice(&format!("Can't regenerate: {error}"));
+            return;
+        }
+        self.process(id);
+    }
+
+    /// Tick next step `index` (from 1) of meeting `id` on or off; kept at once.
+    pub fn tick_next_step(&self, id: &MeetingId, index: usize, done: bool) {
+        let Some(store) = self.store() else { return };
+        let Some(i) = index.checked_sub(1) else { return };
+        match summary::set_done(&store, id, i, done) {
+            Ok(()) => {
+                if self.presenter.borrow().id() == id.as_str() {
+                    self.show_summary(&store, id);
+                }
+            }
+            Err(error) => eprintln!("recap: tick: {error}"),
+        }
+    }
+
+    /// Meeting `id`'s summary as the Summary tab's state.
+    fn show_summary(&self, store: &Store, id: &MeetingId) {
+        let view = match store.meeting(id) {
+            Ok(Some(meeting)) => match meeting.summary.and_then(|s| serde_json::from_value::<summary::SummaryData>(s.data).ok()) {
+                Some(data) => summary::view(id.as_str(), &data, &meeting.info.speakers),
+                None => summary::no_view(),
+            },
+            _ => summary::no_view(),
+        };
+        self.summary.set(value(view));
     }
 
     /// Whether meeting `id` is being processed now.
@@ -333,6 +409,7 @@ impl Host {
         *self.control.borrow_mut() = Some(control);
         *self.live.borrow_mut() = id;
         self.processing.set(value(no_processing()));
+        self.summary.set(value(summary::no_view()));
         self.publish(Changed { meeting: true, transcript: true, captions: true });
         let host = self.clone();
         async move {

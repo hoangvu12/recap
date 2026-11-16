@@ -15,8 +15,11 @@
 //!   answer is kept as `stt_them.json` / `stt_me.json` as it comes. They merge
 //!   into turns without echoes ([`recap_engine::refine`]), saved as the
 //!   refined transcript, and the meeting's speakers become `me`, `S1..Sn`.
-//! - **Naming speakers**, **Writing summary**: [`Later`] slots for now; #11
-//!   puts its steps there ([`Processing::with`]).
+//! - **Naming speakers** ([`crate::naming`]) and **Writing summary**
+//!   ([`crate::summary`]) with the Summary and names job's AI
+//!   ([`Processing::full`]). [`Processing::standard`] leaves them as [`Later`]
+//!   slots (done at once); meetings processed that way, before the AI steps
+//!   existed, get them with Regenerate ([`redo`]).
 
 use std::{
     future::Future,
@@ -26,7 +29,7 @@ use std::{
 };
 
 use recap_engine::{
-    BatchRequest, BatchStt, BatchTranscript, BoxFuture, ProviderError, Recording, SAMPLE_RATE, Turn, refine,
+    BatchRequest, BatchStt, BatchTranscript, BoxFuture, Llm, ProviderError, Recording, SAMPLE_RATE, Turn, refine,
 };
 use recap_storage::{MeetingId, MeetingInfo, Segment, Speaker, Status, Store};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -218,6 +221,15 @@ impl Processing {
         }
     }
 
+    /// Every step: Transcribing with `batch` (the Transcript job), Naming
+    /// speakers and Writing summary with `llm` (the Summary and names job);
+    /// a job without a provider fails its step with the reason.
+    pub fn full(batch: Result<Arc<dyn BatchStt>, ProviderError>, llm: Result<Arc<dyn Llm>, ProviderError>) -> Self {
+        Self::standard(batch)
+            .with(Arc::new(crate::naming::NamingSpeakers::new(llm.clone())))
+            .with(Arc::new(crate::summary::WritingSummary::new(llm)))
+    }
+
     /// `step` in the place of the step with its id.
     pub fn with(mut self, step: Arc<dyn Step>) -> Self {
         if let Some(slot) = self.steps.iter_mut().find(|s| s.id() == step.id()) {
@@ -295,8 +307,20 @@ impl Processing {
     }
 }
 
-/// The slot of a step not built yet (#11 fills it): done at once, nothing
-/// written.
+/// Regenerate: `steps` of the meeting in `folder` run again the next time
+/// it is processed (they are pending in its progress); the others keep
+/// what they are.
+pub fn redo(folder: &Path, steps: &[StepId]) -> std::io::Result<()> {
+    let mut progress = Progress::read(folder);
+    for state in &mut progress.steps {
+        if steps.contains(&state.id) {
+            *state = StepState { id: state.id, status: StepStatus::Pending, took_ms: 0, error: String::new() };
+        }
+    }
+    progress.write(folder)
+}
+
+/// An empty slot: done at once, nothing written (`Processing::standard`).
 pub struct Later(pub StepId);
 
 impl Step for Later {
@@ -424,7 +448,7 @@ fn read_json<T: DeserializeOwned>(path: &Path) -> Option<T> {
 }
 
 /// Whole or not at all: a temporary file, then a rename over it.
-fn write_json(path: &Path, value: &impl Serialize) -> std::io::Result<()> {
+pub(crate) fn write_json(path: &Path, value: &impl Serialize) -> std::io::Result<()> {
     let bytes = serde_json::to_vec_pretty(value).map_err(std::io::Error::other)?;
     let mut tmp = path.as_os_str().to_owned();
     tmp.push(".tmp");
