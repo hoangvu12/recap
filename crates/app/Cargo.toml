@@ -66,6 +66,7 @@ InstallDir "$LOCALAPPDATA\Programs\Recap"
 Section "un.RecapRegistry"
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Recap"
   DeleteRegKey HKCU "Software\Classes\AppUserModelId\app.recap.Recap"
+  RMDir /r "$INSTDIR\ui"
 SectionEnd
 '''
 
