@@ -78,6 +78,7 @@ return function(): Node
 			gap = 8,
 			items = "center",
 			h = 16,
+			shrink = 0,
 			RecDot(),
 			ui.text {
 				function()
@@ -94,9 +95,11 @@ return function(): Node
 		ui.column {
 			id = "captions",
 			w_full = true,
+			-- The room left under the timer, whatever the text's height.
 			grow = 1,
+			basis = 0,
 			justify = "end",
-			overflow = "hidden",
+			overflow = "clip",
 			line(2),
 			line(1),
 			line(0),
