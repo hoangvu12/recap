@@ -79,11 +79,13 @@ end
 function M.named_rows()
 	local rows = M.rows()
 	local names = { "Tom", "Priya", "David" }
+	local ids = { "me", "S1", "S2" }
 	local out = {}
 	for i = 1, 3 do
 		local row = table.clone(rows[i])
 		row.speaker = names[i]
 		row.speaker_n = i
+		row.speaker_id = ids[i]
 		out[i] = row
 	end
 	return out
@@ -116,6 +118,44 @@ function M.summary()
 			step(6, "", 0, "Tell support about the new flow", ""),
 		},
 		decisions = { "Launch on December 1, with caching in place.", "If load testing still fails: soft launch in India only." },
+	}
+end
+
+-- The Name speakers dialog for the test meeting (screens/6): Me locked,
+-- Priya named, the third voice not (the AI thought David).
+function M.speakers_dialog()
+	return {
+		id = "20261116-100000",
+		people = { "David", "Priya", "Tom" },
+		speakers = {
+			{
+				id = "me",
+				label = "Me",
+				n = 1,
+				name = "Tom",
+				locked = true,
+				quotes = { "Today I want to settle the launch date for the mobile app…", "I'll write the release notes and share a draft on Wednesday." },
+				suggest = "",
+			},
+			{
+				id = "S1",
+				label = "Speaker 1",
+				n = 2,
+				name = "Priya",
+				locked = false,
+				quotes = { "Quick status from design. The onboarding screens are done…", "Yes, I can finish dark mode by Friday." },
+				suggest = "",
+			},
+			{
+				id = "S2",
+				label = "Speaker 2",
+				n = 3,
+				name = "",
+				locked = false,
+				quotes = { "From the backend side, the payments API is ready…", "I'll also send the load test report to the whole team by Thursday." },
+				suggest = "David",
+			},
+		},
 	}
 end
 

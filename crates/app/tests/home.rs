@@ -114,6 +114,11 @@ fn a_stored_meeting_reads_in_the_notes_window() {
     assert_eq!(first["source"], "me");
     assert_eq!(first["speaker"], "Tom");
     assert_eq!(first["speaker_n"], 1);
+    // The speaker's id: what a rename from the row's chip names.
+    assert_eq!(first["speaker_id"], "me");
+    assert_eq!(p.row(2)["speaker_id"], "S1");
+    // Where its audio starts (play from here).
+    assert_eq!(p.row(2)["start_ms"], store.transcript(&id).unwrap()[1].start_ms);
     assert_eq!(first["open"], false);
     assert!(first["final"].as_str().unwrap().starts_with("Okay, let's get started."));
     assert_eq!(p.row(2)["speaker"], "Priya");

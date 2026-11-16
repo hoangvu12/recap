@@ -40,10 +40,14 @@ end
 return function(): Node
 	-- Done processing (DESIGN §2): the summary written while the card showed
 	-- this meeting opens the Summary tab.
+	-- One written again (after a rename) leaves the tab as it is.
+	local had = host.summary:peek().id
 	ui.effect(function()
 		local s = host.summary:get()
 		local p = host.processing:peek()
-		if s.id ~= "" and p.id == s.id and #p.steps > 0 then
+		local new = s.id ~= had
+		had = s.id
+		if new and s.id ~= "" and p.id == s.id and #p.steps > 0 then
 			state.notes_tab:set("summary")
 		end
 	end)

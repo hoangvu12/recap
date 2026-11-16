@@ -1,7 +1,7 @@
 --!strict
--- Which live transcript rows are arriving now (motion_spec §2.3): rows that
--- came in a small batch (3 or fewer at once) while the same transcript was
--- showing. A row mounting while it is arriving plays its entrance; one
+-- Which live transcript rows are arriving now (motion_spec §2.3): rows of a
+-- live meeting that came in a small batch (3 or fewer at once) while the
+-- same transcript was showing. A row mounting while it is arriving plays its entrance; one
 -- mounted later (scrolled back to), or one of a catch-up batch, or a row of a
 -- transcript just opened, appears as it is.
 local host = require("@app/host")
@@ -29,7 +29,10 @@ ui.effect(function()
 	local t = host.transcript:get()
 	local generation = t.generation or 0
 	local count = t.count
-	if generation == last_generation and count > last_count and count - last_count <= M.BATCH then
+	-- Only a live meeting's rows arrive; a stored one's are just there.
+	local s = host.meeting:peek().state
+	local live = s == "recording" or s == "paused"
+	if live and generation == last_generation and count > last_count and count - last_count <= M.BATCH then
 		local new = {}
 		for i = last_count + 1, count do
 			arriving[i] = true

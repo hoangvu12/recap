@@ -69,14 +69,64 @@ local function Bullet(text: string, id: string): Node
 	}
 end
 
-local function Section(order: number, id: string, children: { Node }): Node
+-- A section; it fades in unless the summary was written again (then only
+-- what changed washes).
+local function Section(order: number, id: string, children: { Node }, fade: boolean): Node
 	return ui.column {
 		id = id,
 		w_full = true,
 		pb = 12,
-		on_mount = fade_in(order),
+		on_mount = if fade then fade_in(order) else nil,
 		children,
 	}
+end
+
+-- `node`, under a wash that fades from fill.selected to nothing over 600 ms
+-- when `changed` (motion_spec §2.7: a paragraph the summary written again
+-- changed). Nothing moves.
+local WASH_MS = 600
+local function Washed(id: string, changed: boolean, node: Node): Node
+	if not changed then
+		return node
+	end
+	return ui.column {
+		w_full = true,
+		relative = true,
+		ui.div {
+			id = `wash-{id}`,
+			absolute = true,
+			left = -6,
+			right = -6,
+			top = 0,
+			bottom = 0,
+			rounded = 4,
+			bg = "$rc.fill.selected",
+			pointer_events = "none",
+			aria_hidden = true,
+			on_mount = function(el)
+				anime.animate(el, { opacity = { 1, 0 }, duration = WASH_MS, ease = "out(2)" })
+			end,
+		},
+		node,
+	}
+end
+
+-- What a summary said, paragraph by paragraph, to tell what changed.
+local function said(s: host.Summary): { [string]: boolean }
+	local out: { [string]: boolean } = { ["o|" .. s.overview] = true }
+	for _, topic in s.topics do
+		out["h|" .. topic.heading] = true
+		for _, bullet in topic.bullets do
+			out["b|" .. bullet] = true
+		end
+	end
+	for _, step in s.next_steps do
+		out[`n|{step.owner}|{step.text}|{step.due}`] = true
+	end
+	for _, decision in s.decisions do
+		out["d|" .. decision] = true
+	end
+	return out
 end
 
 -- A next step: the box, the task, the owner's chip and when (DESIGN §9.3
@@ -155,33 +205,45 @@ local function NextStep(step: host.NextStep): Node
 	}
 end
 
--- One summary, its sections in order (each fades in).
-local function Content(s: host.Summary): Node
+-- One summary, its sections in order. A first one fades in; one written
+-- again over `before` (the same meeting's) washes only what changed.
+local function Content(s: host.Summary, before: host.Summary?): Node
+	local was = if before then said(before) else nil
+	local function changed(key: string): boolean
+		return was ~= nil and not was[key]
+	end
 	local sections: { Node } = {}
 	local function add(id: string, children: { Node })
-		table.insert(sections, Section(#sections + 1, id, children))
+		table.insert(sections, Section(#sections + 1, id, children, was == nil))
 	end
 	if s.overview ~= "" then
-		add("summary-overview", { Header("Overview"), Body(s.overview, "summary-overview-text") })
+		add("summary-overview", {
+			Header("Overview"),
+			Washed("overview", changed("o|" .. s.overview), Body(s.overview, "summary-overview-text")),
+		})
 	end
 	for t, topic in s.topics do
-		local children: { Node } = { Header(topic.heading, `topic-{t}-heading`) }
+		local children: { Node } = {
+			Washed(`topic-{t}-heading`, changed("h|" .. topic.heading), Header(topic.heading, `topic-{t}-heading`)),
+		}
 		for b, bullet in topic.bullets do
-			table.insert(children, Bullet(bullet, `topic-{t}-bullet-{b}`))
+			local id = `topic-{t}-bullet-{b}`
+			table.insert(children, Washed(id, changed("b|" .. bullet), Bullet(bullet, id)))
 		end
 		add(`topic-{t}`, children)
 	end
 	if #s.next_steps > 0 then
 		local children: { Node } = { Header("Next steps") }
 		for _, step in s.next_steps do
-			table.insert(children, NextStep(step))
+			local key = `n|{step.owner}|{step.text}|{step.due}`
+			table.insert(children, Washed(`next-{step.index}`, changed(key), NextStep(step)))
 		end
 		add("summary-next-steps", children)
 	end
 	if #s.decisions > 0 then
 		local children: { Node } = { Header("Decisions") }
 		for d, decision in s.decisions do
-			table.insert(children, Bullet(decision, `decision-{d}`))
+			table.insert(children, Washed(`decision-{d}`, changed("d|" .. decision), Bullet(decision, `decision-{d}`)))
 		end
 		add("summary-decisions", children)
 	end
@@ -233,13 +295,24 @@ return function(): Node
 		local s = host.summary:get()
 		return if s.id ~= "" then { s } else {}
 	end)
+	-- The summary shown before, to tell what one written again changed.
+	local last: host.Summary? = nil
+	ui.effect(function()
+		if host.summary:get().id == "" then
+			last = nil
+		end
+	end)
 	return ui.column {
 		id = "summary-tab",
 		w_full = true,
 		grow = 1,
 		Processing(),
 		ui.switch(shown, {
-			summary = ui.each(current, Content, {
+			summary = ui.each(current, function(s: host.Summary): Node
+				local before = if last and last.id == s.id then last else nil
+				last = s
+				return Content(s, before)
+			end, {
 				-- Ticks don't rebuild it (they read the state); a new summary does.
 				key = function(s: host.Summary): string
 					local key = s.id .. "|" .. s.overview .. "|" .. #s.next_steps

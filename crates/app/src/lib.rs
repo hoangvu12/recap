@@ -15,6 +15,10 @@
 //! - [`settings`]: Settings' host side: the providers, their jobs and Test.
 //! - [`user_settings`]: the other Settings pages: `Settings` (recap-storage)
 //!   saved, published and watched; storage folder and audio retention applied.
+//! - [`speakers`]: naming speakers by hand: the Name speakers dialog's state
+//!   and renames kept.
+//! - [`playback`]: a line or a voice of the recording, played on a thread
+//!   of its own (rodio).
 //! - [`commands`]: what the tray, the hotkeys and the call toasts do.
 //! - [`tray`], [`hotkeys`], [`calls`], [`autostart`]: Recap living in the
 //!   tray (ticket #15, ADR 0011).
@@ -29,11 +33,13 @@ pub mod host;
 pub mod hotkeys;
 pub mod live;
 pub mod naming;
+pub mod playback;
 pub mod presenter;
 pub mod processing;
 pub mod seed;
 pub mod session;
 pub mod settings;
+pub mod speakers;
 pub mod summary;
 pub mod tray;
 pub mod user_settings;

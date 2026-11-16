@@ -86,20 +86,48 @@ local function Speakers(): Node
 			px = 16,
 			pt = 16,
 			gap = 4,
-			wrap = true,
-			ui.each(chips, function(chip: host.SpeakerChip, i: number)
-				return Chip.Speaker(chip.label, chip.n, `speaker-{i}`)
-			end, {
-				key = function(chip: host.SpeakerChip): string
-					return `{chip.n}|{chip.label}`
-				end,
-			}),
+			items = "center",
+			ui.row {
+				grow = 1,
+				basis = 0,
+				gap = 4,
+				wrap = true,
+				ui.each(chips, function(chip: host.SpeakerChip, i: number)
+					return Chip.Speaker(chip.label, chip.n, `speaker-{i}`)
+				end, {
+					key = function(chip: host.SpeakerChip): string
+						return `{chip.n}|{chip.label}`
+					end,
+				}),
+			},
+			-- The Name speakers dialog (screens/6).
+			ui.button {
+				id = "name-speakers",
+				h = 24,
+				px = 4,
+				shrink = 0,
+				rounded = 4,
+				bg = "$rc.transparent",
+				hover = { bg = "$rc.fill.hover" },
+				on_click = actions.name_speakers,
+				ui.text { "Name speakers", text_size = 13, color = "$rc.accent" },
+			},
 		}
 	)
 end
 
 return function(): Node
 	local list = ui.ref()
+	-- Another transcript: no line picked, no rename open.
+	local generation = host.transcript:peek().generation or 0
+	ui.effect(function()
+		local now = host.transcript:get().generation or 0
+		if now ~= generation then
+			generation = now
+			state.selected_row:set(0)
+			actions.cancel_rename()
+		end
+	end)
 	-- Resting at the end, every row is seen.
 	ui.effect(function()
 		if state.transcript_at_end:get() then

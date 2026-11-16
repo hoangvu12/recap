@@ -4,6 +4,7 @@
 -- right.
 local host = require("@app/host")
 local actions = require("@app/actions")
+local state = require("@app/state")
 local format = require("@lib/format")
 local processing = require("@lib/processing")
 local RecDot = require("@components/rec_dot")
@@ -29,6 +30,13 @@ return function(): Node
 	local live = function()
 		local s = host.meeting:get().state
 		return s == "recording" or s == "paused"
+	end
+	-- ↵ plays the stored transcript from the line last clicked.
+	local playing_from_here = function()
+		return not live()
+			and not processing.active(host.processing:get())
+			and state.notes_tab:get() == "transcript"
+			and state.selected_row:get() > 0
 	end
 	local paused = function()
 		return host.meeting:get().state == "paused"
@@ -140,13 +148,33 @@ return function(): Node
 					ui.div { w = 1, h = 16, mx = 4, bg = "$rc.stroke.hairline" },
 				}
 			),
-			-- Done (screens/9): Copy Markdown ↵.
+			-- A stored transcript: Play from here ↵ (the line last clicked).
+			ui.show(
+				playing_from_here,
+				ui.row {
+					items = "center",
+					gap = 4,
+					bare_button {
+						id = "play-from-here",
+						label = "Play from here",
+						color = "$rc.text.primary",
+						on_click = function()
+							actions.play_line(state.selected_row:peek())
+						end,
+						Keycap("↵"),
+					},
+					ui.div { w = 1, h = 16, mx = 4, bg = "$rc.stroke.hairline" },
+				}
+			),
+			-- Done (screens/9): Copy Markdown ↵ (↵ plays a line once one is
+			-- clicked).
 			ui.show(
 				function()
 					local m = host.meeting:get()
 					return m.state == "stopped"
 						and (m.id or "") ~= ""
 						and not processing.active(host.processing:get())
+						and not playing_from_here()
 				end,
 				ui.row {
 					items = "center",

@@ -35,6 +35,8 @@ pub fn options(id: &str, title: &str, width: f64, height: f64, frame_autosave: O
         // Settings (screens/8): its own "‹ › Settings" strip, Windows'
         // caption buttons over its top right.
         "settings" => WindowOptions { titlebar: Titlebar::Inset, min_size: Some((680., 480.)), ..base },
+        // The Name speakers dialog (screens/6): frameless, its header moves it.
+        "speakers" => WindowOptions { titlebar: Titlebar::Hidden, min_size: Some((420., 360.)), ..base },
         // Captions over the call: frameless and above every window.
         "overlay" => WindowOptions {
             titlebar: Titlebar::Hidden,
@@ -165,6 +167,14 @@ mod tests {
         let o = options("settings", "Settings", 800., 732., Some("settings".into()));
         assert_eq!(o.titlebar, Titlebar::Inset);
         assert_eq!(o.min_size, Some((680., 480.)));
+    }
+
+    #[test]
+    fn name_speakers_is_a_frameless_dialog() {
+        let o = options("speakers", "Name speakers", 480., 620., Some("speakers".into()));
+        assert_eq!(o.titlebar, Titlebar::Hidden);
+        assert_eq!(o.level, WindowLevel::Normal);
+        assert_eq!(o.min_size, Some((420., 360.)));
     }
 
     #[test]

@@ -102,6 +102,14 @@ pub(crate) fn put_info(tx: &Transaction, info: &MeetingInfo) -> Result<()> {
             "INSERT INTO speakers (meeting_id, seq, speaker, name) VALUES (?1, ?2, ?3, ?4)",
             params![id, seq as i64, speaker.id, speaker.name],
         )?;
+        // Every name given is a known person (one row whatever its case).
+        if let Some(name) = speaker.name.as_deref().map(str::trim).filter(|n| !n.is_empty()) {
+            tx.execute(
+                "INSERT INTO people (name) SELECT ?1
+                 WHERE NOT EXISTS (SELECT 1 FROM people WHERE name = ?1 COLLATE NOCASE)",
+                [name],
+            )?;
+        }
     }
     let names: Vec<&str> = info.speakers.iter().filter_map(|s| s.name.as_deref()).collect();
     set_search(tx, &info.id, "meta", &[format!("{} {}", info.title, names.join(" "))])
@@ -252,6 +260,12 @@ pub(crate) fn meeting(conn: &Connection, id: &MeetingId) -> Result<Option<Meetin
     let (my_notes, summary) = notes.unwrap_or_default();
     let summary = summary.and_then(|json| serde_json::from_str(&json).ok());
     Ok(Some(Meeting { info, summary, my_notes }))
+}
+
+pub(crate) fn people(conn: &Connection) -> Result<Vec<String>> {
+    let mut stmt = conn.prepare_cached("SELECT name FROM people ORDER BY name COLLATE NOCASE")?;
+    let rows = stmt.query_map([], |r| r.get(0))?;
+    Ok(rows.collect::<Result<_, _>>()?)
 }
 
 pub(crate) fn segments(conn: &Connection, id: &MeetingId, kind: TranscriptKind) -> Result<Vec<Segment>> {
