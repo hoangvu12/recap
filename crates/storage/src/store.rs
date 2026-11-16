@@ -104,6 +104,26 @@ impl Store {
         Ok(info)
     }
 
+    /// Name speaker `speaker` (`me`, `S1`..) of meeting `id`, or unname it
+    /// (`None` or blank). The name, trimmed, becomes a known person. The
+    /// transcript keeps its speaker ids: every view labels them from here.
+    pub fn rename_speaker(&self, id: &MeetingId, speaker: &str, name: Option<&str>) -> Result<MeetingInfo> {
+        let name = name.map(str::trim).filter(|n| !n.is_empty()).map(str::to_owned);
+        let mut found = false;
+        let info = self.update(id, |info| {
+            if let Some(s) = info.speakers.iter_mut().find(|s| s.id == speaker) {
+                s.name = name.clone();
+                found = true;
+            }
+        })?;
+        if found { Ok(info) } else { Err(StoreError::NoSpeaker { meeting: id.clone(), speaker: speaker.to_owned() }) }
+    }
+
+    /// Everyone a meeting named (rename suggestions), by name.
+    pub fn people(&self) -> Result<Vec<String>> {
+        db::people(&self.conn())
+    }
+
     /// Add live segments (final ones, as they come) to meeting `id`.
     pub fn append_live(&self, id: &MeetingId, segments: &[Segment]) -> Result<()> {
         let mut conn = self.conn_for(id)?;

@@ -281,3 +281,37 @@ fn the_store_is_shared_across_threads() {
     writer.join().unwrap();
     assert_eq!(store.segments(&info.id, TranscriptKind::Live).unwrap().len(), 20);
 }
+
+#[test]
+fn renaming_a_speaker_keeps_the_name_and_the_person() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    let id = write_meeting(&store);
+    // The names a meeting gave are known people.
+    assert_eq!(store.people().unwrap(), ["Priya", "Tom"]);
+
+    let info = store.rename_speaker(&id, "S2", Some("  David ")).unwrap();
+    assert_eq!(info.speakers[2], Speaker { id: "S2".into(), name: Some("David".into()) });
+    assert_eq!(store.meeting(&id).unwrap().unwrap().info.speakers[2].name.as_deref(), Some("David"));
+    assert_eq!(store.people().unwrap(), ["David", "Priya", "Tom"]);
+    // Home finds it by the new name.
+    assert_eq!(store.search("david").unwrap(), [id.clone()]);
+
+    // An empty name unnames the voice; the person stays known.
+    let info = store.rename_speaker(&id, "S1", Some(" ")).unwrap();
+    assert_eq!(info.speakers[1].name, None);
+    assert_eq!(store.people().unwrap(), ["David", "Priya", "Tom"]);
+    // A speaker the meeting doesn't have is an error.
+    assert!(store.rename_speaker(&id, "S9", Some("Lan")).is_err());
+
+    // Kept in the folder: a lost database comes back with the names and the people.
+    drop(store);
+    for file in ["app.db", "app.db-wal", "app.db-shm"] {
+        let _ = fs::remove_file(dir.path().join(file));
+    }
+    let store = Store::open(dir.path()).unwrap();
+    let speakers = store.meeting(&id).unwrap().unwrap().info.speakers;
+    assert_eq!(speakers[2].name.as_deref(), Some("David"));
+    assert_eq!(speakers[1].name, None);
+    assert_eq!(store.people().unwrap(), ["David", "Tom"]);
+}

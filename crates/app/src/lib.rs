@@ -14,17 +14,23 @@
 //! - [`settings`]: Settings' host side: the providers, their jobs and Test.
 //! - [`user_settings`]: the other Settings pages: `Settings` (recap-storage)
 //!   saved, published and watched; storage folder and audio retention applied.
+//! - [`speakers`]: naming speakers by hand: the Name speakers dialog's state
+//!   and renames kept.
+//! - [`playback`]: a line or a voice of the recording, played on a thread
+//!   of its own (rodio).
 
 pub mod fonts;
 pub mod home;
 pub mod host;
 pub mod live;
 pub mod naming;
+pub mod playback;
 pub mod presenter;
 pub mod processing;
 pub mod seed;
 pub mod session;
 pub mod settings;
+pub mod speakers;
 pub mod summary;
 pub mod user_settings;
 pub mod windows;

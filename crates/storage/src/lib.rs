@@ -23,7 +23,9 @@
 //! [`Store::set_summary`] after Stop. Readers: [`Store::list`],
 //! [`Store::meeting`], [`Store::transcript`] / [`Store::segments`] and
 //! [`Store::search`]. It is cheap to clone and shared across threads.
-//! [`Store::prune_audio`] applies audio retention.
+//! [`Store::prune_audio`] applies audio retention. [`Store::rename_speaker`]
+//! names a voice; every name a meeting gives is a known person
+//! ([`Store::people`], the rename suggestions).
 //!
 //! The user's [`Settings`] live in `settings.json` in Recap's home folder
 //! (beside the store unless a storage folder moves the meetings away).
@@ -174,6 +176,8 @@ pub struct Meeting {
 pub enum StoreError {
     #[error("no meeting {0}")]
     NoMeeting(MeetingId),
+    #[error("meeting {meeting} has no speaker {speaker}")]
+    NoSpeaker { meeting: MeetingId, speaker: String },
     #[error("{path}: {source}")]
     Io { path: std::path::PathBuf, source: std::io::Error },
     #[error("database: {0}")]

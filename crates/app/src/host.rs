@@ -11,6 +11,9 @@
 //!                           Notes window's meeting's processing (no steps: none to show)
 //!          summary          { id, overview, topics, next_steps, decisions }: the Notes
 //!                           window's meeting's summary (id "": none)
+//!          speakers_dialog  { id, speakers, people }: the Name speakers dialog's
+//!                           meeting (`speakers::dialog`; id "": none)
+//!          playback         { key, duration_ms }: what plays now (key "": nothing)
 //!          window.<id>     whether window <id> is open
 //! function transcript_row(i)    Row i (from 1), or nil
 //!          meeting_detail(id)   { id, title, overview, started_ms, duration_ms, status, speakers }
@@ -22,6 +25,14 @@
 //!                               summary again (meetings processed without them)
 //!          tick_next_step { id, index, done }  next step `index` (from 1) ticked or not
 //!          set_my_notes { id, text }  what the user typed (kept at Stop)
+//!          name_speakers(id)    the Name speakers dialog for meeting id (the
+//!                               action panel's "Name speakers" too)
+//!          rename_speakers { id, names = { S2 = "David", S1 = "" } }  names kept
+//!                               ("" unnames); views relabel, the summary is
+//!                               written again
+//!          play { id, key, from_ms | speaker }  a line from its start, or a
+//!                               voice's clip; `playback.key` says it plays
+//!          stop_playback
 //!          start_notes          a new meeting (main.rs registers it)
 //! ```
 
@@ -41,10 +52,11 @@ use zgx_script::{ScriptHost, Shared, Value};
 
 use crate::{
     home,
+    playback::{self, Player, PlayerEvent, What},
     presenter::{Changed, Presenter},
     processing::{self, ProcessingEvent, Progress, StepId},
     session::{self, LiveSession, SessionConfig, SessionEvent},
-    summary,
+    speakers, summary,
 };
 
 /// Starts processing meeting `id` in `store` (on the engine's runtime).
@@ -83,10 +95,26 @@ pub struct Host {
     running: Rc<RefCell<HashSet<MeetingId>>>,
     /// `transcript.generation`: one more each time the presenter is another.
     generation: Rc<std::cell::Cell<u64>>,
+    speakers_dialog: Shared,
+    /// The meeting `speakers_dialog` was made for.
+    dialog_of: Rc<RefCell<Option<MeetingId>>>,
+    playback: Shared,
+    /// Plays lines and clips (main.rs gives it; none: nothing plays).
+    player: Rc<RefCell<Option<Player>>>,
+    /// What plays now (`playback.key`).
+    playing: Rc<RefCell<String>>,
+    /// Meetings renamed while processing: their summary is written again
+    /// once it ends.
+    summary_again: Rc<RefCell<HashSet<MeetingId>>>,
 }
 
 fn value(json: serde_json::Value) -> Value {
     Value::from_json(&json.to_string()).unwrap_or(Value::Nil)
+}
+
+/// `playback` when nothing plays.
+fn no_playback() -> serde_json::Value {
+    serde_json::json!({ "key": "", "duration_ms": 0 })
 }
 
 /// `processing` when there is none to show.
@@ -122,6 +150,12 @@ impl Host {
             processor: Rc::default(),
             running: Rc::default(),
             generation: Rc::default(),
+            speakers_dialog: script.shared("speakers_dialog", value(speakers::no_dialog())),
+            dialog_of: Rc::default(),
+            playback: script.shared("playback", value(no_playback())),
+            player: Rc::default(),
+            playing: Rc::default(),
+            summary_again: Rc::default(),
             script,
         };
         let presenter = host.presenter.clone();
@@ -197,8 +231,157 @@ impl Host {
                 eprintln!("recap: my notes of {id}: {error}");
             }
         });
+        let namer = host.clone();
+        host.script.action("name_speakers", move |arg| {
+            if let Some(id) = meeting_id(&arg).or_else(|| namer.shown()) {
+                namer.name_speakers(&id);
+            }
+        });
+        let renamer = host.clone();
+        host.script.action("rename_speakers", move |arg| {
+            let json: serde_json::Value = serde_json::from_str(&arg.to_json()).unwrap_or_default();
+            let (Some(id), Some(names)) = (json["id"].as_str().filter(|id| !id.is_empty()), json["names"].as_object()) else {
+                return;
+            };
+            let names: Vec<(String, Option<String>)> = names
+                .iter()
+                .map(|(speaker, name)| (speaker.clone(), name.as_str().map(str::to_owned)))
+                .collect();
+            renamer.rename_speakers(&MeetingId::from(id), &names);
+        });
+        let player = host.clone();
+        host.script.action("play", move |arg| {
+            let json: serde_json::Value = serde_json::from_str(&arg.to_json()).unwrap_or_default();
+            player.play(&json);
+        });
+        let stopper = host.clone();
+        host.script.action("stop_playback", move |_| {
+            if let Some(player) = &*stopper.player.borrow() {
+                player.stop();
+            }
+        });
         host.refresh_meetings();
         host
+    }
+
+    /// The stored meeting the Notes window shows, if it shows one.
+    fn shown(&self) -> Option<MeetingId> {
+        let id = self.presenter.borrow().id().to_owned();
+        (!id.is_empty() && !self.is_live()).then(|| MeetingId::from(id))
+    }
+
+    /// Play lines and clips with `player`; what it says becomes `playback`
+    /// (`spawn` follows it on the UI thread).
+    pub fn set_player(&self, player: Player, mut events: UnboundedReceiver<PlayerEvent>, spawn: &Spawn) {
+        *self.player.borrow_mut() = Some(player);
+        let host = self.clone();
+        spawn(Box::pin(async move {
+            while let Some(event) = events.recv().await {
+                match event {
+                    PlayerEvent::Playing { key, duration_ms } => {
+                        *host.playing.borrow_mut() = key.clone();
+                        host.playback.set(value(serde_json::json!({ "key": key, "duration_ms": duration_ms })));
+                    }
+                    PlayerEvent::Ended { key } => {
+                        if *host.playing.borrow() == key {
+                            host.playing.borrow_mut().clear();
+                            host.playback.set(value(no_playback()));
+                        }
+                    }
+                    PlayerEvent::Failed { error, .. } => {
+                        host.playing.borrow_mut().clear();
+                        host.playback.set(value(no_playback()));
+                        host.notice(&error);
+                    }
+                }
+            }
+        }));
+    }
+
+    /// Play what `arg` says: `{ id, key, from_ms }` a line from its start,
+    /// `{ id, key, speaker }` a voice's clip.
+    fn play(&self, arg: &serde_json::Value) {
+        let (Some(id), Some(key)) = (arg["id"].as_str().filter(|id| !id.is_empty()), arg["key"].as_str()) else {
+            return;
+        };
+        let Some(store) = self.store() else { return };
+        if self.player.borrow().is_none() {
+            return;
+        }
+        let id = MeetingId::from(id);
+        let what = match arg["speaker"].as_str() {
+            Some(speaker) => {
+                let segments = match store.transcript(&id) {
+                    Ok(segments) => segments,
+                    Err(error) => return self.notice(&error.to_string()),
+                };
+                What::Speaker { source: playback::side_of(speaker), turns: playback::speaker_turns(&segments, speaker) }
+            }
+            None => What::Line { from_ms: arg["from_ms"].as_u64().unwrap_or(0) },
+        };
+        if let Some(player) = &*self.player.borrow() {
+            player.play(key, store.folder(&id).join(processing::AUDIO), what);
+        }
+    }
+
+    /// The Name speakers dialog for meeting `id`.
+    pub fn name_speakers(&self, id: &MeetingId) {
+        let Some(store) = self.store() else { return };
+        match speakers::dialog(&store, id) {
+            Ok(view) => {
+                *self.dialog_of.borrow_mut() = Some(id.clone());
+                self.speakers_dialog.set(value(view));
+                self.open_window("speakers");
+            }
+            Err(error) => eprintln!("recap: name speakers of {id}: {error}"),
+        }
+    }
+
+    /// The dialog's state again, if it is on meeting `id` (names changed).
+    fn refresh_dialog(&self, store: &Store, id: &MeetingId) {
+        let on = self.dialog_of.borrow().as_ref() == Some(id);
+        if on && let Ok(view) = speakers::dialog(store, id) {
+            self.speakers_dialog.set(value(view));
+        }
+    }
+
+    /// Name meeting `id`'s speakers as `names` says (Save names, an inline
+    /// rename). Every view relabels; a meeting with a summary has it written
+    /// again with the new names (once it is done processing, if it is).
+    pub fn rename_speakers(&self, id: &MeetingId, names: &[(String, Option<String>)]) {
+        let Some(store) = self.store() else { return };
+        let changed = match speakers::rename(&store, id, names) {
+            Ok(changed) => changed,
+            Err(error) => return self.notice(&format!("Can't rename: {error}")),
+        };
+        if changed.is_empty() {
+            return;
+        }
+        if self.shown().as_ref() == Some(id) {
+            self.show_stored(id);
+        } else {
+            self.refresh_dialog(&store, id);
+        }
+        self.refresh_meetings();
+        let has_summary = store.meeting(id).ok().flatten().is_some_and(|m| m.summary.is_some());
+        if has_summary {
+            self.write_summary_again(id);
+        }
+    }
+
+    /// Writing summary again for meeting `id`, now or once it is done
+    /// processing.
+    fn write_summary_again(&self, id: &MeetingId) {
+        if self.is_processing(id) {
+            self.summary_again.borrow_mut().insert(id.clone());
+            return;
+        }
+        let Some(store) = self.store() else { return };
+        if let Err(error) = processing::redo(&store.folder(id), &[StepId::WritingSummary]) {
+            self.notice(&format!("Can't write the summary again: {error}"));
+            return;
+        }
+        self.process(id);
     }
 
     /// Open window `id` (`ui/windows.luau` declares it).
@@ -277,6 +460,7 @@ impl Host {
                     Progress::read(&store.folder(id)).view(id)
                 }));
                 self.show_summary(&store, id);
+                self.refresh_dialog(&store, id);
                 Some(status)
             }
             Ok((None, _)) => {
@@ -389,6 +573,10 @@ impl Host {
                 }
             }
             host.running.borrow_mut().remove(&id);
+            // Renamed meanwhile: the summary again, with the new names.
+            if host.summary_again.borrow_mut().remove(&id) {
+                host.write_summary_again(&id);
+            }
         }));
     }
 
@@ -444,6 +632,12 @@ impl Host {
     /// Show `presenter` from now on: another transcript, whose rows the UI
     /// reads again.
     fn replace_presenter(&self, presenter: Presenter) {
+        // Another meeting: what played of the last one stops.
+        if presenter.id() != self.presenter.borrow().id()
+            && let Some(player) = &*self.player.borrow()
+        {
+            player.stop();
+        }
         *self.presenter.borrow_mut() = presenter;
         self.generation.set(self.generation.get() + 1);
     }
