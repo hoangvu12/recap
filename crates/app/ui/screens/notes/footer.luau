@@ -115,7 +115,7 @@ return function(): Node
 							return not paused()
 						end, Keycap("↵")),
 					},
-					ui.div { w = 1, h = 16, mx = 4, bg = "$rc.stroke.hairline" },
+					-- No divider after: Actions doesn't show while live.
 				}
 			),
 			-- After Stop (screens/3a, 3b): Hide Esc while it processes, Retry ↵
