@@ -4,11 +4,15 @@
 -- reads and hands a change to `on_change`; ids are the row's `id`
 -- (`set-<field>`) and its parts (`-state`, `-label`, `-<value>`, `-plus`…).
 local Icon = require("@components/icon")
+local motion = require("@lib/motion")
 
 local M = {}
 
 -- A 28×16 switch, accent when on (DESIGN §9.3 Switch).
 function M.Switch(props: { id: string, label: string, on: () -> boolean, on_change: (boolean) -> () }): Node
+	-- The thumb slides (transform only) with Raycast's slight overshoot,
+	-- 366 ms; the track's colour eases.
+	local on = ui.computed(props.on)
 	return ui.button {
 		id = props.id,
 		label = props.label,
@@ -19,9 +23,7 @@ function M.Switch(props: { id: string, label: string, on: () -> boolean, on_chan
 		p = 0,
 		shrink = 0,
 		rounded = 999,
-		bg = function()
-			return if props.on() then "$rc.accent" else "$rc.fill.selected"
-		end,
+		bg = motion.tween(on, { from = "$rc.fill.selected", to = "$rc.accent", duration = motion.fast_in }),
 		on_click = function()
 			props.on_change(not props.on())
 		end,
@@ -30,10 +32,13 @@ function M.Switch(props: { id: string, label: string, on: () -> boolean, on_chan
 			h_full = true,
 			px = 2,
 			items = "center",
-			justify = function()
-				return if props.on() then "end" else "start"
-			end,
-			ui.div { w = 12, h = 12, rounded = 999, bg = "$rc.switch.thumb" },
+			ui.div {
+				w = 12,
+				h = 12,
+				rounded = 999,
+				bg = "$rc.switch.thumb",
+				x = motion.tween(on, { from = 0, to = 12, duration = motion.switch_ms, ease = motion.ease.switch }),
+			},
 			-- What it is, for tests and assistive technology; not drawn.
 			ui.text {
 				function()

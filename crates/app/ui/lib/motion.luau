@@ -37,7 +37,11 @@ M.ease = {
 	out = "cubicBezier(0, 0, .2, 1)",
 	-- Raycast's ease-out-expo.
 	outExpo = "cubicBezier(.16, 1, .3, 1)",
+	-- Raycast's switch thumb: a slight overshoot (DESIGN §9.2).
+	switch = "cubicBezier(.16, -.12, .29, 1.31)",
 }
+-- The switch thumb's slide.
+M.switch_ms = 366
 
 -- Reduced motion's fade: what a fade of 150 ms or more becomes.
 M.REDUCED_FADE = 100
