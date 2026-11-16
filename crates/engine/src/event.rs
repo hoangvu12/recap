@@ -67,6 +67,9 @@ pub enum EngineEvent {
     Elapsed(u64),
     /// A provider failed for one side; recording goes on.
     Error { source: Source, error: ProviderError },
+    /// The recording could not be written (disk full, folder gone): what is
+    /// on disk so far stays; captions go on.
+    RecordingFailed(String),
     /// The last event: what the meeting produced.
     Finished(MeetingResult),
 }

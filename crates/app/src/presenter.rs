@@ -103,7 +103,7 @@ impl Presenter {
                 transcript.apply(segment);
                 Changed { meeting: false, transcript: true, captions: segment.source == Source::Them }
             }
-            EngineEvent::Error { .. } => Changed::default(),
+            EngineEvent::Error { .. } | EngineEvent::RecordingFailed(_) => Changed::default(),
             EngineEvent::Finished(result) => {
                 self.elapsed_ms = self.elapsed_ms.max(result.duration_ms);
                 Changed { meeting: true, ..Default::default() }

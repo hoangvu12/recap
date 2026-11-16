@@ -1,4 +1,4 @@
-# 3. Storage: meeting folders are the truth, app.db is an index
+# 4. Storage: meeting folders are the truth, app.db is an index
 
 Status: accepted (ticket #3)
 
