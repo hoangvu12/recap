@@ -16,14 +16,14 @@
 mod audio;
 mod event;
 pub mod fake;
-mod meeting;
+mod live_meeting;
 mod provider;
 mod transcript;
 
 pub use audio::{AudioFrame, AudioSource, FeedSource, FrameFeed, SAMPLE_RATE, SilenceSource};
 pub use event::{EngineEvent, MeetingResult, MeetingState, Segment, SegmentId, Source};
 pub use fake::{Script, ScriptLine, ScriptedLiveStt};
-pub use meeting::{Meeting, MeetingConfig, MeetingControl};
+pub use live_meeting::{Meeting, MeetingConfig, MeetingControl};
 pub use provider::{
     BatchRequest, BatchStt, BatchTranscript, BoxFuture, Capabilities, LiveEvent, LiveOptions,
     LiveStt, Llm, ProviderError, ProviderErrorKind, Word,
