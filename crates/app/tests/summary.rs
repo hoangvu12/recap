@@ -255,7 +255,7 @@ async fn after_stop_the_speakers_are_named_and_the_summary_written() {
     assert!(md.contains("### Next steps\n- [ ] **David**: Add caching and rerun the load test (Before Dec 1)\n"), "{md}");
     assert!(md.contains("### Decisions\n- Launch on December 1, with caching in place.\n"), "{md}");
     // Home finds it by what the summary says.
-    assert_eq!(store.search("fallback").unwrap(), [info.id.clone()]);
+    assert_eq!(store.search("fallback").unwrap(), std::slice::from_ref(&info.id));
 }
 
 #[tokio::test(flavor = "multi_thread")]
