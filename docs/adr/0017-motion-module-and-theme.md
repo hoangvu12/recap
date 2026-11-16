@@ -1,17 +1,35 @@
-# 0017: One motion module; the theme follows Settings; the overlay is scoped dark
+# 0017: One motion module, bindings only; the theme follows Settings; the overlay is scoped dark
 
 ## Context
-motion_spec §2 gives motion tokens and a reduced-motion rule (Windows "Animation effects" off: no transforms, fades of 150 ms or more become 100 ms, everything else instant, loops still). Screens animated ad hoc with `anime.animate`/`ui.loop`. Settings stores `theme` (system/dark/light) but nothing applied it. The overlay must stay dark.
+motion_spec §2 gives motion tokens and a reduced-motion rule: with Windows "Animation effects" off there are no transforms, fades of 150 ms or more become 100 ms, everything else is instant, and loops stand still. Screens animated ad hoc with `anime.animate`/`ui.loop`. Settings stores `theme` (system/dark/light), but nothing applied it. The overlay must stay dark.
+
+zgx has two kinds of animation. Bindings (`ui.tween`, `ui.loop`) are played by each window on its own frames. The anime engine (`anime.animate`, `anime.utils`, and the `enter`/`exit` options of `ui.presence`/`ui.each`) is ticked on the root window's frames. Recap's root window is hidden, so anime never runs there. In the real app, an `on_mount` fade stayed at opacity 0 (the Summary tab was blank, and new transcript rows were invisible), and a presence exit never finished. Headless `zgx test` doesn't show this.
 
 ## Decision
-- `ui/lib/motion.luau` holds the tokens and is the only way the UI animates: `enter`, `fade`, `pop`, `animate`, `tween`, `color`, `exit`, `Looping`. It applies the reduced-motion rule itself (`motion.reduce`), reading `ui.prefers.reduced_motion`. zgx fills that from SPI_GETCLIENTAREAANIMATION and updates it on WM_SETTINGCHANGE, so no Rust code is needed. The `reduce_motion` state forces it on, for tests or a future setting of our own.
-- Entrances are decided at mount (on_mount). Tweens and presence exits read reduced motion when they are built. Loops swap live (`Looping`).
-- Transcript entrances: `lib/arrivals.luau` marks the rows of a change of 3 or fewer rows to the same transcript as arriving for 600 ms. Only those rows animate, so rows that were already there, rows scrolled back to, and catch-ups appear as they are.
-- Partial → final: a third colour run holds the words that just turned final and eases them from tertiary to the final colour over 150 ms, then merges them into the final run. The text never changes, so nothing reflows.
-- Theme: `theme.follow(fn)` applies `host.settings.theme` (`ui.theme.set` or `follow_system`). The overlay window's content is wrapped in a `theme = "recap-dark"` scope in windows.luau.
-- Keyboard surfaces (the Ctrl K action panel) open instantly.
+- `ui/lib/motion.luau` holds the tokens and is the only way the UI animates. Everything in it is a binding:
+  - `Enter(kind, props, m)`: a node that plays a Motion as it mounts.
+  - `Presence(cond, build, {exit, box})`: our own presence, whose exit is an opacity tween on a box.
+  - `entrance(play, m)`
+  - `tween`
+  - `color`
+  - `Looping`
+
+  Recap uses no anime at all.
+- The module applies the reduced-motion rule itself (`motion.plan`, which is pure). It reads `ui.prefers.reduced_motion`, which zgx fills from SPI_GETCLIENTAREAANIMATION and updates on WM_SETTINGCHANGE, so no Rust code is needed. The `reduce_motion` state forces reduced motion on, for tests or a future setting of our own.
+- Transcript entrances:
+  - `lib/arrivals.luau` marks rows as arriving for 600 ms when a change of 3 or fewer rows reaches the same live transcript.
+  - Only those rows animate. Rows that were already there, rows scrolled back to, and catch-ups appear as they are.
+- Partial → final: a third colour run holds the words that just turned final and eases them from tertiary to the final colour over 150 ms. Then it merges them into the final run. The text never changes, so nothing reflows.
+- Theme:
+  - `theme.follow(fn)` applies `host.settings.theme` with `ui.theme.set` or `follow_system`.
+  - In windows.luau, the overlay window's content is wrapped in a `theme = "recap-dark"` scope.
+- Keyboard surfaces, such as the Ctrl K action panel, open instantly.
 
 ## Consequences
-- Screens #8 and #12 own (the overlay, the speakers dialog, inline rename) should switch to `lib/motion` (see LEARNINGS).
-- A tween built while motion is allowed keeps its duration if the user turns animations off mid-session. Entrances and loops follow at once.
-- Loops don't pause when a window is hidden: zgx doesn't draw a hidden window, and the spec's "pause when minimised" isn't wired separately.
+- The overlay:
+  - The overlay's line shift no longer slides. A binding can't replay a move from a varying offset, so the block moves at once (`caption_shift` still counts shifts).
+  - The idle dim is a tween on `captions_idle`, so the undim also eases (400 ms), where the spec says it is instant.
+- Entrances play from the frame after mount.
+- A tween built while motion is allowed keeps its duration if the user turns animations off mid-session. Entrances, presences and loops follow the setting at once.
+- Loops don't pause when a window is hidden. zgx doesn't draw a hidden window, and the spec's "pause when minimised" isn't wired separately.
+- If zgx ever ticks anime per window, the anime-based forms could come back. Until then, a test that passes headless can still hide content in the app, so check new motion in the real app.

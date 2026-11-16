@@ -35,12 +35,11 @@ local function StepRow(i: number): Node
 			pending = Icon { name = "circle-empty", color = "$rc.text.quaternary", id = `step-{i}-pending` },
 			-- The spinner fades in (150 ms) and turns every 800 ms; under
 			-- reduced motion it stands still.
-			running = ui.div {
+			running = motion.Enter("div", {
 				id = `step-{i}-running`,
 				w = 16,
 				h = 16,
 				shrink = 0,
-				on_mount = motion.on_fade(motion.base),
 				motion.Looping(
 					ui.div {
 						id = `step-{i}-spin`,
@@ -51,29 +50,20 @@ local function StepRow(i: number): Node
 					},
 					Icon { name = "spinner", color = "$rc.accent" }
 				),
-			},
+			}, motion.FADE),
 			-- ✓ crossfades in with a small scale (.8 → 1), no overshoot.
-			done = ui.div {
+			done = motion.Enter("div", {
 				w = 16,
 				h = 16,
 				shrink = 0,
-				on_mount = function(el)
-					motion.animate(el, {
-						opacity = { 0, 1 },
-						scale = { 0.8, 1 },
-						duration = motion.base,
-						ease = motion.ease.outExpo,
-					})
-				end,
 				Icon { name = "check", color = "$rc.text.secondary", id = `step-{i}-done` },
-			},
-			error = ui.div {
+			}, { opacity = { 0, 1 }, scale = 0.8, duration = motion.base, ease = motion.ease.outExpo }),
+			error = motion.Enter("div", {
 				w = 16,
 				h = 16,
 				shrink = 0,
-				on_mount = motion.on_fade(motion.base),
 				Icon { name = "error-circle", color = "$rc.red", id = `step-{i}-error` },
-			},
+			}, motion.FADE),
 		}),
 		ui.text {
 			function()
@@ -189,8 +179,8 @@ ui.effect(function()
 end)
 
 return function(): Node
-	return ui.presence(function(): string?
-		return if processing.active(host.processing:get()) or holding:get() then "card" else nil
+	return motion.Presence(function(): boolean
+		return processing.active(host.processing:get()) or holding:get()
 	end, function()
 		local rows = {}
 		for i = 1, STEPS do
@@ -214,5 +204,5 @@ return function(): Node
 				Failure(),
 			},
 		}
-	end, { exit = motion.exit(motion.base) })
+	end, { exit = motion.base, box = { w_full = true, shrink = 0 } })
 end

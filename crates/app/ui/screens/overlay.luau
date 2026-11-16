@@ -281,22 +281,19 @@ local function toolbar(): Node
 	}
 end
 
--- The toolbar, shown while hovered; `enter` is its entrance (nil: at once).
-local function Toolbar(enter: { [string]: any }?): Node
-	local exit: { [string]: any } = if enter
-		then { opacity = 0, duration = motion.fast_out, ease = motion.ease.out }
-		else { opacity = 0, duration = motion.REDUCED_FADE, ease = motion.ease.out }
-	return ui.presence(function()
-		return if state.overlay_toolbar:get() then "on" else nil
+-- The toolbar, shown while hovered (motion.fast: 100 ms in with a 4 px rise,
+-- 200 ms out; reduced motion: in at once, out in 100 ms).
+local function Toolbar(): Node
+	return motion.Presence(function()
+		return state.overlay_toolbar:get()
 	end, function()
-		return toolbar()
-	end, {
-		absolute = true,
-		top = 8,
-		right = 8,
-		enter = enter,
-		exit = exit,
-	})
+		return motion.Enter("div", { toolbar() }, {
+			opacity = { 0, 1 },
+			y = motion.RISE,
+			duration = motion.fast_in,
+			ease = motion.ease.outExpo,
+		})
+	end, { exit = motion.fast_out, box = { absolute = true, top = 8, right = 8 } })
 end
 
 return function(): Node
@@ -308,22 +305,12 @@ return function(): Node
 			state.captions_idle:set(true)
 		end)
 	end)
-	ui.effect(function()
-		if state.captions_idle:get() then
-			-- 400 ms ease-out; reduced motion: a 100 ms fade.
-			motion.animate("#captions-block", { opacity = IDLE_OPACITY, duration = IDLE_FADE_MS, ease = motion.ease.out })
-		else
-			anime.utils.set("#captions-block", { opacity = 1 })
-		end
-	end)
 
 	-- Shift the block up: a new turn (one line), or the bottom line
 	-- wrapping (what it grew). Never for a partial revised in place.
 	local function shift(px: number)
 		local s = state.caption_shift:peek()
 		state.caption_shift:set({ px = px, count = s.count + 1 })
-		-- 150 ms ease-out-expo; reduced motion: at once (lib/motion drops it).
-		motion.animate("#captions-block", { y = { px, 0 }, duration = motion.base, ease = motion.ease.outExpo })
 	end
 	local newest: number? = nil
 	local turned = false
@@ -412,6 +399,8 @@ return function(): Node
 			ui.column {
 				id = "captions-block",
 				w_full = true,
+				-- Idle: dims to 50% over 400 ms (reduced motion: at once).
+				opacity = motion.tween(state.captions_idle, { from = 1, to = IDLE_OPACITY, duration = IDLE_FADE_MS }),
 				shrink = 0,
 				on_resize = function(size)
 					local before = height
@@ -443,19 +432,6 @@ return function(): Node
 			local m = mode()
 			return m == "reconnecting" or m == "paused"
 		end, ui.div { id = "captions-dimmed", w = 0, h = 0, aria_hidden = true }),
-		-- motion.fast: 100 ms in with a 4 px rise, 200 ms out; reduced motion
-		-- (followed live): the 100 ms in is instant, the 200 ms out a 100 ms
-		-- fade.
-		ui.switch(function()
-			return if motion.reduced() then "reduced" else "full"
-		end, {
-			full = Toolbar {
-				opacity = { 0, 1 },
-				y = { motion.RISE, 0 },
-				duration = motion.fast_in,
-				ease = motion.ease.outExpo,
-			},
-			reduced = Toolbar(nil),
-		}),
+		Toolbar(),
 	}
 end

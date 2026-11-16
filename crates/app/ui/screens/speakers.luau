@@ -49,26 +49,31 @@ local function Play(i: number, s: host.DialogSpeaker, playing: () -> boolean): N
 end
 
 -- The 2 px line that crosses as the clip plays (scaleX, linear). It tells
--- playback's progress, so it runs under reduced motion too (anime direct).
+-- playback's progress, so it runs under reduced motion too. A binding, not
+-- anime: anime doesn't play in Recap's windows (lib/motion).
+local Line = ui.component(function(props: { i: number }): Node
+	local started = ui.use_state(false)
+	ui.after(1, function()
+		started:set(true)
+	end)
+	return ui.div {
+		id = `speaker-{props.i}-progress`,
+		w_full = true,
+		h = 2,
+		rounded = 1,
+		bg = "$rc.accent",
+		origin = { 0, 0.5 },
+		scale_x = ui.tween(started, {
+			from = 0,
+			to = 1,
+			duration = math.max(host.playback:peek().duration_ms, 1),
+			ease = "linear",
+		}),
+	}
+end)
+
 local function Progress(i: number, playing: () -> boolean): Node
-	return ui.show(
-		playing,
-		ui.div {
-			id = `speaker-{i}-progress`,
-			w_full = true,
-			h = 2,
-			rounded = 1,
-			bg = "$rc.accent",
-			origin = { 0, 0.5 },
-			on_mount = function(el)
-				anime.animate(el, {
-					scale_x = { 0, 1 },
-					duration = math.max(host.playback:peek().duration_ms, 1),
-					ease = "linear",
-				})
-			end,
-		}
-	)
+	return ui.show(playing, Line { i = i })
 end
 
 -- The name: Me's locked; the others a field with the people to pick from.
@@ -266,15 +271,14 @@ return function(): Node
 		local d = host.speakers_dialog:get()
 		return if d.id ~= "" then { d } else {}
 	end)
-	return ui.column {
+	-- The dialog comes in: 200 ms fade + 4 px rise (motion_spec §2.9).
+	return motion.Enter("column", {
 		id = "speakers-window",
 		w_full = true,
 		h_full = true,
 		bg = "$rc.bg.window",
 		color = "$rc.text.primary",
 		font = "$rc.font.ui",
-		-- The dialog comes in: 200 ms fade + 4 px rise (motion_spec §2.9).
-		on_mount = motion.on_enter(),
 		on_key = function(e)
 			if e.key == "Escape" then
 				actions.close_name_speakers()
@@ -332,5 +336,5 @@ return function(): Node
 			ui.div { w = 1, h = 16, mx = 4, bg = "$rc.stroke.hairline" },
 			bare_button("save-names", "Save names", "$rc.text.primary", save, { Keycap("Ctrl"), Keycap("↵") }),
 		},
-	}
+	}, motion.ENTER)
 end

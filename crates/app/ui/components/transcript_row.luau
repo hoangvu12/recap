@@ -54,7 +54,7 @@ local function PauseMarker(index: number, row: host.Row, arriving: boolean): Nod
 			tabular = true,
 		},
 		Dashes(),
-	}, motion.entrance(arriving, { duration = motion.base, rise = 0, ease = motion.ease.out })))
+	}, motion.entrance(arriving, motion.FADE)))
 end
 
 -- A stored row's speaker chip: a click renames the voice inline (not Me's:

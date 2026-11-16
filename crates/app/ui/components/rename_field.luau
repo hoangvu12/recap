@@ -114,13 +114,12 @@ return function(index: number): Node
 			on_key = on_key,
 		},
 		build = function(): Node
-			return ui.column {
+			-- Opens with a 150 ms fade and scale .98 → 1 (motion_spec §2.9).
+			return motion.Enter("column", {
 				id = "rename-options",
 				w = 240,
 				p = 4,
 				gap = 2,
-				-- Opens with a 150 ms fade and scale .98 → 1 (motion_spec §2.9).
-				on_mount = motion.pop,
 				ui.each(numbered, function(o: { i: number, s: speakers.Suggestion })
 					return Option(o.i, o.s)
 				end, {
@@ -129,7 +128,7 @@ return function(index: number): Node
 						return `{o.i}|{o.s.label}`
 					end,
 				}),
-			}
+			}, motion.POP)
 		end,
 	}
 end

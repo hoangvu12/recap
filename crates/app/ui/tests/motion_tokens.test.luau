@@ -15,7 +15,7 @@ test("the motion tokens are the spec's", function()
 end)
 
 test("reduced: an entrance keeps its fade, 100 ms, without the rise or the delay", function()
-	local r = motion.reduce({ opacity = { 0, 1 }, y = { 4, 0 }, scale = { 0.98, 1 }, duration = 240, delay = 160 })
+	local r = motion.plan({ opacity = { 0, 1 }, y = 4, scale = 0.98, duration = 240, delay = 160 }, true)
 	expect(r).never.to_be_nil()
 	expect(r.y).to_be_nil()
 	expect(r.scale).to_be_nil()
@@ -24,7 +24,12 @@ test("reduced: an entrance keeps its fade, 100 ms, without the rise or the delay
 	expect(r.opacity).to_equal({ 0, 1 })
 end)
 
+test("not reduced: a motion plays as it is", function()
+	local m = { opacity = { 0, 1 }, y = 4, duration = 200 }
+	expect(motion.plan(m, false)).to_be(m)
+end)
+
 test("reduced: a short fade or a move alone doesn't play", function()
-	expect(motion.reduce({ opacity = { 1, 0 }, duration = 100 })).to_be_nil()
-	expect(motion.reduce({ y = { 4, 0 }, duration = 200 })).to_be_nil()
+	expect(motion.plan({ opacity = { 1, 0 }, duration = 100 }, true)).to_be_nil()
+	expect(motion.plan({ y = 4, duration = 200 }, true)).to_be_nil()
 end)

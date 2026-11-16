@@ -18,10 +18,13 @@ local motion = require("@lib/motion")
 local STAGGER_MS = 40
 local CAP = 6
 
-local function fade_in(order: number): (Element) -> ()
-	return motion.on_enter {
+local function reveal(order: number): motion.Motion
+	return {
+		opacity = { 0, 1 },
+		y = motion.RISE,
 		duration = motion.reveal,
 		delay = (math.min(order, CAP) - 1) * STAGGER_MS,
+		ease = motion.ease.outExpo,
 	}
 end
 
@@ -72,13 +75,8 @@ end
 -- A section; it fades in unless the summary was written again (then only
 -- what changed washes).
 local function Section(order: number, id: string, children: { Node }, fade: boolean): Node
-	return ui.column {
-		id = id,
-		w_full = true,
-		pb = 12,
-		on_mount = if fade then fade_in(order) else nil,
-		children,
-	}
+	local props = { id = id, w_full = true, pb = 12, children }
+	return if fade then motion.Enter("column", props, reveal(order)) else ui.column(props)
 end
 
 -- `node`, under a wash that fades from fill.selected to nothing over 600 ms
@@ -92,7 +90,7 @@ local function Washed(id: string, changed: boolean, node: Node): Node
 	return ui.column {
 		w_full = true,
 		relative = true,
-		ui.div {
+		motion.Enter("div", {
 			id = `wash-{id}`,
 			absolute = true,
 			left = -6,
@@ -103,10 +101,7 @@ local function Washed(id: string, changed: boolean, node: Node): Node
 			bg = "$rc.fill.selected",
 			pointer_events = "none",
 			aria_hidden = true,
-			on_mount = function(el)
-				motion.animate(el, { opacity = { 1, 0 }, duration = WASH_MS, ease = motion.ease.out })
-			end,
-		},
+		}, { opacity = { 1, 0 }, duration = WASH_MS, ease = motion.ease.out }),
 		node,
 	}
 end

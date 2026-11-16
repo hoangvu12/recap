@@ -22,22 +22,18 @@ local function JumpPill(list: Ref): Node
 		return math.max(count() - state.seen_count:get(), 0)
 	end
 	-- Enter: 150 ms fade + 4 px rise; exit: a 100 ms fade.
-	return ui.presence(function(): string?
+	return motion.Presence(function(): boolean
 		-- Only a live meeting has a live end to go back to.
 		local s = host.meeting:get().state
 		local live = s == "recording" or s == "paused"
-		return if live and not state.transcript_at_end:get() and count() > 0 then "on" else nil
+		return live and not state.transcript_at_end:get() and count() > 0
 	end, function()
 		return ui.row {
-			absolute = true,
-			left = 0,
-			right = 0,
-			bottom = 28,
+			w_full = true,
 			justify = "center",
 			pointer_events = "none",
-			ui.button {
+			motion.Enter("button", {
 				id = "jump-to-live",
-				on_mount = motion.on_enter { duration = motion.base },
 				h = 28,
 				px = 12,
 				gap = 4,
@@ -65,9 +61,12 @@ local function JumpPill(list: Ref): Node
 					weight = 500,
 					color = "$rc.text.secondary",
 				},
-			},
+			}, { opacity = { 0, 1 }, y = motion.RISE, duration = motion.base, ease = motion.ease.outExpo }),
 		}
-	end, { exit = motion.exit(), absolute = true, left = 0, right = 0, bottom = 0, top = 0, pointer_events = "none" })
+	end, {
+		exit = motion.fast_in,
+		box = { absolute = true, left = 0, right = 0, bottom = 28, pointer_events = "none" },
+	})
 end
 
 -- A refined transcript's speakers (screens/5): their chips, in order.
