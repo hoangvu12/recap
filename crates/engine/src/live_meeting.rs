@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use tokio::sync::mpsc;
@@ -6,7 +7,7 @@ use tokio::task::JoinHandle;
 
 use crate::{
     AudioFrame, AudioSource, EngineEvent, LiveEvent, LiveOptions, LiveStt, LiveTranscript,
-    MeetingResult, MeetingState, Segment, SegmentId, Source,
+    MeetingResult, MeetingState, Recorder, Segment, SegmentId, Source,
 };
 
 /// How a meeting runs.
@@ -15,6 +16,41 @@ pub struct MeetingConfig {
     /// Caption my own speech live too (a second socket). Them is always on.
     pub caption_me: bool,
     pub live: LiveOptions,
+    /// Where to record the meeting (Ogg/Opus, ch0 Me, ch1 Them). Paused audio
+    /// is left out, so the file's time is meeting time. Complete once
+    /// `Finished` is out.
+    pub recording: Option<PathBuf>,
+}
+
+/// The recorder on a thread of its own: encoding and fsync stay off the
+/// runtime.
+struct RecorderThread {
+    frames: std::sync::mpsc::Sender<AudioFrame>,
+    thread: std::thread::JoinHandle<std::io::Result<()>>,
+}
+
+impl RecorderThread {
+    fn start(path: &Path) -> std::io::Result<RecorderThread> {
+        let mut recorder = Recorder::create(path)?;
+        let (frames, rx) = std::sync::mpsc::channel::<AudioFrame>();
+        let thread = std::thread::Builder::new().name("recap-recorder".into()).spawn(move || {
+            for frame in rx {
+                recorder.write(&frame)?;
+            }
+            recorder.finish()
+        })?;
+        Ok(RecorderThread { frames, thread })
+    }
+
+    /// Close the file; any error on the way.
+    async fn finish(self) -> std::io::Result<()> {
+        drop(self.frames);
+        let thread = self.thread;
+        tokio::task::spawn_blocking(move || thread.join())
+            .await
+            .map_err(std::io::Error::other)?
+            .map_err(|_| std::io::Error::other("the recorder thread panicked"))?
+    }
 }
 
 enum Control {
@@ -171,6 +207,17 @@ async fn run(
     };
     engine.emit(EngineEvent::State(MeetingState::Recording));
 
+    let mut recorder = match &config.recording {
+        Some(path) => match RecorderThread::start(path) {
+            Ok(recorder) => Some(recorder),
+            Err(error) => {
+                engine.emit(EngineEvent::RecordingFailed(error.to_string()));
+                None
+            }
+        },
+        None => None,
+    };
+
     // Them always; Me only when my captions are on.
     let (heard_tx, mut heard) = mpsc::unbounded_channel::<(Source, LiveEvent)>();
     let mut sides: HashMap<Source, Side> = HashMap::new();
@@ -213,6 +260,16 @@ async fn run(
                 if paused {
                     continue;
                 }
+                if let Some(rec) = &recorder
+                    && rec.frames.send(frame.clone()).is_err()
+                {
+                    // The recorder stopped on an error; finish() reports it.
+                    if let Some(rec) = recorder.take()
+                        && let Err(error) = rec.finish().await
+                    {
+                        engine.emit(EngineEvent::RecordingFailed(error.to_string()));
+                    }
+                }
                 if frame.source == Source::Them {
                     elapsed_ms += frame.duration_ms();
                     while elapsed_ms >= next_tick {
@@ -229,6 +286,11 @@ async fn run(
         }
     }
     drop(audio); // the source thread ends at its next frame
+    if let Some(rec) = recorder.take()
+        && let Err(error) = rec.finish().await
+    {
+        engine.emit(EngineEvent::RecordingFailed(error.to_string()));
+    }
 
     // Close each side's audio; the sessions say the rest of what they heard.
     for side in sides.values_mut() {

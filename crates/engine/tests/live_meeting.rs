@@ -132,7 +132,7 @@ async fn pause_holds_the_timer_and_captions_until_resume() {
 
     meeting.pause();
     wait_for(&mut meeting, |e| matches!(e, EngineEvent::State(MeetingState::Paused))).await;
-    // Audio keeps coming while paused (the recorder keeps it); captions don't.
+    // Audio keeps coming while paused; neither captions nor the recording take it.
     feed.push_silence(Duration::from_secs(20));
     // A command applies when it arrives: let the engine read the paused audio
     // first (it takes it as fast as it can).
@@ -181,6 +181,60 @@ async fn stop_finishes_with_what_was_said_so_far() {
     assert_eq!(result.rows[1].partial_text, "");
     assert!(meeting.next_event().await.is_none(), "nothing after Finished");
     drop(feed);
+}
+
+fn scratch(name: &str) -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join(format!("recap-meeting-test-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    dir.join(name)
+}
+
+fn recorded(source: impl recap_engine::AudioSource + 'static, path: &std::path::Path) -> Meeting {
+    Meeting::start(
+        MeetingConfig { recording: Some(path.to_path_buf()), ..MeetingConfig::default() },
+        Box::new(source),
+        Arc::new(ScriptedLiveStt::new(script())),
+    )
+}
+
+#[tokio::test]
+async fn the_test_meeting_replayed_from_its_wav_is_recorded_on_both_channels() {
+    let wav = concat!(env!("CARGO_MANIFEST_DIR"), "/../../testdata/meeting_tts.wav");
+    let path = scratch("replay.ogg");
+    let mut meeting = recorded(recap_engine::WavSource::open(std::path::Path::new(wav)).unwrap(), &path);
+    let (_, result) = drain(&mut meeting).await;
+    assert!((118_000..=118_500).contains(&result.duration_ms), "{}", result.duration_ms);
+
+    // The file is complete once Finished is out.
+    let rec = recap_engine::Recording::read(&path).unwrap();
+    let secs = rec.them.len() as f64 / recap_engine::SAMPLE_RATE as f64;
+    assert!((secs * 1000.0 - result.duration_ms as f64).abs() < 200.0, "{secs} s on disk");
+    let level = |s: &[i16]| s.iter().map(|v| v.unsigned_abs() as f64).sum::<f64>() / s.len() as f64;
+    assert!(level(&rec.me) > 300.0 && level(&rec.them) > 300.0, "both channels carry the meeting");
+}
+
+#[tokio::test]
+async fn paused_audio_is_left_out_of_the_recording() {
+    let path = scratch("paused.ogg");
+    let (feed, source) = FrameFeed::new();
+    let mut meeting = recorded(source, &path);
+    feed.push_silence(Duration::from_secs(2));
+    wait_for(&mut meeting, |e| matches!(e, EngineEvent::Elapsed(2_000))).await;
+    meeting.pause();
+    wait_for(&mut meeting, |e| matches!(e, EngineEvent::State(MeetingState::Paused))).await;
+    feed.push_silence(Duration::from_secs(5));
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    meeting.resume();
+    wait_for(&mut meeting, |e| matches!(e, EngineEvent::State(MeetingState::Recording))).await;
+    feed.push_silence(Duration::from_secs(1));
+    drop(feed);
+    let (_, result) = drain(&mut meeting).await;
+
+    let rec = recap_engine::Recording::read(&path).unwrap();
+    let ms = rec.me.len() as u64 * 1000 / recap_engine::SAMPLE_RATE as u64;
+    // The file's time is meeting time: a line's start_ms finds it in the file.
+    assert_eq!(result.duration_ms, 3_000);
+    assert!(ms.abs_diff(3_000) < 100, "{ms} ms recorded");
 }
 
 async fn wait_for(meeting: &mut Meeting, want: impl Fn(&EngineEvent) -> bool) {
