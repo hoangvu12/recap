@@ -51,6 +51,18 @@ test("each job shows its main and backup", function()
 	expect(win:text("#job-summary-backup-name")).to_be("OpenRouter")
 end)
 
+-- Seen in the real app: each picker was 68 px wide, its name cut to "…".
+test("each picker fills its column, its name in full", function()
+	local win = pfx.settings(mount())
+	local function width(sel)
+		local line = string.split(win:tree(sel), "\n")[1]
+		return tonumber(string.match(line, "(%d+)x%d+$"))
+	end
+	expect(width("#job-live-main") > 150).to_be(true)
+	expect(width("#job-live-backup")).to_be(width("#job-live-main"))
+	expect(width("#job-live-main-name") > 60).to_be(true)
+end)
+
 test("the live captions picker hides providers that can't caption live", function()
 	local win = pfx.settings(mount())
 	win:click("#job-live-main")
