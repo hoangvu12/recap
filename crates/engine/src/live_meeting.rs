@@ -134,10 +134,26 @@ fn read_source(mut source: Box<dyn AudioSource>, audio: mpsc::Sender<AudioFrame>
     }
 }
 
-/// One side's live session.
+/// One side's live session. How it ended comes on the meeting's `ended`
+/// channel, so an error is told at once while the meeting goes on.
 struct Side {
     audio: Option<mpsc::UnboundedSender<AudioFrame>>,
+    ended: bool,
+}
+
+/// Run a side's session; say how it ended.
+fn watch_side(
+    source: Source,
     task: JoinHandle<Result<(), crate::ProviderError>>,
+    ended: mpsc::UnboundedSender<(Source, Result<(), crate::ProviderError>)>,
+) {
+    tokio::spawn(async move {
+        let result = match task.await {
+            Ok(result) => result,
+            Err(join) => Err(crate::ProviderError::new(crate::ProviderErrorKind::Other, join.to_string())),
+        };
+        let _ = ended.send((source, result));
+    });
 }
 
 /// How long after a Me final's end Them's audio may still bring the words it
@@ -332,6 +348,7 @@ async fn run(
 
     // Them always; Me only when my captions are on.
     let (heard_tx, mut heard) = mpsc::unbounded_channel::<(Source, LiveEvent)>();
+    let (ended_tx, mut ended) = mpsc::unbounded_channel::<(Source, Result<(), crate::ProviderError>)>();
     let mut sides: HashMap<Source, Side> = HashMap::new();
     let wanted = if config.caption_me { vec![Source::Them, Source::Me] } else { vec![Source::Them] };
     for source in wanted {
@@ -344,9 +361,11 @@ async fn run(
                 let _ = forward.send((source, event));
             }
         });
-        sides.insert(source, Side { audio: Some(audio_tx), task: tokio::spawn(task) });
+        watch_side(source, tokio::spawn(task), ended_tx.clone());
+        sides.insert(source, Side { audio: Some(audio_tx), ended: false });
     }
     drop(heard_tx);
+    drop(ended_tx);
 
     // While paused: when it paused (wall clock).
     let mut paused: Option<u64> = None;
@@ -370,6 +389,17 @@ async fn run(
                 _ => {}
             },
             Some((source, event)) = heard.recv() => engine.heard(source, event),
+            // A side's captions ended early (its provider and backup gave
+            // up): tell it now; the recording goes on.
+            Some((source, result)) = ended.recv() => {
+                if let Some(side) = sides.get_mut(&source) {
+                    side.ended = true;
+                    side.audio = None;
+                }
+                if let Err(error) = result {
+                    engine.emit(EngineEvent::Error { source, error });
+                }
+            }
             frame = audio.recv() => {
                 let Some(frame) = frame else { break };
                 if paused.is_some() {
@@ -416,17 +446,12 @@ async fn run(
     for side in sides.values_mut() {
         side.audio.take();
     }
-    let mut order: Vec<Source> = sides.keys().copied().collect();
-    order.sort();
-    for source in order {
-        let side = sides.remove(&source).expect("each side once");
-        match side.task.await {
-            Ok(Ok(())) => {}
-            Ok(Err(error)) => engine.emit(EngineEvent::Error { source, error }),
-            Err(join) => engine.emit(EngineEvent::Error {
-                source,
-                error: crate::ProviderError::new(crate::ProviderErrorKind::Other, join.to_string()),
-            }),
+    let mut running = sides.values().filter(|side| !side.ended).count();
+    while running > 0 {
+        let Some((source, result)) = ended.recv().await else { break };
+        running -= 1;
+        if let Err(error) = result {
+            engine.emit(EngineEvent::Error { source, error });
         }
     }
     while let Some((source, event)) = heard.recv().await {

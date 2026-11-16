@@ -218,6 +218,88 @@ async fn a_live_error_that_does_not_fall_back_ends_the_session() {
     assert_eq!(texts, ["ElevenLabs 0"]);
 }
 
+fn live_job(main_fails: Option<(usize, ProviderErrorKind)>) -> Fallback<dyn LiveStt> {
+    Fallback::new(
+        Arc::new(FakeLive { name: "ElevenLabs", fail_after: main_fails }) as Arc<dyn LiveStt>,
+        Some(Arc::new(FakeLive { name: "Deepgram", fail_after: None }) as Arc<dyn LiveStt>),
+    )
+}
+
+/// A live session fed by hand: frame `i` starts at `i * 100` ms.
+struct Live {
+    audio: Option<mpsc::UnboundedSender<AudioFrame>>,
+    heard: mpsc::UnboundedReceiver<LiveEvent>,
+    done: tokio::task::JoinHandle<Result<(), ProviderError>>,
+}
+
+impl Live {
+    fn start(job: &Fallback<dyn LiveStt>, source: Source) -> Live {
+        let (audio, audio_rx) = mpsc::unbounded_channel();
+        let (events, heard) = mpsc::unbounded_channel();
+        let done = tokio::spawn(job.run(source, LiveOptions::default(), audio_rx, events));
+        Live { audio: Some(audio), heard, done }
+    }
+
+    async fn caption(&mut self, i: u64) -> String {
+        self.audio.as_ref().unwrap().send(AudioFrame::silence(Source::Them, i * 100, 100)).unwrap();
+        let wait = tokio::time::timeout(std::time::Duration::from_secs(5), self.heard.recv());
+        wait.await.expect("a caption in time").expect("still captioning").text
+    }
+
+    async fn finish(mut self) -> Result<(), ProviderError> {
+        self.audio = None;
+        self.done.await.unwrap()
+    }
+}
+
+#[tokio::test]
+async fn the_job_says_which_provider_captions_and_which_is_next() {
+    let job = live_job(Some((1, ProviderErrorKind::Quota)));
+    let switch = job.switch();
+    let mut changes = switch.subscribe();
+    assert_eq!((switch.active(), switch.backup()), ("ElevenLabs".to_owned(), Some("Deepgram".to_owned())));
+
+    let mut live = Live::start(&job, Source::Them);
+    assert_eq!(live.caption(0).await, "ElevenLabs 0");
+    // ElevenLabs runs out of quota on the next frame; Deepgram takes it.
+    assert_eq!(live.caption(1).await, "Deepgram 100");
+    changes.changed().await.unwrap();
+    assert_eq!((switch.active(), switch.backup()), ("Deepgram".to_owned(), None));
+    assert!(!switch.to_backup(), "no provider after the backup");
+    live.finish().await.unwrap();
+}
+
+#[tokio::test]
+async fn the_user_can_switch_to_the_backup_mid_meeting() {
+    let (seen, on_switch) = notices();
+    let job = live_job(None).on_switch(on_switch);
+    let switch = job.switch();
+    let mut live = Live::start(&job, Source::Them);
+    assert_eq!(live.caption(0).await, "ElevenLabs 0");
+    assert!(switch.to_backup(), "Switch to Deepgram");
+    assert_eq!(switch.active(), "Deepgram");
+    assert_eq!(live.caption(1).await, "Deepgram 100");
+    assert_eq!(live.caption(2).await, "Deepgram 200");
+    live.finish().await.unwrap();
+    assert!(seen.lock().unwrap().is_empty(), "the user switched: no failure to tell");
+}
+
+#[tokio::test]
+async fn both_sides_move_to_the_backup_together() {
+    let (seen, on_switch) = notices();
+    let job = live_job(Some((1, ProviderErrorKind::Auth))).on_switch(on_switch);
+    let mut me = Live::start(&job, Source::Me);
+    let mut them = Live::start(&job, Source::Them);
+    assert_eq!(me.caption(0).await, "ElevenLabs 0");
+    assert_eq!(them.caption(0).await, "ElevenLabs 0");
+    // Them's session fails; Me's has not, but the job has moved on.
+    assert_eq!(them.caption(1).await, "Deepgram 100");
+    assert_eq!(me.caption(1).await, "Deepgram 100");
+    them.finish().await.unwrap();
+    me.finish().await.unwrap();
+    assert_eq!(seen.lock().unwrap().len(), 1, "one switch, told once");
+}
+
 #[tokio::test]
 async fn live_captions_without_failure_stay_with_the_main() {
     let job = Fallback::new(

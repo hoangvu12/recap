@@ -122,6 +122,12 @@ async fn run(
             else => break,
         }
     }
+    // News that came as the meeting ended (a switch to the backup).
+    if let Some(rx) = notices.as_mut() {
+        while let Ok(text) = rx.try_recv() {
+            send(SessionEvent::Notice(text));
+        }
+    }
     let (Some((store, id)), Some(result)) = (saved, result) else { return };
     if !result.pauses.is_empty() {
         let path = store.folder(&id).join(PAUSES);

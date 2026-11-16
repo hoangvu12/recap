@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use recap_engine::{Llm, ProviderErrorKind};
+use recap_engine::{BatchStt, LiveStt, Llm, ProviderErrorKind};
 use recap_providers::{
     Draft, Group, Job, MemorySecrets, Providers, Registry, Secrets, Slot, fake, mask,
 };
@@ -264,11 +264,31 @@ async fn test_without_a_key_asks_for_one() {
 
 #[tokio::test]
 async fn adapters_not_built_yet_say_so() {
-    let (providers, secrets) = providers();
-    secrets.set("deepgram", "dg_test").unwrap();
-    let outcome = providers.test(Draft { id: Some("deepgram".into()), ..Draft::new("deepgram") }).await;
+    let (providers, _) = providers();
+    let outcome = providers.test(Draft { id: Some("batch_only".into()), ..Draft::new("batch_only") }).await;
     assert!(!outcome.ok);
     assert!(outcome.error.unwrap().contains("not built yet"));
+}
+
+#[test]
+fn deepgram_offers_live_captions_and_the_transcript_and_backs_up_elevenlabs() {
+    let (providers, secrets) = providers();
+    secrets.set("deepgram", "dg_test").unwrap();
+    let deepgram = providers.build("deepgram").unwrap();
+    assert!(deepgram.live().is_some() && deepgram.batch().is_some());
+    assert!(deepgram.llm().is_none());
+    secrets.set("elevenlabs", "sk_test").unwrap();
+    let live = providers.live(|_| {}).unwrap();
+    assert_eq!(live.backup().map(|b| b.name().to_owned()).as_deref(), Some("Deepgram"));
+    let batch = providers.batch(|_| {}).unwrap();
+    assert_eq!(batch.backup().map(|b| b.name().to_owned()).as_deref(), Some("Deepgram"));
+}
+
+#[test]
+fn a_backup_without_a_key_is_left_out() {
+    let (providers, secrets) = providers();
+    secrets.set("elevenlabs", "sk_test").unwrap();
+    assert!(providers.live(|_| {}).unwrap().backup().is_none());
 }
 
 #[test]
@@ -301,12 +321,8 @@ async fn the_summary_job_falls_back_to_its_backup() {
 }
 
 #[test]
-fn a_job_whose_adapter_is_not_built_says_so() {
-    let (providers, secrets) = providers();
+fn a_job_whose_main_has_no_key_says_so() {
+    let (providers, _) = providers();
     let error = providers.live(|_| {}).err().unwrap();
     assert_eq!(error.kind, ProviderErrorKind::Auth, "no key yet: {error:?}");
-    providers.set_job(Job::Live, Slot::Main, Some("deepgram")).unwrap();
-    secrets.set("deepgram", "dg_test").unwrap();
-    let error = providers.live(|_| {}).err().unwrap();
-    assert!(error.message.contains("not built yet"), "{error:?}");
 }

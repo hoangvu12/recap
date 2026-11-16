@@ -164,6 +164,46 @@ async fn pause_holds_the_timer_and_captions_until_resume() {
     assert_eq!(result.duration_ms, 3_000);
 }
 
+/// Live captions that give up at once, as ElevenLabs does out of quota
+/// with no backup.
+struct OutOfQuota;
+
+impl recap_engine::LiveStt for OutOfQuota {
+    fn name(&self) -> &str {
+        "ElevenLabs"
+    }
+    fn capabilities(&self) -> recap_engine::Capabilities {
+        recap_engine::Capabilities { live: true, ..Default::default() }
+    }
+    fn run(
+        &self,
+        _source: Source,
+        _options: recap_engine::LiveOptions,
+        _audio: tokio::sync::mpsc::UnboundedReceiver<recap_engine::AudioFrame>,
+        _events: tokio::sync::mpsc::UnboundedSender<recap_engine::LiveEvent>,
+    ) -> recap_engine::BoxFuture<'static, Result<(), recap_engine::ProviderError>> {
+        Box::pin(async {
+            Err(recap_engine::ProviderError::new(recap_engine::ProviderErrorKind::Quota, "ElevenLabs quota: out of credit"))
+        })
+    }
+}
+
+#[tokio::test]
+async fn a_caption_error_is_told_at_once_and_the_meeting_goes_on() {
+    let (feed, source) = FrameFeed::new();
+    let mut meeting = Meeting::start(MeetingConfig::default(), Box::new(source), Arc::new(OutOfQuota));
+    feed.push_silence(Duration::from_secs(1));
+    // Told while the meeting runs, not at Stop.
+    wait_for(&mut meeting, |e| matches!(e, EngineEvent::Error { source: Source::Them, error } if error.message.contains("quota"))).await;
+    feed.push_silence(Duration::from_secs(2));
+    wait_for(&mut meeting, |e| matches!(e, EngineEvent::Elapsed(3_000))).await;
+    meeting.stop();
+    let (events, result) = drain(&mut meeting).await;
+    assert!(!events.iter().any(|e| matches!(e, EngineEvent::Error { .. })), "told once");
+    assert_eq!(result.duration_ms, 3_000);
+    drop(feed);
+}
+
 #[tokio::test]
 async fn stop_finishes_with_what_was_said_so_far() {
     let (feed, source) = FrameFeed::new();
