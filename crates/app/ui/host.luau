@@ -45,11 +45,6 @@ export type Meeting = {
 	-- A refined transcript's speakers, in order (the header's chips); empty
 	-- for a live one.
 	speakers: { SpeakerChip }?,
-	-- Live: the provider captioning now ("ElevenLabs"; "" when unknown), and
-	-- the backup "Switch to …" would move captions to ("" when none). The
-	-- switch is `actions.switch_captions()`.
-	captions_by: string?,
-	switch_to: string?,
 }
 
 -- After Stop: a step of the meeting's processing (crates/app/src/processing.rs).

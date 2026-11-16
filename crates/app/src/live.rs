@@ -13,8 +13,8 @@
 use std::{path::PathBuf, sync::Arc};
 
 use recap_engine::{
-    AudioFrame, AudioSource, BatchStt, BoxFuture, Capabilities, Fallback, FallbackNotice, LiveEvent, LiveOptions, LiveStt,
-    LiveSwitch, ProviderError, Script, ScriptedLiveStt, SilenceSource, Source, WavSource,
+    AudioFrame, AudioSource, BatchStt, BoxFuture, Capabilities, LiveEvent, LiveOptions, LiveStt, ProviderError, Script,
+    ScriptedLiveStt, SilenceSource, Source, WavSource,
 };
 use recap_providers::{Providers, elevenlabs};
 use tokio::sync::mpsc;
@@ -78,56 +78,27 @@ impl StartOptions {
     /// The live captions provider. When the job can't be built (no key, no
     /// provider) the meeting still records: `notify` says why, and captions
     /// stay empty.
-    pub fn live(&self, providers: &Providers, notify: impl Fn(String) + Clone + Send + Sync + 'static) -> LiveCaptions {
+    pub fn live(&self, providers: &Providers, notify: impl Fn(String) + Clone + Send + Sync + 'static) -> Arc<dyn LiveStt> {
         if self.scripted {
-            return LiveCaptions::alone(Arc::new(ScriptedLiveStt::new(Script::test_meeting())));
+            return Arc::new(ScriptedLiveStt::new(Script::test_meeting()));
         }
         if matches!(self.audio, Audio::Replay(_))
             && let Some(key) = std::env::var("ELEVENLABS_API_KEY").ok().filter(|k| !k.trim().is_empty())
         {
-            return LiveCaptions::alone(Arc::new(elevenlabs::ElevenLabs::new(
-                "ElevenLabs",
-                key.trim(),
-                elevenlabs::Config::default(),
-            )));
+            return Arc::new(elevenlabs::ElevenLabs::new("ElevenLabs", key.trim(), elevenlabs::Config::default()));
         }
         let on_switch = {
             let notify = notify.clone();
-            move |n: FallbackNotice| notify(switch_notice(&n))
+            move |n: recap_engine::FallbackNotice| notify(format!("{} failed ({}); switched to {}", n.from, n.error.message, n.to))
         };
         match providers.live(on_switch) {
-            Ok(job) => LiveCaptions::job(job),
+            Ok(job) => Arc::new(job),
             Err(error) => {
                 notify(format!("Live captions are off: {}", error.message));
-                LiveCaptions::alone(Arc::new(Unavailable(error)))
+                Arc::new(Unavailable(error))
             }
         }
     }
-}
-
-/// The meeting's live captions: the provider, and (for the Live captions
-/// job) which of its main and backup captions now, with the user's switch
-/// to the backup.
-pub struct LiveCaptions {
-    pub stt: Arc<dyn LiveStt>,
-    pub switch: Option<LiveSwitch>,
-}
-
-impl LiveCaptions {
-    /// One provider, nothing to switch to (dev flags, no job).
-    pub fn alone(stt: Arc<dyn LiveStt>) -> Self {
-        Self { stt, switch: None }
-    }
-
-    /// A job's main with its backup.
-    pub fn job(job: Fallback<dyn LiveStt>) -> Self {
-        Self { switch: Some(job.switch()), stt: Arc::new(job) }
-    }
-}
-
-/// What the user reads when a job's main gave up and its backup took over.
-pub fn switch_notice(notice: &FallbackNotice) -> String {
-    format!("{} failed ({}); switched to {}", notice.from, notice.error.message, notice.to)
 }
 
 impl StartOptions {
@@ -143,7 +114,8 @@ impl StartOptions {
         {
             return Ok(Arc::new(elevenlabs::ElevenLabs::new("ElevenLabs", key.trim(), elevenlabs::Config::default())));
         }
-        let on_switch = move |n: FallbackNotice| notify(switch_notice(&n));
+        let on_switch =
+            move |n: recap_engine::FallbackNotice| notify(format!("{} failed ({}); switched to {}", n.from, n.error.message, n.to));
         providers.batch(on_switch).map(|job| Arc::new(job) as Arc<dyn BatchStt>)
     }
 }

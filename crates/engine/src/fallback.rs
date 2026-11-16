@@ -6,14 +6,11 @@
 //!
 //! Live captions switch mid-session: the audio the main had not captioned as
 //! final yet (since its last final) is replayed to the backup, then the rest
-//! of the meeting's audio goes to it. The switch is the job's, not one
-//! side's: when Them's session moves to the backup, Me's does too. The
-//! user can also move it on ([`LiveSwitch::to_backup`], "Switch to
-//! Deepgram"), and [`LiveSwitch`] says which provider captions now.
+//! of the meeting's audio goes to it.
 
 use std::{collections::VecDeque, sync::Arc};
 
-use tokio::sync::{mpsc, watch};
+use tokio::sync::mpsc;
 
 use crate::{
     AudioFrame, Source,
@@ -41,20 +38,17 @@ pub struct Fallback<T: ?Sized> {
     main: Arc<T>,
     backup: Option<Arc<T>>,
     on_switch: Option<OnSwitch>,
-    /// Live captions: which provider of the chain (0 main, 1 backup) the
-    /// job is on now, for every side.
-    at: Arc<watch::Sender<usize>>,
 }
 
 impl<T: ?Sized> Clone for Fallback<T> {
     fn clone(&self) -> Self {
-        Self { main: self.main.clone(), backup: self.backup.clone(), on_switch: self.on_switch.clone(), at: self.at.clone() }
+        Self { main: self.main.clone(), backup: self.backup.clone(), on_switch: self.on_switch.clone() }
     }
 }
 
 impl<T: ?Sized> Fallback<T> {
     pub fn new(main: Arc<T>, backup: Option<Arc<T>>) -> Self {
-        Self { main, backup, on_switch: None, at: Arc::new(watch::Sender::new(0)) }
+        Self { main, backup, on_switch: None }
     }
 
     /// Hear each switch to the backup (to tell the user, or log it).
@@ -126,62 +120,8 @@ impl BatchStt for Fallback<dyn BatchStt> {
     }
 }
 
-/// Which provider a live captions job uses now, and the user's way to move
-/// it to the backup. Cheap to clone; every clone is the same job.
-#[derive(Clone)]
-pub struct LiveSwitch {
-    names: Arc<[String]>,
-    at: Arc<watch::Sender<usize>>,
-}
-
-impl LiveSwitch {
-    /// The provider captioning now.
-    pub fn active(&self) -> String {
-        self.names[(*self.at.borrow()).min(self.names.len() - 1)].clone()
-    }
-
-    /// The provider it would move to ("Switch to Deepgram"), if any.
-    pub fn backup(&self) -> Option<String> {
-        self.names.get(*self.at.borrow() + 1).cloned()
-    }
-
-    /// Move every side to the backup now (the user asked). False when there
-    /// is none to move to.
-    pub fn to_backup(&self) -> bool {
-        let len = self.names.len();
-        self.at.send_if_modified(|at| {
-            let next = *at + 1 < len;
-            if next {
-                *at += 1;
-            }
-            next
-        })
-    }
-
-    /// Changes each time the job moves to another provider.
-    pub fn subscribe(&self) -> watch::Receiver<usize> {
-        self.at.subscribe()
-    }
-}
-
-impl Fallback<dyn LiveStt> {
-    /// Which provider captions now, and the switch to the backup.
-    pub fn switch(&self) -> LiveSwitch {
-        let names: Vec<String> =
-            std::iter::once(self.main.name().to_owned()).chain(self.backup.as_ref().map(|b| b.name().to_owned())).collect();
-        LiveSwitch { names: names.into(), at: self.at.clone() }
-    }
-}
-
 /// At most this much audio waits for a final, to be replayed on a switch.
 const REPLAY_FRAMES: usize = 300;
-
-/// How one provider's turn of a live session ended.
-enum Turn {
-    Ended(Result<(), ProviderError>),
-    /// The job moved on (another side's provider failed, or the user switched).
-    Moved,
-}
 
 impl LiveStt for Fallback<dyn LiveStt> {
     fn name(&self) -> &str {
@@ -201,14 +141,11 @@ impl LiveStt for Fallback<dyn LiveStt> {
     ) -> BoxFuture<'static, Result<(), ProviderError>> {
         let chain: Vec<Arc<dyn LiveStt>> = std::iter::once(self.main.clone()).chain(self.backup.clone()).collect();
         let on_switch = self.on_switch.clone();
-        let shared = self.at.clone();
         Box::pin(async move {
             // The audio since the last final, oldest first.
             let mut unheard: VecDeque<AudioFrame> = VecDeque::new();
             let mut audio_open = true;
-            let mut moves = shared.subscribe();
-            // Where the job is now (it may have moved on already).
-            let mut at = (*moves.borrow_and_update()).min(chain.len() - 1);
+            let mut at = 0;
             loop {
                 let provider = chain[at].clone();
                 let (frames, provider_audio) = mpsc::unbounded_channel();
@@ -226,16 +163,11 @@ impl LiveStt for Fallback<dyn LiveStt> {
                     }
                     let _ = events.send(event);
                 };
-                let turn = loop {
+                let result = loop {
                     tokio::select! {
                         biased;
                         Some(event) = heard.recv() => forward(event, &mut unheard),
-                        result = &mut session => break Turn::Ended(result),
-                        Ok(()) = moves.changed() => {
-                            if *moves.borrow_and_update() > at {
-                                break Turn::Moved;
-                            }
-                        }
+                        result = &mut session => break result,
                         frame = audio.recv(), if audio_open => match frame {
                             Some(frame) => {
                                 if unheard.len() == REPLAY_FRAMES {
@@ -257,25 +189,13 @@ impl LiveStt for Fallback<dyn LiveStt> {
                 while let Ok(event) = heard.try_recv() {
                     forward(event, &mut unheard);
                 }
-                match turn {
-                    Turn::Moved => {}
-                    Turn::Ended(Err(error)) if error.falls_back() && at + 1 < chain.len() => {
-                        // Tell it once, whichever side failed first.
-                        let mut first = false;
-                        shared.send_if_modified(|now| {
-                            first = *now <= at;
-                            if first {
-                                *now = at + 1;
-                            }
-                            first
-                        });
-                        if first {
-                            notify(&on_switch, provider.name(), chain[at + 1].name(), &error);
-                        }
+                match result {
+                    Err(error) if error.falls_back() && at + 1 < chain.len() => {
+                        notify(&on_switch, provider.name(), chain[at + 1].name(), &error);
+                        at += 1;
                     }
-                    Turn::Ended(result) => return result,
+                    result => return result,
                 }
-                at = (*moves.borrow_and_update()).clamp(at + 1, chain.len() - 1);
             }
         })
     }

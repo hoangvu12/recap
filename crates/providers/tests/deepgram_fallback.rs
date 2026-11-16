@@ -55,8 +55,6 @@ async fn out_of_elevenlabs_quota_live_captions_go_on_with_deepgram() {
         Some(deepgram(&listen.base, "http://127.0.0.1:9") as Arc<dyn LiveStt>),
     )
     .on_switch(on_switch);
-    let switch = job.switch();
-    assert_eq!((switch.active(), switch.backup()), ("ElevenLabs".into(), Some("Deepgram".into())));
 
     let (audio, audio_rx) = mpsc::unbounded_channel();
     let (events_tx, mut events) = mpsc::unbounded_channel::<LiveEvent>();
@@ -78,11 +76,11 @@ async fn out_of_elevenlabs_quota_live_captions_go_on_with_deepgram() {
     assert_eq!((finals[0].start_ms, finals[0].end_ms), (160, 440));
     assert_eq!(listen.conns()[0].audio[0], vec![0i16; 1600], "replayed from the first unheard frame");
 
-    // The user sees who captions now.
+    // The user is told who captions now, and why (the app's notice).
     let told = seen.lock().unwrap().clone();
     assert_eq!(told.len(), 1);
     assert_eq!((told[0].from.as_str(), told[0].to.as_str(), told[0].error.kind), ("ElevenLabs", "Deepgram", ProviderErrorKind::Quota));
-    assert_eq!((switch.active(), switch.backup()), ("Deepgram".into(), None));
+    assert!(told[0].error.message.contains("quota"), "{}", told[0].error.message);
 
     drop(audio);
     let result = tokio::time::timeout(Duration::from_secs(10), session).await.unwrap().unwrap();

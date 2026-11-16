@@ -58,7 +58,7 @@ fn the_meeting_follows_state_and_time() {
         p.meeting(),
         json!({
             "state": "recording", "elapsed_ms": 62000, "title": "", "started_ms": 1_794_823_200_000u64, "id": "",
-            "notice": "", "speakers": [], "captions_by": "", "switch_to": "",
+            "notice": "", "speakers": [],
         })
     );
     let changed = p.apply(&EngineEvent::State(MeetingState::Paused));
@@ -161,16 +161,6 @@ fn a_provider_error_or_a_switch_to_the_backup_is_the_meetings_notice() {
     assert_eq!(p.meeting()["notice"], "ElevenLabs has no API key");
     p.notice("Switched to Deepgram");
     assert_eq!(p.meeting()["notice"], "Switched to Deepgram");
-}
-
-#[test]
-fn the_meeting_says_which_provider_captions_and_where_it_can_switch() {
-    let mut p = Presenter::new(0);
-    assert!(p.captions_provider("ElevenLabs", Some("Deepgram")));
-    assert_eq!((p.meeting()["captions_by"].clone(), p.meeting()["switch_to"].clone()), (json!("ElevenLabs"), json!("Deepgram")));
-    assert!(!p.captions_provider("ElevenLabs", Some("Deepgram")), "unchanged");
-    assert!(p.captions_provider("Deepgram", None));
-    assert_eq!((p.meeting()["captions_by"].clone(), p.meeting()["switch_to"].clone()), (json!("Deepgram"), json!("")));
 }
 
 #[test]

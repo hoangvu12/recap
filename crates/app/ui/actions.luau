@@ -48,15 +48,6 @@ function M.fix_providers()
 	M.open_settings("providers")
 end
 
--- "Switch to Deepgram": live captions move to the job's backup now
--- (`meeting.switch_to` names it); recording goes on.
-function M.switch_captions()
-	local m = host.meeting:peek()
-	if (m.switch_to or "") ~= "" and (m.state == "recording" or m.state == "paused") then
-		host.invoke("switch_captions")
-	end
-end
-
 function M.toggle_pause()
 	local s = host.meeting:peek().state
 	if s == "recording" then

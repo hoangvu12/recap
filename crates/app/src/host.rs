@@ -3,9 +3,7 @@
 //!
 //! ```text
 //! shared   host.connected   true: the UI talks to this host, not its mocks
-//!          meeting          { state, elapsed_ms, title, started_ms, id, notice, speakers,
-//!                             captions_by, switch_to }: captions_by is the live captions
-//!                             provider now, switch_to the backup "Switch to …" moves to
+//!          meeting          { state, elapsed_ms, title, started_ms, id, notice }
 //!          transcript       { count, open = { ["7"] = Row }, revised? = { ["2"] = Row } }
 //!          captions         { { source, final, partial } }, oldest first
 //!          meetings         { { id, title, started_ms, duration_ms, status } }, newest first
@@ -15,7 +13,6 @@
 //! function transcript_row(i)    Row i (from 1), or nil
 //!          meeting_detail(id)   { id, title, overview, started_ms, duration_ms, status, speakers }
 //! action   stop, pause, resume  the running meeting
-//!          switch_captions      live captions to the job's backup now ("Switch to Deepgram")
 //!          open_meeting(id)     a stored meeting in the Notes window, read mode; an
 //!                               unfinished one is processed again (Recover)
 //!          retry_processing(id) process meeting id again from its failed step
@@ -31,7 +28,7 @@ use std::{
     rc::Rc,
 };
 
-use recap_engine::{EngineEvent, LiveSwitch, MeetingControl};
+use recap_engine::{EngineEvent, MeetingControl};
 use recap_storage::{MeetingId, Status, Store};
 use tokio::sync::mpsc::UnboundedReceiver;
 use zgx_script::{ScriptHost, Shared, Value};
@@ -78,8 +75,6 @@ pub struct Host {
     running: Rc<RefCell<HashSet<MeetingId>>>,
     /// `transcript.generation`: one more each time the presenter is another.
     generation: Rc<std::cell::Cell<u64>>,
-    /// The live meeting's captions job: who captions, and the switch.
-    captions: Rc<RefCell<Option<LiveSwitch>>>,
 }
 
 fn value(json: serde_json::Value) -> Value {
@@ -118,7 +113,6 @@ impl Host {
             processor: Rc::default(),
             running: Rc::default(),
             generation: Rc::default(),
-            captions: Rc::default(),
             script,
         };
         let presenter = host.presenter.clone();
@@ -138,8 +132,6 @@ impl Host {
                 }
             });
         }
-        let switcher = host.clone();
-        host.script.action("switch_captions", move |_| switcher.switch_captions());
         let store = host.store.clone();
         host.script.function("meeting_detail", move |arg| {
             let store = store.borrow().clone();
@@ -185,31 +177,6 @@ impl Host {
         eprintln!("recap: {text}");
         self.presenter.borrow_mut().notice(text);
         self.publish(Changed { meeting: true, ..Default::default() });
-    }
-
-    /// Move the live meeting's captions to its job's backup now ("Switch to
-    /// Deepgram"); recording goes on. Nothing without a backup.
-    pub fn switch_captions(&self) {
-        let switched = self.captions.borrow().as_ref().filter(|s| s.to_backup()).map(LiveSwitch::active);
-        if let Some(to) = switched {
-            self.notice(&format!("Switched to {to}"));
-            self.refresh_captions();
-        }
-    }
-
-    /// Publish which provider captions now, if that changed.
-    fn refresh_captions(&self) {
-        let now = self.captions.borrow().as_ref().map(|s| (s.active(), s.backup()));
-        let changed = match &now {
-            Some((by, next)) => self.presenter.borrow_mut().captions_provider(by, next.as_deref()),
-            None => {
-                let by = self.presenter.borrow().meeting()["captions_by"].as_str().unwrap_or("").to_owned();
-                self.presenter.borrow_mut().captions_provider(&by, None)
-            }
-        };
-        if changed {
-            self.publish(Changed { meeting: true, ..Default::default() });
-        }
     }
 
     /// Whether a meeting is recording or paused now.
@@ -349,28 +316,22 @@ impl Host {
         }));
     }
 
-    /// Show a live session (started at `config.started_ms`), captioned by
-    /// the job `captions` says (none: a lone provider): its events, until
-    /// it is saved, become the UI's state; Home lists it once saved.
+    /// Show a live session (started at `config.started_ms`): its events,
+    /// until it is saved, become the UI's state; Home lists it once saved.
     /// Await what this returns on the UI thread (`cx.tasks.spawn`).
     pub fn follow_session(
         &self,
         config: &SessionConfig,
         session: LiveSession,
-        captions: Option<LiveSwitch>,
     ) -> impl std::future::Future<Output = ()> + 'static {
         let LiveSession { id, mut events, control } = session;
         let mut presenter = Presenter::new(config.started_ms).with_my_captions(config.caption_me);
         if let Some(id) = &id {
             presenter.saved_as(id.as_str());
         }
-        if let Some(switch) = &captions {
-            presenter.captions_provider(&switch.active(), switch.backup().as_deref());
-        }
         self.replace_presenter(presenter);
         *self.control.borrow_mut() = Some(control);
         *self.live.borrow_mut() = id;
-        *self.captions.borrow_mut() = captions;
         self.processing.set(value(no_processing()));
         self.publish(Changed { meeting: true, transcript: true, captions: true });
         let host = self.clone();
@@ -382,16 +343,9 @@ impl Host {
                         host.publish(changed);
                         if matches!(event, EngineEvent::Finished(_)) {
                             host.control.borrow_mut().take();
-                            // Stopped: nothing to switch any more.
-                            host.captions.borrow_mut().take();
                         }
-                        host.refresh_captions();
                     }
-                    // A switch to the backup comes with its notice.
-                    SessionEvent::Notice(text) => {
-                        host.notice(&text);
-                        host.refresh_captions();
-                    }
+                    SessionEvent::Notice(text) => host.notice(&text),
                     SessionEvent::Saved(info) => {
                         host.live.borrow_mut().take();
                         host.control.borrow_mut().take();
@@ -407,9 +361,6 @@ impl Host {
             // Ended without Saved (no store, or it failed): not live either.
             host.control.borrow_mut().take();
             host.live.borrow_mut().take();
-            if host.captions.borrow_mut().take().is_some() {
-                host.refresh_captions();
-            }
         }
     }
 

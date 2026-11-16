@@ -52,10 +52,6 @@ pub struct Presenter {
     revised: BTreeSet<usize>,
     /// A refined transcript's speakers, as chips (`home::speakers`).
     speakers: Value,
-    /// The live captions provider now ("" when none is known).
-    captions_by: String,
-    /// The provider "Switch to …" would move captions to ("" when none).
-    switch_to: String,
 }
 
 impl Presenter {
@@ -72,21 +68,7 @@ impl Presenter {
             notice: String::new(),
             revised: BTreeSet::new(),
             speakers: json!([]),
-            captions_by: String::new(),
-            switch_to: String::new(),
         }
-    }
-
-    /// Captions come from `by` now; `switch_to` is where the user could
-    /// move them. Whether `meeting` changed.
-    pub fn captions_provider(&mut self, by: &str, switch_to: Option<&str>) -> bool {
-        let switch_to = switch_to.unwrap_or("");
-        if self.captions_by == by && self.switch_to == switch_to {
-            return false;
-        }
-        self.captions_by = by.to_owned();
-        self.switch_to = switch_to.to_owned();
-        true
     }
 
     /// Show my lines in the captions too (dimmed by the overlay).
@@ -141,8 +123,6 @@ impl Presenter {
             notice: String::new(),
             revised: BTreeSet::new(),
             speakers: if segments.iter().any(|s| s.speaker.is_some()) { home::speakers(info) } else { json!([]) },
-            captions_by: String::new(),
-            switch_to: String::new(),
         }
     }
 
@@ -218,8 +198,6 @@ impl Presenter {
             "id": self.id,
             "notice": self.notice,
             "speakers": self.speakers,
-            "captions_by": self.captions_by,
-            "switch_to": self.switch_to,
         })
     }
 

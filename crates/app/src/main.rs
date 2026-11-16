@@ -106,8 +106,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let _inside = runtime.enter();
                 let settings = settings.current();
                 let config = ProcessingConfig { keyterms: settings.keyterms(), my_name: settings.my_name.clone() };
-                // A switch to the transcript's backup is only logged: the
-                // processing card shows the step, not the provider.
                 let batch = options.batch(&providers, |notice| eprintln!("recap: {notice}"));
                 Processing::standard(batch).start(store, id, config)
             })
@@ -134,8 +132,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             let _inside = runtime.enter();
                             let (notify, notices) = session::notices();
                             let live = options.live(&providers, notify);
-                            let started = session::start(host.store(), config.clone(), source, live.stt, Some(notices));
-                            tasks.spawn(host.follow_session(&config, started, live.switch));
+                            let started = session::start(host.store(), config.clone(), source, live, Some(notices));
+                            tasks.spawn(host.follow_session(&config, started));
                             host.open_window("overlay");
                         }
                         Err(error) => host.notice(&format!("Can't start: {error}")),
