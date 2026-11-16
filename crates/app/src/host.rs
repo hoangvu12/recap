@@ -7,29 +7,43 @@
 //!          transcript       { count, open = { ["7"] = Row }, revised? = { ["2"] = Row } }
 //!          captions         { { source, final, partial } }, oldest first
 //!          meetings         { { id, title, started_ms, duration_ms, status } }, newest first
+//!          processing       { id, steps = { { id, label, status, took_ms, error } } }: the
+//!                           Notes window's meeting's processing (no steps: none to show)
 //!          window.<id>      whether window <id> is open
 //! function transcript_row(i)    Row i (from 1), or nil
 //!          meeting_detail(id)   { id, title, overview, started_ms, duration_ms, status, speakers }
 //! action   stop, pause, resume  the running meeting
-//!          open_meeting(id)     a stored meeting in the Notes window, read mode
+//!          open_meeting(id)     a stored meeting in the Notes window, read mode; an
+//!                               unfinished one is processed again (Recover)
+//!          retry_processing(id) process meeting id again from its failed step
 //!          start_notes          a new meeting (main.rs registers it)
 //! ```
 
 use std::{
     cell::RefCell,
+    collections::HashSet,
+    future::Future,
     path::{Path, PathBuf},
+    pin::Pin,
     rc::Rc,
 };
 
 use recap_engine::{EngineEvent, MeetingControl};
-use recap_storage::{MeetingId, Store};
+use recap_storage::{MeetingId, Status, Store};
+use tokio::sync::mpsc::UnboundedReceiver;
 use zgx_script::{ScriptHost, Shared, Value};
 
 use crate::{
     home,
     presenter::{Changed, Presenter},
-    session::{LiveSession, SessionConfig, SessionEvent},
+    processing::{Progress, ProcessingEvent},
+    session::{self, LiveSession, SessionConfig, SessionEvent},
 };
+
+/// Starts processing meeting `id` in `store` (on the engine's runtime).
+pub type Process = Rc<dyn Fn(Store, MeetingId) -> UnboundedReceiver<ProcessingEvent>>;
+/// Runs a task on the UI thread (`cx.tasks.spawn`).
+pub type Spawn = Rc<dyn Fn(Pin<Box<dyn Future<Output = ()>>>)>;
 
 /// Where the UI's scripts are: `RECAP_UI` (a folder with app.luau), else the
 /// source tree's `ui/` (development; packaging bundles them in a later
@@ -54,10 +68,20 @@ pub struct Host {
     live: Rc<RefCell<Option<MeetingId>>>,
     /// Changes when Settings moves the storage folder.
     store: Rc<RefCell<Option<Store>>>,
+    processing: Shared,
+    /// How to process a meeting (main.rs sets it; none: meetings stay unprocessed).
+    processor: Rc<RefCell<Option<(Process, Spawn)>>>,
+    /// The meetings being processed now.
+    running: Rc<RefCell<HashSet<MeetingId>>>,
 }
 
 fn value(json: serde_json::Value) -> Value {
     Value::from_json(&json.to_string()).unwrap_or(Value::Nil)
+}
+
+/// `processing` when there is none to show.
+fn no_processing() -> serde_json::Value {
+    serde_json::json!({ "id": "", "steps": [] })
 }
 
 fn meeting_id(arg: &Value) -> Option<MeetingId> {
@@ -83,6 +107,9 @@ impl Host {
             control: Rc::default(),
             live: Rc::default(),
             store: Rc::new(RefCell::new(store)),
+            processing: script.shared("processing", value(no_processing())),
+            processor: Rc::default(),
+            running: Rc::default(),
             script,
         };
         let presenter = host.presenter.clone();
@@ -121,6 +148,16 @@ impl Host {
         host.script.action("open_meeting", move |arg| {
             if let Some(id) = meeting_id(&arg) {
                 opener.open_meeting(&id);
+            }
+        });
+        let retrier = host.clone();
+        host.script.action("retry_processing", move |arg| {
+            let id = meeting_id(&arg).or_else(|| {
+                let shown = retrier.presenter.borrow().id().to_owned();
+                (!shown.is_empty()).then(|| MeetingId::from(shown))
+            });
+            if let Some(id) = id {
+                retrier.process(&id);
             }
         });
         host.refresh_meetings();
@@ -172,23 +209,108 @@ impl Host {
     }
 
     /// Show stored meeting `id` in the Notes window, read mode. While a
-    /// meeting is live the Notes window stays on it.
+    /// meeting is live the Notes window stays on it. One that never finished
+    /// processing is processed again from where it stopped (Recover).
     pub fn open_meeting(&self, id: &MeetingId) {
         if self.is_live() {
             eprintln!("recap: a meeting is live; {id} stays closed");
             return;
         }
-        let Some(store) = self.store() else { return };
+        let Some(status) = self.show_stored(id) else { return };
+        self.open_window("notes");
+        if status != Status::Done {
+            self.process(id);
+        }
+    }
+
+    /// Stored meeting `id` (its transcript, pauses and processing) as the
+    /// Notes window's state; its status, or none when it can't be read.
+    fn show_stored(&self, id: &MeetingId) -> Option<Status> {
+        let store = self.store()?;
         let loaded = store.meeting(id).and_then(|m| Ok((m, store.transcript(id)?)));
         match loaded {
             Ok((Some(meeting), segments)) => {
-                *self.presenter.borrow_mut() = Presenter::stored(&meeting.info, &segments);
+                let pauses = session::read_pauses(&store.folder(id));
+                *self.presenter.borrow_mut() = Presenter::stored_with_pauses(&meeting.info, &segments, &pauses);
                 self.publish(Changed { meeting: true, transcript: true, captions: true });
-                self.open_window("notes");
+                let status = meeting.info.status;
+                self.processing.set(value(if status == Status::Done {
+                    no_processing()
+                } else {
+                    Progress::read(&store.folder(id)).view(id)
+                }));
+                Some(status)
             }
-            Ok((None, _)) => eprintln!("recap: no meeting {id}"),
-            Err(error) => eprintln!("recap: meeting {id}: {error}"),
+            Ok((None, _)) => {
+                eprintln!("recap: no meeting {id}");
+                None
+            }
+            Err(error) => {
+                eprintln!("recap: meeting {id}: {error}");
+                None
+            }
         }
+    }
+
+    /// How meetings are processed after Stop (and recovered): `process`
+    /// starts it, `spawn` runs its follower on the UI thread.
+    pub fn set_processor(&self, process: Process, spawn: Spawn) {
+        *self.processor.borrow_mut() = Some((process, spawn));
+    }
+
+    /// Whether meeting `id` is being processed now.
+    pub fn is_processing(&self, id: &MeetingId) -> bool {
+        self.running.borrow().contains(id)
+    }
+
+    /// Process meeting `id` from where it is (Stop, Retry, Recover), unless
+    /// it is being processed already. The Notes window shows its progress
+    /// while it shows the meeting; Home lists it again once it is done.
+    pub fn process(&self, id: &MeetingId) {
+        let Some(store) = self.store() else { return };
+        let Some((process, spawn)) = self.processor.borrow().clone() else {
+            eprintln!("recap: no processing; {id} stays unprocessed");
+            return;
+        };
+        if !self.running.borrow_mut().insert(id.clone()) {
+            return;
+        }
+        let mut events = process(store, id.clone());
+        let (host, id) = (self.clone(), id.clone());
+        spawn(Box::pin(async move {
+            let mut failed = false;
+            while let Some(event) = events.recv().await {
+                let shown = !host.is_live() && host.presenter.borrow().id() == id.as_str();
+                match event {
+                    ProcessingEvent::Progress(progress) => {
+                        failed = progress.failed().is_some();
+                        if shown {
+                            host.processing.set(value(progress.view(&id)));
+                        }
+                    }
+                    // What the step wrote (the refined transcript…) replaces
+                    // what was shown.
+                    ProcessingEvent::StepDone(_) => {
+                        if shown {
+                            host.show_stored(&id);
+                        }
+                        host.refresh_meetings();
+                    }
+                    ProcessingEvent::Finished(_) => {
+                        if shown {
+                            host.processing.set(value(no_processing()));
+                        }
+                        host.refresh_meetings();
+                    }
+                    ProcessingEvent::Stopped(error) => {
+                        if !failed {
+                            host.notice(&error);
+                        }
+                    }
+                }
+            }
+            host.running.borrow_mut().remove(&id);
+        }));
     }
 
     /// Show a live session (started at `config.started_ms`): its events,
@@ -207,6 +329,7 @@ impl Host {
         *self.presenter.borrow_mut() = presenter;
         *self.control.borrow_mut() = Some(control);
         *self.live.borrow_mut() = id;
+        self.processing.set(value(no_processing()));
         self.publish(Changed { meeting: true, transcript: true, captions: true });
         let host = self.clone();
         async move {
@@ -222,9 +345,13 @@ impl Host {
                     SessionEvent::Notice(text) => host.notice(&text),
                     SessionEvent::Saved(info) => {
                         host.live.borrow_mut().take();
+                        host.control.borrow_mut().take();
                         host.presenter.borrow_mut().saved_as(info.id.as_str());
                         host.publish(Changed { meeting: true, ..Default::default() });
                         host.refresh_meetings();
+                        // After Stop: the refined transcript, the names, the summary.
+                        host.processing.set(value(Progress::default().view(&info.id)));
+                        host.process(&info.id);
                     }
                 }
             }

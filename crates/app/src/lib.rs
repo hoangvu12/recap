@@ -6,6 +6,7 @@
 //! - [`fonts`]: the bundled faces.
 //! - [`live`]: how Start begins a meeting (audio, live provider, dev flags).
 //! - [`session`]: a live meeting saved as it goes (engine + store).
+//! - [`processing`]: the after-Stop pipeline, a resumable job queue of steps.
 //! - [`home`]: the meetings list and detail pane, from the store (pure).
 //! - [`seed`]: `--seed` stores the test meeting, so Home has one.
 //! - [`settings`]: Settings' host side: the providers, their jobs and Test.
@@ -17,6 +18,7 @@ pub mod home;
 pub mod host;
 pub mod live;
 pub mod presenter;
+pub mod processing;
 pub mod seed;
 pub mod session;
 pub mod settings;

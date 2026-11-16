@@ -22,6 +22,7 @@ use recap::{
     fonts,
     host::{self, Host},
     live::StartOptions,
+    processing::{Processing, ProcessingConfig},
     seed,
     session::{self, SessionConfig},
     settings::ProvidersHost,
@@ -97,6 +98,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             recap_engine::microphones().into_iter().map(|(id, name)| Microphone { id, name }).collect()
         });
         settings_host.connect_store(&host, home.clone(), now_ms);
+        // After Stop (and Recover, Retry): the after-Stop processing.
+        let process: host::Process = {
+            let (runtime, providers, options, settings) =
+                (engine.handle().clone(), providers.clone(), start_options.clone(), settings_host.clone());
+            Rc::new(move |store, id| {
+                let _inside = runtime.enter();
+                let settings = settings.current();
+                let config = ProcessingConfig { keyterms: settings.keyterms(), my_name: settings.my_name.clone() };
+                let batch = options.batch(&providers, |notice| eprintln!("recap: {notice}"));
+                Processing::standard(batch).start(store, id, config)
+            })
+        };
+        let spawn: host::Spawn = {
+            let tasks = cx.tasks.clone();
+            Rc::new(move |task| tasks.spawn(task))
+        };
+        host.set_processor(process, spawn);
         // Start new notes: capture (or a dev replay), live captions, saved.
         let starter = {
             let (host, tasks, runtime) = (host.clone(), cx.tasks.clone(), engine.handle().clone());
