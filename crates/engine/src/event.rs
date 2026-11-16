@@ -63,6 +63,14 @@ pub enum EngineEvent {
     State(MeetingState),
     /// A partial, or the final it became (same id).
     Segment(Segment),
+    /// A final kept for the transcript (save it). Them's finals are kept at
+    /// once; Me's once Them has caught up and it is no echo.
+    Committed(Segment),
+    /// A Me segment shown turned out an echo of Them on the mic: take it
+    /// back. It is never committed.
+    Dropped(SegmentId),
+    /// The meeting resumed (or stopped) after a pause: the marker row.
+    Pause(PauseMark),
     /// Meeting time, once a second of audio while recording.
     Elapsed(u64),
     /// A provider failed for one side; recording goes on.
@@ -74,10 +82,23 @@ pub enum EngineEvent {
     Finished(MeetingResult),
 }
 
+/// A pause in a meeting: one meeting goes on after it, with this marker
+/// where it was ("15:54 – 15:58").
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PauseMark {
+    /// Meeting time it paused at (pauses are left out of meeting time).
+    pub at_ms: u64,
+    /// Wall clock, ms since the epoch: when it paused and resumed.
+    pub paused_ms: u64,
+    pub resumed_ms: u64,
+}
+
 /// What a meeting produces. After-Stop processing (refined transcript,
 /// speakers, summary) extends this in later tickets.
 #[derive(Clone, Debug, Default)]
 pub struct MeetingResult {
+    /// Its pauses, in order.
+    pub pauses: Vec<PauseMark>,
     /// The final live segments, in the order they were committed.
     pub segments: Vec<Segment>,
     /// The live transcript's rows (turns).

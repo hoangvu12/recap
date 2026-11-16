@@ -1,13 +1,14 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
+use crate::echo::{ECHO_WINDOW_MS, Spoken, is_echo};
 use crate::{
     AudioFrame, AudioSource, EngineEvent, LiveEvent, LiveOptions, LiveStt, LiveTranscript,
-    MeetingResult, MeetingState, Recorder, Segment, SegmentId, Source,
+    MeetingResult, MeetingState, PauseMark, Recorder, Segment, SegmentId, Source,
 };
 
 /// How a meeting runs.
@@ -139,6 +140,10 @@ struct Side {
     task: JoinHandle<Result<(), crate::ProviderError>>,
 }
 
+/// How long after a Me final's end Them's audio may still bring the words it
+/// echoes (the window, plus the provider's lag), before the final is kept.
+const ECHO_WAIT_MS: u64 = ECHO_WINDOW_MS + 3_000;
+
 /// The engine's own state: what it has heard, and what it tells.
 struct Engine {
     events: mpsc::UnboundedSender<EngineEvent>,
@@ -147,11 +152,50 @@ struct Engine {
     /// Each side's segment still partial.
     open: HashMap<Source, Segment>,
     next_id: u64,
+    /// What Them said, final (to find echoes in).
+    them: Vec<Segment>,
+    /// How far Them's captions have got, and Them's audio (meeting time).
+    them_heard_ms: u64,
+    them_audio_ms: u64,
+    /// Me finals waiting until Them has caught up, to tell an echo.
+    held: Vec<Segment>,
+    /// Me segments whose partials are on screen.
+    shown: HashSet<SegmentId>,
+    pauses: Vec<PauseMark>,
 }
 
 impl Engine {
     fn emit(&self, event: EngineEvent) {
         let _ = self.events.send(event);
+    }
+
+    /// Whether `me` repeats what Them said (or is saying) about then.
+    fn echoes(&self, me: &Segment) -> bool {
+        fn spoken(s: &Segment) -> Spoken<'_> {
+            Spoken { start_ms: s.start_ms, end_ms: s.end_ms, text: s.text.as_str() }
+        }
+        let them: Vec<Spoken<'_>> =
+            self.them.iter().chain(self.open.get(&Source::Them)).map(spoken).collect();
+        is_echo(spoken(me), &them)
+    }
+
+    fn show(&mut self, segment: &Segment) {
+        self.transcript.apply(segment);
+        self.emit(EngineEvent::Segment(segment.clone()));
+    }
+
+    /// A final kept for the transcript.
+    fn commit(&mut self, segment: Segment) {
+        self.finals.push(segment.clone());
+        self.emit(EngineEvent::Committed(segment));
+    }
+
+    /// Take back Me segment `id` (an echo), if it was shown.
+    fn drop_shown(&mut self, id: SegmentId) {
+        if self.shown.remove(&id) {
+            self.transcript.forget(id);
+            self.emit(EngineEvent::Dropped(id));
+        }
     }
 
     fn heard(&mut self, source: Source, event: LiveEvent) {
@@ -172,12 +216,69 @@ impl Engine {
         };
         if segment.is_final {
             self.open.remove(&source);
-            self.finals.push(segment.clone());
         } else {
             self.open.insert(source, segment.clone());
         }
-        self.transcript.apply(&segment);
-        self.emit(EngineEvent::Segment(segment));
+        match source {
+            Source::Them => {
+                self.them_heard_ms = self.them_heard_ms.max(segment.end_ms);
+                self.show(&segment);
+                if segment.is_final {
+                    self.them.push(segment.clone());
+                    self.commit(segment);
+                }
+                self.decide(false);
+            }
+            // Partials are too short to tell an echo by ("One more week"
+            // right after Them said it): only finals are judged. A final
+            // that already echoes is taken back; else it is shown, and kept
+            // once Them has caught up with it.
+            Source::Me => {
+                if segment.is_final && self.echoes(&segment) {
+                    self.drop_shown(segment.id);
+                    return;
+                }
+                self.shown.insert(segment.id);
+                self.show(&segment);
+                if segment.is_final {
+                    self.held.push(segment);
+                    self.decide(false);
+                }
+            }
+        }
+    }
+
+    /// Them's audio has reached `ms` of meeting time.
+    fn them_audio(&mut self, ms: u64) {
+        self.them_audio_ms = ms;
+        if !self.held.is_empty() {
+            self.decide(false);
+        }
+    }
+
+    /// Keep or drop the held Me finals Them has caught up with (all of them
+    /// when `all`: the meeting ended).
+    fn decide(&mut self, all: bool) {
+        let (them_heard, them_audio) = (self.them_heard_ms, self.them_audio_ms);
+        let (ready, held): (Vec<Segment>, Vec<Segment>) = std::mem::take(&mut self.held).into_iter().partition(|me| {
+            all || them_heard >= me.end_ms + ECHO_WINDOW_MS || them_audio >= me.end_ms + ECHO_WAIT_MS
+        });
+        self.held = held;
+        for me in ready {
+            if self.echoes(&me) {
+                self.drop_shown(me.id);
+            } else {
+                self.shown.remove(&me.id);
+                self.commit(me);
+            }
+        }
+    }
+
+    fn mark_pause(&mut self, at_ms: u64, paused_ms: u64) {
+        let mark = PauseMark { at_ms, paused_ms, resumed_ms: now_ms().max(paused_ms) };
+        self.pauses.push(mark);
+        self.transcript.mark_pause(mark);
+        self.emit(EngineEvent::Pause(mark));
     }
 
     /// What is still partial when the meeting ends becomes final.
@@ -188,7 +289,12 @@ impl Engine {
             let event = LiveEvent { text: segment.text, is_final: true, start_ms: segment.start_ms, end_ms: segment.end_ms };
             self.heard(segment.source, event);
         }
+        self.decide(true);
     }
+}
+
+fn now_ms() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64)
 }
 
 async fn run(
@@ -204,6 +310,12 @@ async fn run(
         finals: Vec::new(),
         open: HashMap::new(),
         next_id: 0,
+        them: Vec::new(),
+        them_heard_ms: 0,
+        them_audio_ms: 0,
+        held: Vec::new(),
+        shown: HashSet::new(),
+        pauses: Vec::new(),
     };
     engine.emit(EngineEvent::State(MeetingState::Recording));
 
@@ -236,19 +348,22 @@ async fn run(
     }
     drop(heard_tx);
 
-    let mut paused = false;
+    // While paused: when it paused (wall clock).
+    let mut paused: Option<u64> = None;
     let mut elapsed_ms = 0;
     let mut next_tick = 1_000;
     loop {
         tokio::select! {
             biased;
             Some(command) = control.recv() => match command {
-                Control::Pause if !paused => {
-                    paused = true;
+                Control::Pause if paused.is_none() => {
+                    paused = Some(now_ms());
                     engine.emit(EngineEvent::State(MeetingState::Paused));
                 }
-                Control::Resume if paused => {
-                    paused = false;
+                Control::Resume if paused.is_some() => {
+                    if let Some(at) = paused.take() {
+                        engine.mark_pause(elapsed_ms, at);
+                    }
                     engine.emit(EngineEvent::State(MeetingState::Recording));
                 }
                 Control::Stop => break,
@@ -257,7 +372,7 @@ async fn run(
             Some((source, event)) = heard.recv() => engine.heard(source, event),
             frame = audio.recv() => {
                 let Some(frame) = frame else { break };
-                if paused {
+                if paused.is_some() {
                     continue;
                 }
                 if let Some(rec) = &recorder
@@ -276,6 +391,7 @@ async fn run(
                         engine.emit(EngineEvent::Elapsed(next_tick));
                         next_tick += 1_000;
                     }
+                    engine.them_audio(elapsed_ms);
                 }
                 if let Some(side) = sides.get(&frame.source)
                     && let Some(tx) = &side.audio
@@ -284,6 +400,10 @@ async fn run(
                 }
             }
         }
+    }
+    // Stopped while paused: the pause still gets its marker.
+    if let Some(at) = paused.take() {
+        engine.mark_pause(elapsed_ms, at);
     }
     drop(audio); // the source thread ends at its next frame
     if let Some(rec) = recorder.take()
@@ -317,6 +437,7 @@ async fn run(
 
     engine.emit(EngineEvent::State(MeetingState::Stopped));
     let result = MeetingResult {
+        pauses: std::mem::take(&mut engine.pauses),
         segments: std::mem::take(&mut engine.finals),
         rows: engine.transcript.rows().to_vec(),
         duration_ms: elapsed_ms,

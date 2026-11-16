@@ -10,8 +10,9 @@ pub const ECHO_WINDOW_MS: u64 = 1_750;
 pub const ECHO_SIMILARITY: f64 = 0.85;
 
 /// Below this many words, a Me segment must match what Them said as a whole,
-/// not just appear in it ("Yes." is in many sentences).
-const SHORT: usize = 3;
+/// not just appear in it ("Yes." is in many sentences; "One more week?"
+/// repeats what Them just said).
+const SHORT: usize = 5;
 
 /// Something said, on meeting time.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

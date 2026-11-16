@@ -89,6 +89,9 @@ fn a_short_reply_is_not_lost_in_a_long_turn() {
     let them = "Yes, I can finish dark mode by Friday, so that's not a blocker.";
     assert!(!is_echo(spoken(40_000, 40_500, "Yes."), &[spoken(40_000, 44_000, them)]));
     assert!(is_echo(spoken(40_000, 40_500, "Yes."), &[spoken(40_000, 40_400, "Yes.")]));
+    // Repeating a few of Them's words back is the user speaking.
+    let them = "I think we need one more week to add caching before we go live.";
+    assert!(!is_echo(spoken(36_000, 37_000, "One more week?"), &[spoken(30_000, 36_000, them)]));
 }
 
 #[test]

@@ -237,6 +237,172 @@ async fn paused_audio_is_left_out_of_the_recording() {
     assert!(ms.abs_diff(3_000) < 100, "{ms} ms recorded");
 }
 
+/// A provider that hears `me` on the mic and `them` on the meeting audio,
+/// each as partials then a final, Me `me_lag_ms` after Them.
+struct TwoLines {
+    me: &'static str,
+    them: &'static str,
+    me_lag_ms: u64,
+}
+
+impl recap_engine::LiveStt for TwoLines {
+    fn name(&self) -> &str {
+        "Two lines"
+    }
+    fn capabilities(&self) -> recap_engine::Capabilities {
+        recap_engine::Capabilities { live: true, ..Default::default() }
+    }
+    fn run(
+        &self,
+        source: Source,
+        _options: recap_engine::LiveOptions,
+        mut audio: tokio::sync::mpsc::UnboundedReceiver<recap_engine::AudioFrame>,
+        events: tokio::sync::mpsc::UnboundedSender<recap_engine::LiveEvent>,
+    ) -> recap_engine::BoxFuture<'static, Result<(), recap_engine::ProviderError>> {
+        let (text, lag) = match source {
+            Source::Me => (self.me, self.me_lag_ms),
+            Source::Them => (self.them, 0),
+        };
+        let words: Vec<&str> = text.split(' ').collect();
+        let start = 1_000 + lag;
+        let mut schedule: Vec<recap_engine::LiveEvent> = (1..=words.len())
+            .map(|i| recap_engine::LiveEvent {
+                text: words[..i].join(" "),
+                is_final: false,
+                start_ms: start,
+                end_ms: start + i as u64 * 300,
+            })
+            .collect();
+        let end = start + words.len() as u64 * 300 + 200;
+        schedule.push(recap_engine::LiveEvent { text: text.into(), is_final: true, start_ms: start, end_ms: end });
+        Box::pin(async move {
+            let mut heard = 0;
+            let mut next = 0;
+            while let Some(frame) = audio.recv().await {
+                heard += frame.duration_ms();
+                while let Some(event) = schedule.get(next).filter(|e| e.end_ms <= heard) {
+                    let _ = events.send(event.clone());
+                    next += 1;
+                }
+            }
+            Ok(())
+        })
+    }
+}
+
+fn two_lines(me: &'static str, them: &'static str) -> Meeting {
+    Meeting::start(
+        MeetingConfig { caption_me: true, ..MeetingConfig::default() },
+        Box::new(SilenceSource::new(Duration::from_secs(12))),
+        Arc::new(TwoLines { me, them, me_lag_ms: 150 }),
+    )
+}
+
+const LAUNCH: &str = "Then I'd suggest we launch on December first, with caching in place.";
+
+#[tokio::test]
+async fn the_mic_hearing_them_through_the_speakers_is_dropped() {
+    let mut meeting = two_lines("then I'd suggest we launch on December first with caching in place", LAUNCH);
+    let (events, result) = drain(&mut meeting).await;
+
+    // Nothing of Me is kept: not in the result, never committed.
+    assert!(result.segments.iter().all(|s| s.source == Source::Them), "{:?}", result.segments);
+    assert_eq!(result.segments.len(), 1);
+    assert_eq!(committed(&events), vec![(Source::Them, LAUNCH.to_string())]);
+    // What of Me was shown is taken back.
+    let shown: std::collections::BTreeSet<_> =
+        segments(&events).iter().filter(|s| s.source == Source::Me).map(|s| s.id).collect();
+    let dropped: std::collections::BTreeSet<_> = events
+        .iter()
+        .filter_map(|e| match e {
+            EngineEvent::Dropped(id) => Some(*id),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(shown, dropped);
+    // Its row, if one was made, holds no words.
+    for row in result.rows.iter().filter(|r| r.source == Source::Me) {
+        assert_eq!((row.final_text.as_str(), row.partial_text.as_str()), ("", ""), "{row:?}");
+    }
+    assert_eq!(result.rows.iter().filter(|r| r.source == Source::Them).count(), 1);
+}
+
+#[tokio::test]
+async fn my_own_words_at_the_same_time_are_kept() {
+    let mut meeting = two_lines("Sorry, can you repeat the date for the launch?", LAUNCH);
+    let (events, result) = drain(&mut meeting).await;
+    assert_eq!(result.segments.len(), 2);
+    let mine = result.segments.iter().find(|s| s.source == Source::Me).expect("my line is kept");
+    assert_eq!(mine.text, "Sorry, can you repeat the date for the launch?");
+    assert!(!events.iter().any(|e| matches!(e, EngineEvent::Dropped(_))));
+    assert_eq!(committed(&events).len(), 2);
+}
+
+fn committed(events: &[EngineEvent]) -> Vec<(Source, String)> {
+    events
+        .iter()
+        .filter_map(|e| match e {
+            EngineEvent::Committed(s) => Some((s.source, s.text.clone())),
+            _ => None,
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn pause_and_resume_leave_one_marker_in_the_transcript() {
+    let (feed, source) = FrameFeed::new();
+    let mut meeting = start(source, true);
+    feed.push_silence(Duration::from_secs(2));
+    wait_for(&mut meeting, |e| matches!(e, EngineEvent::Elapsed(2_000))).await;
+
+    let before = now_ms();
+    meeting.pause();
+    wait_for(&mut meeting, |e| matches!(e, EngineEvent::State(MeetingState::Paused))).await;
+    tokio::time::sleep(Duration::from_millis(400)).await;
+    meeting.resume();
+    // Resume marks the pause: where in the meeting, and when (wall clock).
+    let mark = loop {
+        let event = meeting.next_event().await.unwrap();
+        if let EngineEvent::Pause(mark) = event {
+            break mark;
+        }
+    };
+    assert_eq!(mark.at_ms, 2_000);
+    assert!(mark.paused_ms >= before && mark.resumed_ms >= mark.paused_ms + 300, "{mark:?}");
+    assert!(mark.resumed_ms <= now_ms());
+
+    feed.push_silence(Duration::from_secs(1));
+    drop(feed);
+    let (events, result) = drain(&mut meeting).await;
+    // One meeting: one Recording → … → Stopped, the marker kept, its row in place.
+    assert_eq!(result.duration_ms, 3_000);
+    assert_eq!(result.pauses, vec![mark]);
+    let rows: Vec<_> = result.rows.iter().filter(|r| r.pause.is_some()).collect();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].pause, Some(mark));
+    assert_eq!(rows[0].start_ms, 2_000);
+    assert!(!events.iter().any(|e| matches!(e, EngineEvent::Pause(_))), "one marker");
+}
+
+#[tokio::test]
+async fn stop_while_paused_still_marks_the_pause() {
+    let (feed, source) = FrameFeed::new();
+    let mut meeting = start(source, false);
+    feed.push_silence(Duration::from_secs(1));
+    wait_for(&mut meeting, |e| matches!(e, EngineEvent::Elapsed(1_000))).await;
+    meeting.pause();
+    wait_for(&mut meeting, |e| matches!(e, EngineEvent::State(MeetingState::Paused))).await;
+    meeting.stop();
+    let (events, result) = drain(&mut meeting).await;
+    assert!(events.iter().any(|e| matches!(e, EngineEvent::Pause(m) if m.at_ms == 1_000)));
+    assert_eq!(result.pauses.len(), 1);
+    drop(feed);
+}
+
+fn now_ms() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64
+}
+
 async fn wait_for(meeting: &mut Meeting, want: impl Fn(&EngineEvent) -> bool) {
     loop {
         let event = tokio::time::timeout(Duration::from_secs(10), meeting.next_event())
