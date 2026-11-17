@@ -28,6 +28,8 @@ local function Play(i: number, s: host.DialogSpeaker, playing: () -> boolean): N
 	return ui.button {
 		id = `speaker-{i}-play`,
 		label = `Play {s.label}`,
+		-- A press plays the clip, or stops it while it plays.
+		tooltip = "Listen",
 		w = 40,
 		h = 40,
 		shrink = 0,
@@ -145,6 +147,9 @@ local function Name(i: number, s: host.DialogSpeaker, people: { string }): Node
 			label = `People for {s.label}`,
 			anchor = ui.button {
 				id = `speaker-{i}-people`,
+				label = `People for {s.label}`,
+				tooltip = "People",
+				expanded = open,
 				w = 24,
 				h = 24,
 				p = 0,

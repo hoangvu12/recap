@@ -9,6 +9,7 @@ local actions = require("@app/actions")
 local meetings = require("@lib/meetings")
 local Icon = require("@components/icon")
 local Keycap = require("@components/keycap")
+local IconButton = require("@components/icon_button")
 local meeting_actions = require("@lib/meeting_actions")
 local ActionPanel = require("@components/action_panel")
 local ConfirmDelete = require("@components/confirm_delete")
@@ -65,6 +66,14 @@ local function Header(): Node
 			Icon { name = "list" },
 			ui.text { "All meetings", grow = 1, text_size = 13, color = "$rc.text.primary" },
 			Icon { name = "chevron-down", size = 14 },
+		},
+		IconButton {
+			id = "home-settings",
+			icon = "settings",
+			label = "Settings",
+			keys = { "Ctrl", "," },
+			on_click = actions.open_settings,
+			tip_side = "bottom",
 		},
 	}
 end

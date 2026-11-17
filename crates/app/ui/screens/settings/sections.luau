@@ -244,6 +244,7 @@ local function Term(term: string, i: number): Node
 		ui.button {
 			id = `term-{i}-remove`,
 			label = `Remove {term}`,
+			tooltip = "Remove",
 			w = 20,
 			h = 20,
 			p = 0,

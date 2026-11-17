@@ -68,6 +68,10 @@ return function(): Node
 				actions.run_action("notes", action)
 				return true
 			end
+			if e.ctrl and e.key == "," then
+				actions.open_settings()
+				return true
+			end
 			if e.key == "Enter" and state.notes_tab:peek() ~= "notes" then
 				actions.primary()
 				return true

@@ -7,6 +7,7 @@ local actions = require("@app/actions")
 local format = require("@lib/format")
 local processing = require("@lib/processing")
 local Icon = require("@components/icon")
+local IconButton = require("@components/icon_button")
 
 local function tab(id: state.NotesTab, label: string): Node
 	local selected = function()
@@ -74,17 +75,32 @@ return function(): Node
 			px = 16,
 			pt = 12,
 			gap = 4,
-			ui.text {
-				function()
-					local title = host.meeting:get().title
-					return if title == "" then "New meeting" else title
-				end,
-				id = "meeting-title",
-				text_size = 18,
-				color = function()
-					return if host.meeting:get().title == "" then "$rc.text.secondary" else "$rc.text.primary"
-				end,
-				truncate = true,
+			ui.row {
+				w_full = true,
+				gap = 8,
+				items = "center",
+				ui.text {
+					function()
+						local title = host.meeting:get().title
+						return if title == "" then "New meeting" else title
+					end,
+					id = "meeting-title",
+					grow = 1,
+					basis = 0,
+					text_size = 18,
+					color = function()
+						return if host.meeting:get().title == "" then "$rc.text.secondary" else "$rc.text.primary"
+					end,
+					truncate = true,
+				},
+				IconButton {
+					id = "notes-settings",
+					icon = "settings",
+					label = "Settings",
+					keys = { "Ctrl", "," },
+					on_click = actions.open_settings,
+					tip_side = "bottom",
+				},
 			},
 			ui.row {
 				id = "meeting-date",

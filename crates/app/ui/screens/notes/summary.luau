@@ -148,7 +148,7 @@ local function NextStep(step: host.NextStep): Node
 	return ui.button {
 		id = `next-{i}`,
 		role = "checkbox",
-		selected = done,
+		checked = done,
 		w_full = true,
 		py = 6,
 		px = 0,

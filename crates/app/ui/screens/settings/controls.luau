@@ -4,6 +4,7 @@
 -- reads and hands a change to `on_change`; ids are the row's `id`
 -- (`set-<field>`) and its parts (`-state`, `-label`, `-<value>`, `-plus`…).
 local Icon = require("@components/icon")
+local IconButton = require("@components/icon_button")
 local motion = require("@lib/motion")
 
 local M = {}
@@ -19,7 +20,7 @@ function M.Switch(props: { id: string, label: string, on: () -> boolean, on_chan
 			id = props.id,
 			label = props.label,
 			role = "switch",
-			selected = props.on,
+			checked = props.on,
 			w = 28,
 			h = 16,
 			p = 0,
@@ -93,6 +94,7 @@ function M.Choice(props: {
 			rounded = 6,
 			bg = "$rc.transparent",
 			hover = { bg = "$rc.fill.hover" },
+			expanded = open,
 			on_click = ui.toggle(open),
 			ui.text { label, id = `{props.id}-label`, literal = true, text_size = 13, color = "$rc.text.primary" },
 			Icon { name = "chevrons-up-down", size = 14 },
@@ -129,22 +131,13 @@ function M.Choice(props: {
 end
 
 local function StepButton(id: string, label: string, icon: string, on_click: () -> ()): Node
-	return ui.button {
+	return IconButton {
 		id = id,
+		icon = icon,
 		label = label,
-		w = 28,
-		h = 28,
-		p = 0,
-		shrink = 0,
-		items = "center",
-		justify = "center",
-		rounded = 6,
-		bg = "$rc.transparent",
-		border = 1,
-		border_color = "$rc.stroke.field",
-		hover = { bg = "$rc.fill.hover" },
 		on_click = on_click,
-		Icon { name = icon, size = 14, color = "$rc.text.primary" },
+		outlined = true,
+		color = "$rc.text.primary",
 	}
 end
 

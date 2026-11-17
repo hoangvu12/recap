@@ -22,6 +22,7 @@ local format = require("@lib/format")
 local RecDot = require("@components/rec_dot")
 local Icon = require("@components/icon")
 local Keycap = require("@components/keycap")
+local IconButton = require("@components/icon_button")
 local motion = require("@lib/motion")
 
 -- The partial's colour: fg 55% on the dark glass.
@@ -218,32 +219,10 @@ local function failed(): Node
 	}
 end
 
--- A 28 px toolbar button, named by its tooltip (under it: the toolbar sits
--- at the overlay's top); `on` (if given) shows it switched on.
-local function tool(id: string, icon: string | Node, label: string, on_click: () -> (), on: (() -> boolean)?): Node
-	local tint = function()
-		return if on and on() then "$rc.text.primary" else "$rc.text.secondary"
-	end
-	return ui.button {
-		id = id,
-		label = label,
-		tooltip = label,
-		tooltip_placement = { side = "bottom", offset = 6 },
-		w = 28,
-		h = 28,
-		rounded = 6,
-		items = "center",
-		justify = "center",
-		bg = function()
-			return if on and on() then "$rc.fill.selected" else "$rc.transparent"
-		end,
-		hover = { bg = "$rc.fill.hover" },
-		on_click = on_click,
-		if type(icon) == "string" then Icon { name = icon, color = tint :: any } else icon,
-		if on
-			then ui.show(on, ui.div { id = `{id}-on`, absolute = true, w = 0, h = 0, aria_hidden = true })
-			else nil,
-	}
+-- A toolbar button, its tooltip under it (the toolbar sits at the overlay's
+-- top); `on` (if given) makes it a toggle.
+local function tool(id: string, icon: string, label: string, on_click: () -> (), on: (() -> boolean)?): Node
+	return IconButton { id = id, icon = icon, label = label, on_click = on_click, on = on, tip_side = "bottom" }
 end
 
 local function toolbar(): Node

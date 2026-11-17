@@ -59,6 +59,7 @@ return function(props: Props): Node
 			border = 1,
 			border_color = "$rc.stroke.field",
 			hover = { bg = "$rc.fill.hover" },
+			expanded = open,
 			on_click = ui.toggle(open),
 			ui.row {
 				w = 16,

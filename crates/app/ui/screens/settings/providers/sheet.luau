@@ -9,6 +9,7 @@ local providers = require("@lib/providers")
 local Icon = require("@components/icon")
 local Logo = require("@components/logo")
 local Keycap = require("@components/keycap")
+local IconButton = require("@components/icon_button")
 local Form = require("./form")
 
 local function back()
@@ -21,21 +22,7 @@ local function back()
 end
 
 local function BackButton(): Node
-	return ui.button {
-		id = "sheet-back",
-		label = "Back",
-		w = 28,
-		h = 28,
-		p = 0,
-		shrink = 0,
-		items = "center",
-		justify = "center",
-		rounded = 6,
-		bg = "$rc.transparent",
-		hover = { bg = "$rc.fill.hover" },
-		on_click = back,
-		Icon { name = "chevron-left", color = "$rc.text.secondary" },
-	}
+	return IconButton { id = "sheet-back", icon = "chevron-left", label = "Back", on_click = back, tip_side = "bottom" }
 end
 
 local function PresetRow(preset: host.Preset): Node
