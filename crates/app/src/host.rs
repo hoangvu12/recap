@@ -305,7 +305,7 @@ impl Host {
             let (Value::Str(query), Some(store)) = (&arg, searcher.store()) else {
                 return value(serde_json::json!([]));
             };
-            value(home::search(&store, &query.to_string()))
+            value(home::search(&store, query))
         });
         let exporter = host.clone();
         host.script.function("meeting_markdown", move |arg| {

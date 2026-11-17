@@ -32,19 +32,21 @@ fn without_a_file_the_defaults_show() {
 fn saved_settings_read_back_the_same() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("settings.json");
-    let mut s = Settings::default();
-    s.my_name = "Tom".into();
-    s.theme = Theme::Light;
-    s.caption_size = 24;
-    s.caption_lines = 3;
-    s.partial_text = false;
-    s.microphone = "{0.0.1.00000000}.{headset}".into();
-    s.meeting_audio = MeetingAudio::App("ms-teams.exe".into());
+    let mut s = Settings {
+        my_name: "Tom".into(),
+        theme: Theme::Light,
+        caption_size: 24,
+        caption_lines: 3,
+        partial_text: false,
+        microphone: "{0.0.1.00000000}.{headset}".into(),
+        meeting_audio: MeetingAudio::App("ms-teams.exe".into()),
+        storage_folder: "D:\\Recap".into(),
+        keep_audio_days: 30,
+        autostart: true,
+        ..Settings::default()
+    };
     s.add_term("payments API").unwrap();
     s.hotkeys.pause = "Ctrl+Shift+P".into();
-    s.storage_folder = "D:\\Recap".into();
-    s.keep_audio_days = 30;
-    s.autostart = true;
     s.save(&path).unwrap();
     assert_eq!(Settings::load(&path).unwrap(), s);
 }

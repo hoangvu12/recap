@@ -79,7 +79,7 @@ impl Conn {
 
 pub fn decode(b64: &str) -> Vec<i16> {
     let bytes = base64::engine::general_purpose::STANDARD.decode(b64).unwrap();
-    bytes.chunks_exact(2).map(|b| i16::from_le_bytes([b[0], b[1]])).collect()
+    bytes.as_chunks::<2>().0.iter().map(|b| i16::from_le_bytes(*b)).collect()
 }
 
 /// A fake realtime endpoint: connection `n` plays `scripts[n]`; once the
@@ -122,6 +122,8 @@ async fn serve(tcp: tokio::net::TcpStream, script: Vec<Step>, conns: Arc<Mutex<V
         _ => None,
     };
     let record = conns.clone();
+    // tungstenite's handshake callback: its error type is theirs.
+    #[allow(clippy::result_large_err)]
     let callback = move |request: &Request, response: Response| -> Result<Response, ErrorResponse> {
         let mut conns = record.lock().unwrap();
         conns[index].uri = request.uri().to_string();

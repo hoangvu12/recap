@@ -97,6 +97,8 @@ async fn serve(tcp: tokio::net::TcpStream, script: Vec<Step>, conns: Arc<Mutex<V
         _ => None,
     };
     let record = conns.clone();
+    // tungstenite's handshake callback: its error type is theirs.
+    #[allow(clippy::result_large_err)]
     let callback = move |request: &Request, response: Response| -> Result<Response, ErrorResponse> {
         let mut conns = record.lock().unwrap();
         conns[index].uri = request.uri().to_string();
@@ -119,7 +121,7 @@ async fn serve(tcp: tokio::net::TcpStream, script: Vec<Step>, conns: Arc<Mutex<V
         while let Some(Ok(message)) = stream.next().await {
             match message {
                 Message::Binary(bytes) => {
-                    let samples = bytes.chunks_exact(2).map(|b| i16::from_le_bytes([b[0], b[1]])).collect();
+                    let samples = bytes.as_chunks::<2>().0.iter().map(|b| i16::from_le_bytes(*b)).collect();
                     reader_conns.lock().unwrap()[index].audio.push(samples);
                     seen_tx.send_modify(|(n, _)| *n += 1);
                 }
