@@ -130,6 +130,9 @@ pub struct Host {
     summary_again: Rc<RefCell<HashSet<MeetingId>>>,
     summary_toast: Shared,
     toast_seq: Rc<std::cell::Cell<u64>>,
+    /// What each meeting's last processing had to say (a backup took
+    /// over), shown in its notice line.
+    processing_notices: Rc<RefCell<std::collections::HashMap<MeetingId, String>>>,
 }
 
 fn value(json: serde_json::Value) -> Value {
@@ -184,6 +187,7 @@ impl Host {
             summary_again: Rc::default(),
             summary_toast: script.shared("summary_toast", value(serde_json::json!({ "seq": 0, "id": "", "title": "" }))),
             toast_seq: Rc::default(),
+            processing_notices: Rc::default(),
             script,
         };
         let presenter = host.presenter.clone();
@@ -597,7 +601,12 @@ impl Host {
         match loaded {
             Ok((Some(meeting), segments)) => {
                 let pauses = session::read_pauses(&store.folder(id));
-                self.replace_presenter(Presenter::stored_with_pauses(&meeting.info, &segments, &pauses));
+                let mut presenter = Presenter::stored_with_pauses(&meeting.info, &segments, &pauses);
+                // Its last processing's news (a backup took over), if any.
+                if let Some(text) = self.processing_notices.borrow().get(id) {
+                    presenter.notice(text);
+                }
+                self.replace_presenter(presenter);
                 self.publish(Changed::ALL);
                 let status = meeting.info.status;
                 self.processing.set(value(if status == Status::Done && !self.is_processing(id) {
@@ -702,6 +711,7 @@ impl Host {
         if !self.running.borrow_mut().insert(id.clone()) {
             return;
         }
+        self.processing_notices.borrow_mut().remove(id);
         let mut events = process(store, id.clone());
         let (host, id) = (self.clone(), id.clone());
         spawn(Box::pin(async move {
@@ -733,6 +743,16 @@ impl Host {
                     ProcessingEvent::Stopped(error) => {
                         if !failed {
                             host.notice(&error);
+                        }
+                    }
+                    // A backup took over: the Notes notice line says so (and
+                    // keeps saying so as each step shows the meeting again).
+                    ProcessingEvent::Notice(text) => {
+                        host.processing_notices.borrow_mut().insert(id.clone(), text.clone());
+                        if shown {
+                            host.notice(&text);
+                        } else {
+                            eprintln!("recap: {id}: {text}");
                         }
                     }
                 }

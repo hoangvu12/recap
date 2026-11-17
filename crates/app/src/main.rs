@@ -37,7 +37,7 @@ use recap::{
     live::{StartOptions, capture_options},
     overlay::OverlayHost,
     playback::{Output, Player, RodioOutput},
-    processing::{Processing, ProcessingConfig},
+    processing::{self, Processing, ProcessingConfig},
     seed,
     session::{self, SessionConfig},
     settings::ProvidersHost,
@@ -159,9 +159,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let off = || ProviderError::new(ProviderErrorKind::Auth, "no providers in a soak run");
                     return Processing::full(Err(off()), Err(off())).start(store, id, config);
                 }
-                let batch = options.batch(&providers, |notice| eprintln!("recap: {notice}"));
-                let llm = options.llm(&providers, |notice| eprintln!("recap: {notice}"));
-                Processing::full(batch, llm).start(store, id, config)
+                // A job switching to its backup is told in the Notes notice
+                // line (ProcessingEvent::Notice), not only on stderr.
+                let (notify, notices) = session::notices();
+                let batch = options.batch(&providers, notify.clone());
+                let llm = options.llm(&providers, notify);
+                processing::with_notices(Processing::full(batch, llm).start(store, id, config), notices)
             })
         };
         let spawn: host::Spawn = {

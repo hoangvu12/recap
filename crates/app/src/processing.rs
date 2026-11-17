@@ -200,6 +200,35 @@ pub enum ProcessingEvent {
     /// It stopped at a failed step (its error is in the last `Progress`), or
     /// could not run at all. The last event.
     Stopped(String),
+    /// Something the user should see (a job's backup took over: "ElevenLabs
+    /// failed (…); switched to Deepgram"). See [`with_notices`].
+    Notice(String),
+}
+
+/// `events`, with each of `notices` (a job's `on_switch`) put in as a
+/// `Notice`, ahead of the event that follows it (so before `Finished`).
+/// Call it inside the runtime.
+pub fn with_notices(
+    mut events: UnboundedReceiver<ProcessingEvent>,
+    mut notices: UnboundedReceiver<String>,
+) -> UnboundedReceiver<ProcessingEvent> {
+    let (out, merged) = mpsc::unbounded_channel();
+    tokio::spawn(async move {
+        loop {
+            tokio::select! {
+                biased;
+                Some(text) = notices.recv() => drop(out.send(ProcessingEvent::Notice(text))),
+                event = events.recv() => {
+                    let Some(event) = event else { break };
+                    while let Ok(text) = notices.try_recv() {
+                        let _ = out.send(ProcessingEvent::Notice(text));
+                    }
+                    let _ = out.send(event);
+                }
+            }
+        }
+    });
+    merged
 }
 
 /// The queue: its steps in order.
