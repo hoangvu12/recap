@@ -170,7 +170,7 @@ export type LiveCaptions = {
 }
 
 -- The overlay window's own switches (crates/app/src/overlay.rs).
-export type OverlayWindow = { click_through: boolean, pinned: boolean }
+export type OverlayWindow = { click_through: boolean }
 
 -- Providers (crates/providers: Providers::view). Ids are the registry's.
 export type JobId = "live" | "transcript" | "summary"
@@ -279,6 +279,8 @@ export type Settings = {
 	my_name: string,
 	theme: "system" | "dark" | "light",
 	autostart: boolean,
+	-- What meetings are spoken in: "auto" (detected), or a code ("en", "vi").
+	language: string,
 	caption_my_speech: boolean,
 	caption_size: number,
 	caption_lines: number,
@@ -345,8 +347,8 @@ M.captions = ui.shared("captions", {} :: { CaptionLine })
 -- How the live captions are doing.
 M.live = ui.shared("live", { status = "live", provider = "", error = "" } :: LiveCaptions)
 
--- The overlay's click-through and pin.
-M.overlay = ui.shared("overlay", { click_through = false, pinned = true } :: OverlayWindow)
+-- The overlay's click-through.
+M.overlay = ui.shared("overlay", { click_through = false } :: OverlayWindow)
 
 -- The stored meetings, newest first (Home).
 M.meetings = ui.shared("meetings", {} :: { MeetingItem })
@@ -367,6 +369,7 @@ M.settings = ui.shared("settings", {
 	my_name = "",
 	theme = "system",
 	autostart = false,
+	language = "auto",
 	caption_my_speech = false,
 	caption_size = 20,
 	caption_lines = 2,

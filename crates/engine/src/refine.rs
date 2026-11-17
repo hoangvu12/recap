@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     BatchTranscript, Source, Word,
     echo::{Spoken, is_echo},
+    mic_levels::MicLevels,
 };
 
 /// Silence that ends a sentence even without punctuation.
@@ -73,12 +74,20 @@ fn sentences(words: &[Word], source: Source) -> Vec<Turn> {
 /// The refined transcript's turns from Me's words (`me`, not diarized) and
 /// Them's (`them`, diarized `S1..`), in time order.
 pub fn turns(me: &BatchTranscript, them: &BatchTranscript) -> Vec<Turn> {
+    turns_with(me, them, None)
+}
+
+/// [`turns`], with the recording's `levels` judging echoes too (ADR 0021):
+/// a Me sentence the mic only heard Them say back is dropped, whatever its
+/// words.
+pub fn turns_with(me: &BatchTranscript, them: &BatchTranscript, levels: Option<&MicLevels>) -> Vec<Turn> {
     let theirs = sentences(&them.words, Source::Them);
     let spoken: Vec<Spoken<'_>> =
         theirs.iter().map(|t| Spoken { start_ms: t.start_ms, end_ms: t.end_ms, text: &t.text }).collect();
-    let mine = sentences(&me.words, Source::Me)
-        .into_iter()
-        .filter(|s| !is_echo(Spoken { start_ms: s.start_ms, end_ms: s.end_ms, text: &s.text }, &spoken));
+    let mine = sentences(&me.words, Source::Me).into_iter().filter(|s| {
+        !levels.is_some_and(|l| l.is_echo(s.start_ms, s.end_ms))
+            && !is_echo(Spoken { start_ms: s.start_ms, end_ms: s.end_ms, text: &s.text }, &spoken)
+    });
     let mut all: Vec<Turn> = theirs.iter().cloned().chain(mine).collect();
     // Them first on a tie: what the mic heard at the same moment follows.
     all.sort_by_key(|s| (s.start_ms, s.source == Source::Me));

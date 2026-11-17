@@ -19,7 +19,9 @@ use std::time::Duration;
 
 use base64::Engine;
 use futures::{SinkExt, StreamExt};
-use recap_engine::{AudioFrame, LiveEvent, LiveOptions, LiveStatus, ProviderError, ProviderErrorKind, SAMPLE_RATE};
+use recap_engine::{
+    AudioFrame, LiveEvent, LiveOptions, LiveStatus, ProviderError, ProviderErrorKind, SAMPLE_RATE, language_code,
+};
 use serde_json::{Value, json};
 use tokio::sync::mpsc;
 use tokio::time::{Instant, sleep_until, timeout};
@@ -106,10 +108,18 @@ fn url(inner: &Inner, options: &LiveOptions) -> String {
     let mut url = reqwest::Url::parse(&format!("{base}/v1/speech-to-text/realtime")).expect("a realtime base URL");
     {
         let mut query = url.query_pairs_mut();
+        query.append_pair("model_id", "scribe_v3_live").append_pair("audio_format", "pcm_16000");
+        match language_code(options.language.as_deref()) {
+            Some(code) => {
+                query.append_pair("language_code", code);
+            }
+            // Auto: detected, and a call mixing two languages is followed
+            // mid-sentence (scribe_v3_live only; ADR 0022).
+            None => {
+                query.append_pair("multilang_mode", "true");
+            }
+        }
         query
-            .append_pair("model_id", "scribe_v3_live")
-            .append_pair("audio_format", "pcm_16000")
-            .append_pair("language_code", options.language.as_deref().unwrap_or("en"))
             .append_pair("commit_strategy", "turn_prediction")
             .append_pair("no_verbatim", "true")
             .append_pair("include_timestamps", "true");

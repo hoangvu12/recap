@@ -194,8 +194,9 @@ end
 
 -- The overlay ----------------------------------------------------------------
 
+-- Notes, brought forward (it is usually open already, behind the call).
 function M.open_notes()
-	host.windows.notes:set(true)
+	host.invoke("open_notes")
 end
 
 -- Caption text `delta` points larger (−/+ in the overlay's toolbar), within
@@ -211,11 +212,6 @@ end
 -- Show my own lines in the captions, or no longer.
 function M.toggle_my_lines()
 	host.invoke("set_settings", { caption_my_speech = not host.settings:peek().caption_my_speech })
-end
-
--- Keep the overlay above every window, or no longer.
-function M.toggle_pinned()
-	host.invoke("set_overlay_pinned", not host.overlay:peek().pinned)
 end
 
 -- Clicks go through the overlay (its hotkey does the same).

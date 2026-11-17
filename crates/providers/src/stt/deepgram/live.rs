@@ -116,7 +116,8 @@ fn url(inner: &Inner, options: &LiveOptions) -> String {
         let mut query = url.query_pairs_mut();
         query
             .append_pair("model", "nova-3")
-            .append_pair("language", options.language.as_deref().unwrap_or("en"))
+            // Auto: nova-3's multilingual code-switching (ADR 0022).
+            .append_pair("language", recap_engine::language_code(options.language.as_deref()).unwrap_or("multi"))
             .append_pair("encoding", "linear16")
             .append_pair("sample_rate", &SAMPLE_RATE.to_string())
             .append_pair("channels", "1")

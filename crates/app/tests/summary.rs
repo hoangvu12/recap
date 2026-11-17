@@ -159,7 +159,7 @@ fn fits(value: &Value, schema: &Value, path: &str) {
 }
 
 fn config(my_name: &str) -> ProcessingConfig {
-    ProcessingConfig { keyterms: vec![], my_name: my_name.into() }
+    ProcessingConfig { keyterms: vec![], my_name: my_name.into(), language: None }
 }
 
 fn full(llm: &FakeLlm) -> Processing {

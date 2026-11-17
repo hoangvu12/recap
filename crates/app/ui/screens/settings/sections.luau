@@ -68,6 +68,15 @@ local THEMES = {
 	{ value = "light", label = "Light" },
 }
 
+-- What meetings are spoken in (ADR 0022): detected (following a call that
+-- mixes two), or one.
+local LANGUAGES = {
+	{ value = "auto", label = "Auto-detect" },
+	{ value = "en", label = "English" },
+	{ value = "vi", label = "Tiếng Việt" },
+	{ value = "hi", label = "हिन्दी" },
+}
+
 function M.You(scope: string): Node
 	return Section {
 		title = "You",
@@ -80,6 +89,28 @@ function M.You(scope: string): Node
 				value = setting("my_name"),
 				placeholder = "Your name",
 				on_commit = set("my_name"),
+			},
+		},
+		Labelled {
+			label = "Meeting language",
+			control = Choice {
+				id = "set-language",
+				scope = scope,
+				label = "Meeting language",
+				value = setting("language"),
+				options = function()
+					local chosen = host.settings:get().language
+					for _, language in LANGUAGES do
+						if language.value == chosen then
+							return LANGUAGES
+						end
+					end
+					-- A code set by hand shows as itself.
+					local out = table.clone(LANGUAGES)
+					table.insert(out, { value = chosen, label = chosen })
+					return out
+				end,
+				on_change = set("language"),
 			},
 		},
 		Labelled {

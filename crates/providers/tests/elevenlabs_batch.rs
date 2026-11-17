@@ -17,7 +17,7 @@ fn client(api: &str) -> ElevenLabs {
 }
 
 fn request(diarize: bool) -> BatchRequest {
-    BatchRequest { samples: vec![7; 16_000], diarize, keyterms: vec!["Priya".into(), "Recap".into()] }
+    BatchRequest { samples: vec![7; 16_000], diarize, keyterms: vec!["Priya".into(), "Recap".into()], language: None }
 }
 
 #[tokio::test]
@@ -45,6 +45,21 @@ async fn uploads_the_side_with_the_tested_parameters() {
     assert_eq!(u32::from_le_bytes([file[24], file[25], file[26], file[27]]), 16_000);
     assert_eq!(file.len(), 44 + 32_000);
     assert_eq!(&file[44..46], &7i16.to_le_bytes());
+}
+
+// Language Auto (ADR 0022): Scribe detects the language.
+#[tokio::test]
+async fn language_auto_leaves_the_language_to_scribe() {
+    let api = FakeApi::start(vec![(200, RECORDED.into()), (200, RECORDED.into())]).await;
+    let stt = client(&api.base);
+    stt.transcribe(BatchRequest { language: Some("auto".into()), ..request(false) }).await.unwrap();
+    stt.transcribe(BatchRequest { language: Some("vi".into()), ..request(false) }).await.unwrap();
+    let languages: Vec<Vec<String>> = api
+        .requests()
+        .iter()
+        .map(|r| r.fields().into_iter().filter(|(k, _)| k == "language_code").map(|(_, v)| v).collect())
+        .collect();
+    assert_eq!(languages, [vec![], vec!["vi".to_owned()]]);
 }
 
 #[tokio::test]

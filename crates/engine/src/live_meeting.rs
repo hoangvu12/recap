@@ -6,6 +6,7 @@ use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
 use crate::echo::{ECHO_WINDOW_MS, Spoken, is_echo};
+use crate::mic_levels::MicLevels;
 use crate::{
     AudioFrame, AudioSource, EngineEvent, LiveEvent, LiveOptions, LiveStatus, LiveStt, LiveTranscript, MeetingResult,
     MeetingState, PauseMark, Recorder, Segment, SegmentId, Source,
@@ -251,6 +252,8 @@ struct Engine {
     /// Me segments whose partials are on screen.
     shown: HashSet<SegmentId>,
     pauses: Vec<PauseMark>,
+    /// Both sides' levels: the mic only hearing Them back is echo too.
+    levels: MicLevels,
 }
 
 impl Engine {
@@ -258,10 +261,14 @@ impl Engine {
         let _ = self.events.send(event);
     }
 
-    /// Whether `me` repeats what Them said (or is saying) about then.
+    /// Whether `me` repeats what Them said (or is saying) about then: the
+    /// same words, or the mic only hearing Them back (ADR 0021).
     fn echoes(&self, me: &Segment) -> bool {
         fn spoken(s: &Segment) -> Spoken<'_> {
             Spoken { start_ms: s.start_ms, end_ms: s.end_ms, text: s.text.as_str() }
+        }
+        if self.levels.is_echo(me.start_ms, me.end_ms) {
+            return true;
         }
         let them: Vec<Spoken<'_>> = self.them.iter().chain(self.open.get(&Source::Them)).map(spoken).collect();
         is_echo(spoken(me), &them)
@@ -317,12 +324,18 @@ impl Engine {
                 }
                 self.decide(false);
             }
-            // Partials are too short to tell an echo by ("One more week"
-            // right after Them said it): only finals are judged. A final
-            // that already echoes is taken back; else it is shown, and kept
-            // once Them has caught up with it.
+            // Partials are too short to tell an echo by words ("One more
+            // week" right after Them said it): only finals are judged by
+            // them. By level, a partial is judged too: the mic only hearing
+            // Them back shows nothing. A final that already echoes is taken
+            // back; else it is shown, and kept once Them has caught up.
             Source::Me => {
-                if segment.is_final && self.echoes(&segment) {
+                let echo = if segment.is_final {
+                    self.echoes(&segment)
+                } else {
+                    self.levels.is_echo(segment.start_ms, segment.end_ms)
+                };
+                if echo {
                     self.drop_shown(segment.id);
                     return;
                 }
@@ -405,6 +418,7 @@ async fn run(
         held: Vec::new(),
         shown: HashSet::new(),
         pauses: Vec::new(),
+        levels: MicLevels::default(),
     };
     engine.emit(EngineEvent::State(MeetingState::Recording));
 
@@ -475,6 +489,7 @@ async fn run(
                 if paused.is_some() {
                     continue;
                 }
+                engine.levels.push(&frame);
                 if let Some(rec) = &recorder
                     && rec.frames.send(frame.clone()).is_err()
                 {

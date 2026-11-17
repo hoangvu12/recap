@@ -29,7 +29,8 @@ use std::{
 };
 
 use recap_engine::{
-    BatchRequest, BatchStt, BatchTranscript, BoxFuture, Llm, ProviderError, Recording, SAMPLE_RATE, Turn, refine,
+    BatchRequest, BatchStt, BatchTranscript, BoxFuture, Llm, ProviderError, Recording, SAMPLE_RATE, Turn,
+    mic_levels::MicLevels, refine,
 };
 use recap_storage::{MeetingId, MeetingInfo, Segment, Speaker, Status, Store};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -167,6 +168,8 @@ pub struct ProcessingConfig {
     pub keyterms: Vec<String>,
     /// Settings' "my name": who Me is (the naming step).
     pub my_name: String,
+    /// Settings' Language, for the batch STT (`recap_engine::language_code`).
+    pub language: Option<String>,
 }
 
 /// What a step works on.
@@ -403,24 +406,35 @@ async fn transcribe(batch: Result<Arc<dyn BatchStt>, ProviderError>, job: Job) -
     let mut them: Option<BatchTranscript> = read_json(&them_path);
     let mut me: Option<BatchTranscript> = read_json(&me_path);
     let mut recorded_ms = None;
-    if them.is_none() || me.is_none() {
-        let batch = batch.map_err(|e| e.message)?;
-        let audio = job.folder.join(AUDIO);
-        if !audio.exists() {
-            return Err("This meeting has no recording.".into());
+    let audio = job.folder.join(AUDIO);
+    let needs_stt = them.is_none() || me.is_none();
+    if needs_stt && !audio.exists() {
+        return Err("This meeting has no recording.".into());
+    }
+    // The recording: the batch's input when a side is missing, and its
+    // levels judge echoes either way (ADR 0021).
+    let recording = if audio.exists() {
+        let read = tokio::task::spawn_blocking(move || Recording::read(&audio)).await.map_err(|e| e.to_string())?;
+        match read {
+            Ok(recording) => Some(recording),
+            Err(e) if needs_stt => return Err(format!("The recording can't be read: {e}")),
+            Err(_) => None,
         }
-        let recording = tokio::task::spawn_blocking(move || Recording::read(&audio))
-            .await
-            .map_err(|e| e.to_string())?
-            .map_err(|e| format!("The recording can't be read: {e}"))?;
+    } else {
+        None
+    };
+    let levels = recording.as_ref().map(|r| MicLevels::from_recording(&r.me, &r.them));
+    if needs_stt && let Some(recording) = recording {
+        let batch = batch.map_err(|e| e.message)?;
         recorded_ms = Some(recording.them.len().max(recording.me.len()) as u64 * 1000 / u64::from(SAMPLE_RATE));
         let side = |samples: Vec<i16>, diarize: bool, path: PathBuf| {
-            let (batch, keyterms) = (batch.clone(), job.config.keyterms.clone());
+            let (batch, keyterms, language) = (batch.clone(), job.config.keyterms.clone(), job.config.language.clone());
             async move {
                 let heard = if samples.iter().all(|s| s.unsigned_abs() < SILENT) {
                     BatchTranscript::default()
                 } else {
-                    batch.transcribe(BatchRequest { samples, diarize, keyterms }).await.map_err(|e| e.message)?
+                    let request = BatchRequest { samples, diarize, keyterms, language };
+                    batch.transcribe(request).await.map_err(|e| e.message)?
                 };
                 // Kept at once: a later run asks only for the side missing.
                 write_json(&path, &heard).map_err(|e| format!("{}: {e}", path.display()))?;
@@ -435,7 +449,7 @@ async fn transcribe(batch: Result<Arc<dyn BatchStt>, ProviderError>, job: Job) -
         me = me.or(me_heard?);
     }
     let (them, me) = (them.unwrap_or_default(), me.unwrap_or_default());
-    let turns = refine::turns(&me, &them);
+    let turns = refine::turns_with(&me, &them, levels.as_ref());
     let segments: Vec<Segment> = turns.iter().map(stored).collect();
     job.store.set_refined(&job.id, &segments).map_err(|e| e.to_string())?;
     job.store

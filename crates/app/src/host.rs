@@ -133,6 +133,9 @@ pub struct Host {
     /// What each meeting's last processing had to say (a backup took
     /// over), shown in its notice line.
     processing_notices: Rc<RefCell<std::collections::HashMap<MeetingId, String>>>,
+    /// Which [`Host::follow_meeting`] is the live one: a meeting's last
+    /// events touch the overlay and the controls only while it still is.
+    followed: Rc<std::cell::Cell<u64>>,
 }
 
 fn value(json: serde_json::Value) -> Value {
@@ -189,6 +192,7 @@ impl Host {
                 .shared("summary_toast", value(serde_json::json!({ "seq": 0, "id": "", "title": "" }))),
             toast_seq: Rc::default(),
             processing_notices: Rc::default(),
+            followed: Rc::default(),
             script,
         };
         let presenter = host.presenter.clone();
@@ -196,11 +200,9 @@ impl Host {
             Value::Num(i) if i >= 1. => value(presenter.borrow().row(i as usize)),
             _ => Value::Nil,
         });
-        for (name, act) in [
-            ("stop", MeetingControl::stop as fn(&MeetingControl)),
-            ("pause", MeetingControl::pause),
-            ("resume", MeetingControl::resume),
-        ] {
+        let stopper = host.clone();
+        host.script.action("stop", move |_| stopper.stop());
+        for (name, act) in [("pause", MeetingControl::pause as fn(&MeetingControl)), ("resume", MeetingControl::resume)] {
             let control = host.control.clone();
             host.script.action(name, move |_| {
                 if let Some(control) = &*control.borrow() {
@@ -517,10 +519,14 @@ impl Host {
         self.presenter.borrow().state()
     }
 
-    /// Stop the live meeting (nothing when none is).
+    /// Stop the live meeting (nothing when none is). The captions go at once:
+    /// the meeting itself ends once its engines have said the rest (up to a
+    /// few seconds), and a Stop that changed nothing meanwhile looked like a
+    /// button that does nothing.
     pub fn stop(&self) {
         if let Some(control) = &*self.control.borrow() {
             control.stop();
+            self.close_window("overlay");
         }
     }
 
@@ -790,11 +796,22 @@ impl Host {
         self.processing.set(value(no_processing()));
         self.summary.set(value(summary::no_view()));
         self.publish(Changed::ALL);
+        let me = self.followed.get() + 1;
+        self.followed.set(me);
         let host = self.clone();
         async move {
+            // Seen in the real app: a meeting's last events came after the
+            // next meeting had started (Start new notes right after Stop), and
+            // closed that one's overlay and dropped its controls (Pause and
+            // Stop did nothing). Once another meeting is followed, this one
+            // is only saved and processed.
+            let current = || host.followed.get() == me;
             while let Some(event) = events.recv().await {
                 match event {
                     LiveMeetingEvent::Engine(event) => {
+                        if !current() {
+                            continue;
+                        }
                         let changed = host.presenter.borrow_mut().apply(&event);
                         host.publish(changed);
                         if matches!(event, EngineEvent::Finished(_)) {
@@ -804,18 +821,27 @@ impl Host {
                             host.close_window("overlay");
                         }
                     }
-                    LiveMeetingEvent::Notice(text) => host.notice(&text),
+                    LiveMeetingEvent::Notice(text) => {
+                        if current() {
+                            host.notice(&text);
+                        }
+                    }
                     LiveMeetingEvent::Saved(info) => {
-                        host.live.borrow_mut().take();
-                        host.control.borrow_mut().take();
-                        host.presenter.borrow_mut().saved_as(info.id.as_str());
-                        host.publish(Changed { meeting: true, ..Default::default() });
+                        if current() {
+                            host.live.borrow_mut().take();
+                            host.control.borrow_mut().take();
+                            host.presenter.borrow_mut().saved_as(info.id.as_str());
+                            host.publish(Changed { meeting: true, ..Default::default() });
+                            // After Stop: the refined transcript, the names, the summary.
+                            host.processing.set(value(Progress::default().view(&info.id)));
+                        }
                         host.refresh_meetings();
-                        // After Stop: the refined transcript, the names, the summary.
-                        host.processing.set(value(Progress::default().view(&info.id)));
                         host.process(&info.id);
                     }
                 }
+            }
+            if !current() {
+                return;
             }
             // Ended without Saved (no store, or it failed): not live either.
             host.control.borrow_mut().take();

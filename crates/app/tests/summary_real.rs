@@ -42,8 +42,11 @@ async fn the_test_meeting_is_named_and_summarised_for_real() {
         ProviderSettings { name: "Claude Code".into(), command: preset.command.into(), ..Default::default() };
     let llm: Arc<dyn Llm> = (registry.kind("cli").unwrap().build)(&settings).llm().unwrap();
     // The user is not one of the three (the WAV's mic side is only echo).
-    let config =
-        ProcessingConfig { keyterms: vec!["Priya".into(), "David".into(), "Tom".into()], my_name: "Vu".into() };
+    let config = ProcessingConfig {
+        keyterms: vec!["Priya".into(), "David".into(), "Tom".into()],
+        my_name: "Vu".into(),
+        language: None,
+    };
     let started = std::time::Instant::now();
     let mut events = Processing::full(Ok(batch), Ok(llm)).start(store.clone(), id.clone(), config);
     let mut last = None;

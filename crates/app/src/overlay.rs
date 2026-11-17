@@ -7,17 +7,20 @@
 //!   winit rewrites the extended style on every flag change (show, level,
 //!   click-through), so the window is subclassed and `WM_STYLECHANGING`
 //!   keeps `WS_EX_TOOLWINDOW` (and drops `WS_EX_APPWINDOW`) each time.
-//! - **Click-through** (whole window, zgx's pointer passthrough) and **pin**
-//!   (always on top, or among the other windows again).
+//! - **Click-through** (whole window, zgx's pointer passthrough). Each
+//!   overlay opens without it: on, the overlay can't be hovered, so its
+//!   toolbar can't turn it off (only the hotkey, which the overlay shows).
+//! - **Always on top.** No "unpin" (ADR 0020): unpinned, a tool window with
+//!   no taskbar button went behind the browser at the first tab switch and
+//!   never came back.
 //!
 //! The window opens hidden (`windows::options`); once its HWND is found
 //! (the HWND workaround in research_zgx.md: our thread's windows, by title)
 //! and styled, it is shown, so it never shows on the taskbar.
 //!
 //! ```text
-//! shared  overlay        { click_through, pinned }
+//! shared  overlay        { click_through }
 //! action  toggle_click_through       (the toolbar; #15's hotkey calls OverlayHost::toggle_click_through)
-//!         set_overlay_pinned(bool)
 //!         switch_live({ id, name })  caption with that engine where the live one failed
 //! ```
 //! It also follows `caption_my_speech` live (the toolbar's "show my lines").
@@ -30,7 +33,7 @@ use std::{
 
 use recap_providers::Providers;
 use serde::Deserialize;
-use zgx_desktop::{WindowContext, WindowHandle, WindowLevel};
+use zgx_desktop::{WindowContext, WindowHandle};
 use zgx_script::{Shared, Value};
 
 use crate::{host::Host, user_settings::SettingsHost};
@@ -44,7 +47,6 @@ pub struct OverlayHost(Rc<Inner>);
 struct Inner {
     state: Shared,
     click_through: Cell<bool>,
-    pinned: Cell<bool>,
     hide_from_share: Cell<bool>,
     window: RefCell<Option<WindowHandle>>,
     /// The open overlay's HWND (0: none found, or closed).
@@ -64,7 +66,6 @@ impl OverlayHost {
         let overlay = Self(Rc::new(Inner {
             state: host.script.shared("overlay", Value::Nil),
             click_through: Cell::new(false),
-            pinned: Cell::new(true),
             hide_from_share: Cell::new(settings.current().hide_from_share),
             window: RefCell::default(),
             hwnd: Cell::new(0),
@@ -73,8 +74,6 @@ impl OverlayHost {
 
         let o = overlay.clone();
         host.script.action("toggle_click_through", move |_| o.toggle_click_through());
-        let o = overlay.clone();
-        host.script.action("set_overlay_pinned", move |arg| o.set_pinned(arg.truthy()));
         let h = host.clone();
         host.script.action("switch_live", move |arg| {
             let Ok(choice) = serde_json::from_str::<LiveChoice>(&arg.to_json()) else { return };
@@ -106,12 +105,8 @@ impl OverlayHost {
         let window = wcx.window.clone();
         *self.0.window.borrow_mut() = Some(window.clone());
         self.0.hwnd.set(0);
-        if self.0.click_through.get() {
-            window.set_pointer_passthrough(true);
-        }
-        if !self.0.pinned.get() {
-            window.set_level(WindowLevel::Normal);
-        }
+        // A new overlay can be hovered, whatever the last one was.
+        self.set_click_through(false);
         let (overlay, title) = (self.clone(), title.to_owned());
         wcx.tasks.spawn(async move {
             let started = std::time::Instant::now();
@@ -158,15 +153,6 @@ impl OverlayHost {
         self.0.click_through.get()
     }
 
-    /// Above every window (pinned), or among them.
-    pub fn set_pinned(&self, on: bool) {
-        self.0.pinned.set(on);
-        if let Some(window) = self.open_window() {
-            window.set_level(if on { WindowLevel::AlwaysOnTop } else { WindowLevel::Normal });
-        }
-        self.publish();
-    }
-
     /// The open overlay's HWND, once found (manual checks, logs).
     pub fn hwnd(&self) -> Option<isize> {
         Some(self.0.hwnd.get()).filter(|h| *h != 0 && self.open_window().is_some())
@@ -183,7 +169,7 @@ impl OverlayHost {
     }
 
     fn publish(&self) {
-        let json = serde_json::json!({ "click_through": self.0.click_through.get(), "pinned": self.0.pinned.get() });
+        let json = serde_json::json!({ "click_through": self.0.click_through.get() });
         self.0.state.set(Value::from_json(&json.to_string()).unwrap_or(Value::Nil));
     }
 }

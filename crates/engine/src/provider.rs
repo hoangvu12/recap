@@ -61,8 +61,23 @@ impl ProviderError {
 pub struct LiveOptions {
     /// Words to spell right (glossary + attendees, at most 50 × 20 chars).
     pub keyterms: Vec<String>,
-    /// BCP-47 language, `"en"` by default.
+    /// The language (Settings' Language): a code, [`AUTO_LANGUAGE`], or
+    /// `None` for English. See [`language_code`].
     pub language: Option<String>,
+}
+
+/// Settings' Language "Auto": the provider tells the language itself, and
+/// follows a call switching between two (ADR 0022).
+pub const AUTO_LANGUAGE: &str = "auto";
+
+/// The language code to ask a provider for: `None` asks it to detect the
+/// language (Auto); unset is English, as before there was a choice.
+pub fn language_code(language: Option<&str>) -> Option<&str> {
+    match language.map(str::trim) {
+        None => Some("en"),
+        Some("") | Some(AUTO_LANGUAGE) => None,
+        Some(code) => Some(code),
+    }
 }
 
 /// What a live provider hears: the current partial (replacing the previous
@@ -127,6 +142,8 @@ pub struct BatchRequest {
     pub samples: Vec<i16>,
     pub diarize: bool,
     pub keyterms: Vec<String>,
+    /// As [`LiveOptions::language`].
+    pub language: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

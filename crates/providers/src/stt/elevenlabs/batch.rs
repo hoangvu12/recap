@@ -1,9 +1,10 @@
 //! The after-Stop transcript of one side: `POST /v1/speech-to-text` with
 //! `model_id=scribe_v3, language_code=en, no_verbatim=true,
 //! timestamps_granularity=word`, `diarize` as asked and the keyterms
-//! (reference/el_batch.sh). The side goes up as a 16 kHz mono WAV.
+//! (reference/el_batch.sh). The side goes up as a 16 kHz mono WAV. Language
+//! Auto leaves `language_code` out: Scribe detects it (ADR 0022).
 
-use recap_engine::{BatchRequest, BatchTranscript, ProviderError, ProviderErrorKind, Word};
+use recap_engine::{BatchRequest, BatchTranscript, ProviderError, ProviderErrorKind, Word, language_code};
 use reqwest::multipart::{Form, Part};
 use serde::Deserialize;
 
@@ -27,9 +28,11 @@ struct ResponseWord {
 }
 
 pub(super) async fn transcribe(inner: &Inner, request: BatchRequest) -> Result<BatchTranscript, ProviderError> {
-    let mut form = Form::new()
-        .text("model_id", "scribe_v3")
-        .text("language_code", "en")
+    let mut form = Form::new().text("model_id", "scribe_v3");
+    if let Some(code) = language_code(request.language.as_deref()) {
+        form = form.text("language_code", code.to_owned());
+    }
+    form = form
         .text("diarize", if request.diarize { "true" } else { "false" })
         .text("no_verbatim", "true")
         .text("timestamps_granularity", "word");

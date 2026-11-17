@@ -27,8 +27,12 @@ async fn the_test_meeting_has_three_speakers_on_the_system_side() {
     let id = recorded::record(&store).await.id;
 
     let batch: Arc<dyn BatchStt> = Arc::new(ElevenLabs::new("ElevenLabs", key.trim(), Config::default()));
-    let config =
-        ProcessingConfig { keyterms: vec!["Priya".into(), "David".into(), "Tom".into()], my_name: String::new() };
+    // RECAP_LANGUAGE=auto tries Language Auto on the English test meeting.
+    let config = ProcessingConfig {
+        keyterms: vec!["Priya".into(), "David".into(), "Tom".into()],
+        my_name: String::new(),
+        language: std::env::var("RECAP_LANGUAGE").ok(),
+    };
     let mut events = Processing::standard(Ok(batch)).start(store.clone(), id.clone(), config);
     let mut last = None;
     while let Some(event) = events.recv().await {

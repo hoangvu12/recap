@@ -130,6 +130,20 @@ async fn a_language_option_is_passed_on() {
     let _ = session.finish().await;
     assert_eq!(server.conns()[0].query("language_code"), ["hi"]);
     assert!(server.conns()[0].query("keyterms").is_empty());
+    assert!(server.conns()[0].query("multilang_mode").is_empty());
+}
+
+// Language Auto (ADR 0022): detected, following a call that mixes two.
+#[tokio::test]
+async fn language_auto_is_detected_and_follows_switches() {
+    let server = FakeScribe::start(vec![vec![started(), Step::AwaitChunks(1), Step::Close]]).await;
+    let stt = client(config(&server.base));
+    let session = start(&stt, LiveOptions { keyterms: vec![], language: Some("auto".into()) });
+    session.send([frame(0, 0)]);
+    let _ = session.finish().await;
+    assert!(server.conns()[0].query("language_code").is_empty());
+    assert_eq!(server.conns()[0].query("multilang_mode"), ["true"]);
+    assert_eq!(server.conns()[0].query("model_id"), ["scribe_v3_live"], "multilang is v3's");
 }
 
 #[tokio::test]

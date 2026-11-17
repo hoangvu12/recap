@@ -156,7 +156,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Rc::new(move |store, id| {
                 let _inside = runtime.enter();
                 let settings = settings.current();
-                let config = ProcessingConfig { keyterms: settings.keyterms(), my_name: settings.my_name.clone() };
+                let config = ProcessingConfig {
+                    keyterms: settings.keyterms(),
+                    my_name: settings.my_name.clone(),
+                    language: Some(settings.language.clone()),
+                };
                 if soaking {
                     // No real API in a soak run: its meeting stays unprocessed.
                     let off = || ProviderError::new(ProviderErrorKind::Auth, "no providers in a soak run");
@@ -214,6 +218,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // The tray, the hotkeys and the call toasts run the same commands.
         let open_windows = OpenWindows::default();
+        // The overlay's "Open notes": Notes is usually open already, behind
+        // the call; it comes forward.
+        {
+            let (host, focus) = (host.clone(), open_windows.clone());
+            host.script.clone().action("open_notes", move |_| {
+                host.open_window("notes");
+                focus.focus("notes");
+            });
+        }
         let commands = {
             let (start, focus, factory) = (starter.clone(), open_windows.clone(), cx.windows.clone());
             let overlay = overlay.clone();

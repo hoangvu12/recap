@@ -49,7 +49,8 @@ pub(super) async fn transcribe(inner: &Inner, request: BatchRequest) -> Result<B
         let mut query = url.query_pairs_mut();
         query
             .append_pair("model", "nova-3")
-            .append_pair("language", "en")
+            // Auto: nova-3's multilingual code-switching (ADR 0022).
+            .append_pair("language", recap_engine::language_code(request.language.as_deref()).unwrap_or("multi"))
             .append_pair("smart_format", "true")
             .append_pair("punctuate", "true")
             .append_pair("diarize", if request.diarize { "true" } else { "false" });

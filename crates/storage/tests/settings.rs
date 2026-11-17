@@ -124,6 +124,28 @@ fn glossary_terms_feed_keyterms_within_fifty_by_twenty() {
     assert_eq!(s.live_options().keyterms, keyterms);
 }
 
+// A call mixing Vietnamese and English came out translated to English
+// while the engines were told English (ADR 0022).
+#[test]
+fn the_language_is_auto_unless_chosen_and_goes_to_the_live_engines() {
+    let s = Settings::default();
+    assert_eq!(s.language, "auto");
+    assert_eq!(s.live_options().language.as_deref(), Some("auto"));
+    assert_eq!(recap_engine::language_code(s.live_options().language.as_deref()), None, "detected");
+
+    // An older file (no language) is Auto; a chosen one stays, tidied.
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("settings.json");
+    fs::write(&path, serde_json::json!({ "my_name": "Vu" }).to_string()).unwrap();
+    assert_eq!(Settings::load(&path).unwrap().language, "auto");
+    fs::write(&path, serde_json::json!({ "language": " VI " }).to_string()).unwrap();
+    let s = Settings::load(&path).unwrap();
+    assert_eq!(s.language, "vi");
+    assert_eq!(recap_engine::language_code(s.live_options().language.as_deref()), Some("vi"));
+    fs::write(&path, serde_json::json!({ "language": "" }).to_string()).unwrap();
+    assert_eq!(Settings::load(&path).unwrap().language, "auto");
+}
+
 #[test]
 fn keyterms_add_attendees_after_the_glossary_within_the_limit() {
     let mut s = Settings::default();

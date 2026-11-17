@@ -14,7 +14,7 @@
 
 use std::path::{Path, PathBuf};
 
-use recap_engine::LiveOptions;
+use recap_engine::{AUTO_LANGUAGE, LiveOptions};
 use serde::{Deserialize, Serialize};
 
 use crate::{Result, files};
@@ -121,6 +121,10 @@ pub struct Settings {
     pub theme: Theme,
     /// Open Recap when Windows starts (HKCU Run key, #15).
     pub autostart: bool,
+    /// What meetings are spoken in, for live captions and the transcript:
+    /// [`AUTO_LANGUAGE`] (detected, following a call that mixes two), or a
+    /// code (`en`, `vi`). ADR 0022.
+    pub language: String,
 
     // Captions (the overlay, #8)
     /// Caption my own speech too (dimmed); a second live socket for Me.
@@ -161,6 +165,7 @@ impl Default for Settings {
             my_name: String::new(),
             theme: Theme::System,
             autostart: false,
+            language: AUTO_LANGUAGE.to_owned(),
             caption_my_speech: false,
             caption_size: 20,
             caption_lines: 2,
@@ -239,6 +244,10 @@ impl Settings {
     pub fn normalized(mut self) -> Self {
         self.my_name = self.my_name.trim().to_owned();
         self.storage_folder = self.storage_folder.trim().to_owned();
+        self.language = match self.language.trim().to_lowercase() {
+            code if code.is_empty() => AUTO_LANGUAGE.to_owned(),
+            code => code,
+        };
         let (lo, hi) = Self::CAPTION_SIZES;
         self.caption_size = self.caption_size.clamp(lo, hi);
         self.caption_lines = self.caption_lines.clamp(1, 3);
@@ -288,9 +297,9 @@ impl Settings {
         terms
     }
 
-    /// A live session's options: the keyterms, English.
+    /// A live session's options: the keyterms, the language.
     pub fn live_options(&self) -> LiveOptions {
-        LiveOptions { keyterms: self.keyterms(), language: None }
+        LiveOptions { keyterms: self.keyterms(), language: Some(self.language.clone()) }
     }
 
     /// The folder meetings are kept in: the storage folder, else `home`.

@@ -79,7 +79,7 @@ impl BatchStt for FakeBatch {
 }
 
 fn config() -> ProcessingConfig {
-    ProcessingConfig { keyterms: vec!["Priya".into(), "David".into()], my_name: "Tom".into() }
+    ProcessingConfig { keyterms: vec!["Priya".into(), "David".into()], my_name: "Tom".into(), language: None }
 }
 
 /// Process `id` to the end; every event.

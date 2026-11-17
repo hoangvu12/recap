@@ -130,6 +130,17 @@ async fn a_language_option_is_passed_on() {
     assert!(server.conns()[0].query("keyterm").is_empty());
 }
 
+// Language Auto (ADR 0022): nova-3's multilingual code-switching.
+#[tokio::test]
+async fn language_auto_is_multi() {
+    let server = FakeListen::start(vec![vec![Step::AwaitText("CloseStream"), Step::Close(1000, "")]]).await;
+    let session =
+        start(&client(config(&server.base)), LiveOptions { keyterms: vec![], language: Some("auto".into()) });
+    session.send([frame(0, 0)]);
+    let _ = session.finish().await;
+    assert_eq!(server.conns()[0].query("language"), ["multi"]);
+}
+
 #[tokio::test]
 async fn the_test_meeting_gives_partials_then_finals_with_meeting_times() {
     let server = FakeListen::start(vec![fake::deepgram::recorded_session()]).await;

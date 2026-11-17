@@ -109,6 +109,54 @@ fn a_long_silence_starts_a_new_sentence_for_the_echo_check() {
     );
 }
 
+/// A recording of `seconds`, levels per 100 ms frame (dBFS) from `level(ms)`
+/// for each side: a tone at that level, or silence at -100.
+fn recording(seconds: u64, level: impl Fn(Source, u64) -> f32) -> (Vec<i16>, Vec<i16>) {
+    let side = |source: Source| -> Vec<i16> {
+        (0..seconds * 10)
+            .flat_map(|f| {
+                let db = level(source, f * 100);
+                let amp = if db <= -100. { 0. } else { 10f32.powf(db / 20.) * std::f32::consts::SQRT_2 * 32768. };
+                (0..1600).map(move |k| (amp * (k as f32 * 0.3).sin()) as i16)
+            })
+            .collect()
+    };
+    (side(Source::Me), side(Source::Them))
+}
+
+// Seen in a real call (mixed Vietnamese and English, laptop speakers): the
+// mic heard Them back ~26 dB down, and the engine wrote it as other words
+// than Them's side did, so the words alone kept it as "Me" (ADR 0021).
+#[test]
+fn the_mic_only_hearing_them_is_dropped_whatever_its_words() {
+    let them = transcript(&[
+        said("và nếu mà anh fundraise được trong vòng vài tháng sắp tới", 0, Some("S1")),
+        said("thì chắc là sẽ kiểu put more effort in", 4_000, Some("S1")),
+    ]);
+    // The same speech heard back on the mic, garbled; then the user replies.
+    let me = transcript(&[
+        said("với nếu mà anh complete được trong vòng ba tháng", 300, None),
+        said("Dạ, em hiểu rồi.", 20_000, None),
+    ]);
+    // Them talks 0..8 s (-32 dBFS) and the mic hears it at -58; the user
+    // speaks 20..22 s at -40; otherwise the mic's floor, -64.
+    let (mic, meeting) = recording(30, |source, ms| match (source, ms) {
+        (Source::Them, 0..8_000) => -32.,
+        (Source::Them, _) => -100.,
+        (Source::Me, 0..8_000) => -58.,
+        (Source::Me, 20_000..22_000) => -40.,
+        (Source::Me, _) => -64.,
+    });
+    let levels = recap_engine::mic_levels::MicLevels::from_recording(&mic, &meeting);
+
+    // Words alone keep the echo (it is other words)...
+    assert!(refine::turns(&me, &them).iter().any(|t| t.text.starts_with("với nếu")));
+    // ...the levels drop it, and keep the reply.
+    let turns = refine::turns_with(&me, &them, Some(&levels));
+    let mine: Vec<&str> = turns.iter().filter(|t| t.source == Source::Me).map(|t| t.text.as_str()).collect();
+    assert_eq!(mine, ["Dạ, em hiểu rồi."]);
+}
+
 #[test]
 fn them_without_diarization_is_one_speaker() {
     let them = transcript(&[said("Hello there.", 0, None)]);

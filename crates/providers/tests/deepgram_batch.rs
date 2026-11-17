@@ -22,7 +22,7 @@ fn client(api: &str) -> Deepgram {
 }
 
 fn request(diarize: bool) -> BatchRequest {
-    BatchRequest { samples: vec![7; 16_000], diarize, keyterms: vec!["Priya".into(), "Recap".into()] }
+    BatchRequest { samples: vec![7; 16_000], diarize, keyterms: vec!["Priya".into(), "Recap".into()], language: None }
 }
 
 #[tokio::test]

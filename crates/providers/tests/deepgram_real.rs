@@ -102,7 +102,7 @@ async fn batch_transcript_with_speakers() {
     let stt = Deepgram::new("Deepgram", key.trim(), Config::default());
     let started = Instant::now();
     let transcript = stt
-        .transcribe(BatchRequest { samples, diarize: true, keyterms: vec!["Priya".into()] })
+        .transcribe(BatchRequest { samples, diarize: true, keyterms: vec!["Priya".into()], language: None })
         .await
         .expect("a transcript");
     let text = transcript.words.iter().map(|w| w.text.as_str()).collect::<Vec<_>>().join(" ").to_lowercase();

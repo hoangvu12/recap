@@ -155,6 +155,56 @@ fn stopping_the_meeting_closes_the_overlay() {
     assert_eq!(r.shared("window.notes"), Value::Bool(true), "Notes stays for processing");
 }
 
+// Seen in the real app: Start new notes right after Stop; the first
+// meeting's stream ended after the second had begun, closed its overlay
+// for good and dropped its controls (Pause and Stop did nothing).
+#[test]
+fn a_meeting_ending_late_leaves_the_next_meeting_alone() {
+    let mut r = rig();
+    // The first meeting, its events held by the test.
+    let (tx, events) = tokio::sync::mpsc::unbounded_channel();
+    let first = {
+        let _inside = r.runtime.enter();
+        let (_feed, source) = FrameFeed::new();
+        let real = live_meeting::start(
+            None,
+            LiveMeetingConfig::default(),
+            Box::new(source),
+            Arc::new(ScriptedLiveStt::new(Script::test_meeting())),
+            None,
+        );
+        live_meeting::LiveMeeting { id: None, events, control: real.control }
+    };
+    r.pool.spawner().spawn_local(r.host.follow_meeting(&LiveMeetingConfig::default(), first)).unwrap();
+    tx.send(live_meeting::LiveMeetingEvent::Engine(recap_engine::EngineEvent::State(MeetingState::Stopped))).unwrap();
+    r.pool.run_until_stalled();
+
+    // The next meeting starts, with its overlay, before the first is over.
+    r.go_live();
+    r.host.open_window("overlay");
+    drop(tx);
+    r.pool.run_until_stalled();
+    r.app.frames(1);
+
+    assert!(r.host.is_live(), "the new meeting keeps its controls");
+    assert_eq!(r.shared("window.overlay"), Value::Bool(true), "and its overlay");
+    r.commands.run(Command::PauseResume);
+    assert!(r.until(|r| r.host.state() == Some(MeetingState::Paused)), "Pause still works");
+    drop(r.feed.take());
+}
+
+// Seen in the real app: Stop changed nothing for seconds (the engines say
+// the rest first), so it looked like it did nothing.
+#[test]
+fn stop_closes_the_overlay_at_once() {
+    let mut r = rig();
+    r.go_live();
+    r.host.open_window("overlay");
+    r.host.stop();
+    assert_eq!(r.shared("window.overlay"), Value::Bool(false));
+    assert!(r.until(|r| !r.host.is_live()), "stopped");
+}
+
 #[test]
 fn click_through_flips_the_overlay_it_is_given() {
     let r = rig();

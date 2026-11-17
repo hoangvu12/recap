@@ -218,7 +218,8 @@ local function failed(): Node
 	}
 end
 
--- A 28 px toolbar button; `on` (if given) shows it switched on.
+-- A 28 px toolbar button, named by its tooltip (under it: the toolbar sits
+-- at the overlay's top); `on` (if given) shows it switched on.
 local function tool(id: string, icon: string | Node, label: string, on_click: () -> (), on: (() -> boolean)?): Node
 	local tint = function()
 		return if on and on() then "$rc.text.primary" else "$rc.text.secondary"
@@ -226,6 +227,8 @@ local function tool(id: string, icon: string | Node, label: string, on_click: ()
 	return ui.button {
 		id = id,
 		label = label,
+		tooltip = label,
+		tooltip_placement = { side = "bottom", offset = 6 },
 		w = 28,
 		h = 28,
 		rounded = 6,
@@ -253,29 +256,27 @@ local function toolbar(): Node
 		border = 1,
 		border_color = "$rc.stroke.hairline",
 		shadow = { x = 0, y = 4, blur = 12, color = "$rc.shadow.pop" },
-		tool(
+		-- Paused, the same place resumes (its icon and name say which).
+		ui.show(function()
+			return host.meeting:get().state == "paused"
+		end, tool("tb-pause", "play", "Resume", actions.toggle_pause), tool(
 			"tb-pause",
-			ui.show(function()
-				return host.meeting:get().state == "paused"
-			end, Icon { name = "play" }, Icon { name = "pause" }),
+			"pause",
 			"Pause",
 			actions.toggle_pause
-		),
+		)),
 		tool("tb-stop", "stop", "Stop", actions.stop),
-		tool("tb-notes", "notes-panel", "Open notes", actions.open_notes),
+		tool("tb-notes", "notes-panel", "Show notes", actions.open_notes),
 		tool("tb-smaller", "text-smaller", "Smaller text", function()
 			actions.caption_size(-2)
 		end),
 		tool("tb-larger", "text-larger", "Larger text", function()
 			actions.caption_size(2)
 		end),
-		tool("tb-my-lines", "my-lines", "Show my lines", actions.toggle_my_lines, function()
+		tool("tb-my-lines", "my-lines", "Caption me too", actions.toggle_my_lines, function()
 			return host.settings:get().caption_my_speech
 		end),
-		tool("tb-pin", "pin", "Keep on top", actions.toggle_pinned, function()
-			return host.overlay:get().pinned
-		end),
-		tool("tb-click-through", "click-through", "Click through", actions.toggle_click_through, function()
+		tool("tb-click-through", "click-through", "Let clicks through", actions.toggle_click_through, function()
 			return host.overlay:get().click_through
 		end),
 	}
@@ -438,12 +439,26 @@ return function(): Node
 				color = "$rc.text.secondary",
 				tabular = true,
 			},
-			-- Clicks go through: say so where the eye already is.
+			-- Clicks go through: the toolbar can't be reached now, so show
+			-- the keys that bring it back, where the eye already is.
 			ui.show(function()
 				return host.overlay:get().click_through
-			end, ui.div {
+			end, ui.row {
 				id = "overlay-click-through",
+				gap = 4,
+				items = "center",
 				Icon { name = "click-through", size = 12, color = "$rc.text.tertiary" },
+				ui.presence(function()
+					return host.settings:get().hotkeys.click_through
+				end, function(keys: string): Node
+					local caps: { [any]: any } = { gap = 4, items = "center" }
+					local i = 0
+					for key in string.gmatch(keys, "[^+]+") do
+						i += 1
+						table.insert(caps, Keycap(key, `overlay-click-through-key-{i}`))
+					end
+					return ui.row(caps)
+				end),
 			}),
 		},
 		-- The lines sit on the bottom; older text runs out of the top.

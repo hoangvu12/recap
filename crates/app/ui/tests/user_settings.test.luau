@@ -12,6 +12,7 @@ local function settings(over)
 		my_name = "Tom",
 		theme = "system",
 		autostart = false,
+		language = "auto",
 		caption_my_speech = false,
 		caption_size = 20,
 		caption_lines = 2,
@@ -57,6 +58,19 @@ test("General shows screens/8: you, captions, audio and the glossary", function(
 	expect(win:text("#term-1")).to_be("Priya")
 	expect(win:text("#term-7")).to_be("release notes")
 	expect(win:has("#glossary-input")).to_be(true)
+end)
+
+-- A call mixing Vietnamese and English came out translated while the
+-- engines were told English (ADR 0022).
+test("General sets the meeting language: auto-detected unless chosen", function()
+	local app = mount()
+	local win = open(app, "general")
+	expect(win:text("#set-language-label")).to_be("Auto-detect")
+	local win2 = open(mount(), "general", { language = "vi" })
+	expect(win2:text("#set-language-label")).to_be("Tiếng Việt")
+	-- A code set by hand shows as itself.
+	local win3 = open(mount(), "general", { language = "ja" })
+	expect(win3:text("#set-language-label")).to_be("ja")
 end)
 
 test("a switch asks the host to flip its setting", function()
