@@ -10,7 +10,7 @@ local Chip = require("@components/chip")
 local Icon = require("@components/icon")
 local IconButton = require("@components/icon_button")
 local Button = require("@components/button")
-local Select = require("@components/select")
+local NameField = require("@components/name_field")
 local motion = require("@lib/motion")
 
 local HUES = { "purple", "green", "orange", "blue", "yellow" }
@@ -74,25 +74,21 @@ local function Progress(i: number, playing: () -> boolean): Node
 	return ui.show(playing, Line { i = i })
 end
 
--- The name: Me's locked; the others a field with the people to pick from.
+-- The name: Me's locked (Settings' name); the others a name field, the
+-- known people under it and `Add “…”` for someone new.
 local function Name(i: number, s: host.DialogSpeaker, people: { string }): Node
-	local function Box(children: { Node }): Node
+	if s.locked then
 		return ui.row {
 			w_full = true,
 			h = 34,
 			pl = 12,
-			pr = 6,
+			pr = 10,
 			gap = 6,
 			items = "center",
 			rounded = 6,
 			bg = "$rc.fill.hover",
 			border = 1,
 			border_color = "$rc.stroke.field",
-			children,
-		}
-	end
-	if s.locked then
-		return Box {
 			ui.text {
 				if s.name ~= "" then s.name else "Me",
 				id = `speaker-{i}-name`,
@@ -104,46 +100,17 @@ local function Name(i: number, s: host.DialogSpeaker, people: { string }): Node
 				color = "$rc.text.primary",
 			},
 			Icon { name = "lock", size = 14, color = "$rc.text.tertiary", id = `speaker-{i}-locked` },
-			Icon { name = "chevrons-up-down", size = 14, color = "$rc.text.tertiary" },
 		}
 	end
-	local text = field(s.id)
-	local options: { Select.Option } = {}
-	for p, person in people do
-		table.insert(options, { value = person, label = person, key = tostring(p) })
-	end
-	return Box {
-		ui.input {
-			id = `speaker-{i}-field`,
-			value = text,
-			label = `Name of {s.label}`,
-			placeholder = "Who is this?",
-			placeholder_color = "$rc.text.tertiary",
-			w = 0,
-			grow = 1,
-			h = 30,
-			p = 0,
-			text_size = 13,
-			bg = "$rc.transparent",
-			border = 0,
-		},
-		Select {
-			id = `speaker-{i}-people`,
-			item_prefix = `speaker-{i}-person`,
-			scope = `dialog.{s.id}`,
-			label = `People for {s.label}`,
-			tip = "People",
-			trigger = "icon",
-			value = function()
-				return text:get()
-			end,
-			options = function()
-				return options
-			end,
-			on_change = function(person: string)
-				text:set(person)
-			end,
-		},
+	return NameField {
+		id = `speaker-{i}-field`,
+		label = `Name of {s.label}`,
+		text = field(s.id),
+		people = function()
+			return people
+		end,
+		placeholder = "Who is this?",
+		option_prefix = `speaker-{i}-person`,
 	}
 end
 

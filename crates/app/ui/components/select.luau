@@ -8,10 +8,9 @@
 -- Ids: the button is `id` (its label `{id}-label` or `label_id`), an option
 -- `{item_prefix or id}-{option.key or option.value}`.
 --
--- `trigger = "icon"` is a 24 px ⌃⌄ alone, with `label` as its tooltip: the
--- speakers dialog's list of known people beside a name field.
+-- Picking from a fixed list only. To type a name or pick a known one, use
+-- components/name_field.
 local Icon = require("@components/icon")
-local IconButton = require("@components/icon_button")
 local Logo = require("@components/logo")
 
 export type Option = {
@@ -25,7 +24,7 @@ export type Option = {
 
 export type Props = {
 	id: string,
-	-- Its accessible name (and the tooltip of an icon trigger).
+	-- Its accessible name.
 	label: string,
 	-- Keeps its open state apart from the same select elsewhere.
 	scope: string,
@@ -35,13 +34,11 @@ export type Props = {
 	item_prefix: string?,
 	-- The shown label's id, when not `{id}-label`.
 	label_id: string?,
-	-- "value" (the chosen label and ⌃⌄), "field" (the same, a field's
-	-- hairline round it, as wide as the row holding it) or "icon".
-	trigger: ("value" | "field" | "icon")?,
+	-- "value" (the chosen label and ⌃⌄) or "field" (the same, a field's
+	-- hairline round it, as wide as the row holding it).
+	trigger: ("value" | "field")?,
 	-- What the button says while nothing is chosen.
 	placeholder: string?,
-	-- An icon trigger's tooltip, when not the label.
-	tip: string?,
 	-- Menu width at least (points).
 	min_w: number?,
 }
@@ -92,24 +89,7 @@ return function(props: Props): Node
 	-- the width of the row round the menu (LEARNINGS: a 68 px picker).
 	local field_width = ui.state(`select.{props.scope}.{props.id}.width`, 0)
 	local anchor: Node
-	if trigger == "icon" then
-		anchor = IconButton {
-			id = props.id,
-			icon = "chevrons-up-down",
-			label = props.label,
-			tip = props.tip,
-			size = 24,
-			icon_size = 14,
-			rounded = 4,
-			color = "$rc.text.tertiary",
-			expanded = function()
-				return open:get()
-			end,
-			on_click = function()
-				open:set(not open:peek())
-			end,
-		}
-	else
+	do
 		local field = trigger == "field"
 		local width = field_width
 		local button = ui.button {
@@ -169,12 +149,10 @@ return function(props: Props): Node
 		p = 4,
 		label = props.label,
 		match_anchor_width = trigger == "field",
-		open_over = if trigger == "icon"
-			then nil
-			else function(): string?
-				local o = chosen()
-				return if o then item_id(o) else nil
-			end,
+		open_over = function(): string?
+			local o = chosen()
+			return if o then item_id(o) else nil
+		end,
 		anchor = anchor,
 		build = function(): Node
 			local items = {}

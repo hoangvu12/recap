@@ -37,7 +37,6 @@ M.selected_row = ui.state("selected_row", 0)
 -- highlighted (from 1).
 M.renaming = ui.state("renaming", { index = 0, speaker = "" })
 M.rename_text = ui.state("rename_text", "")
-M.rename_pick = ui.state("rename_pick", 1)
 -- Home: the selected meeting's id ("": the first shown) and the search text.
 M.home_selected = ui.state("home_selected", "")
 M.home_query = ui.state("home_query", "")

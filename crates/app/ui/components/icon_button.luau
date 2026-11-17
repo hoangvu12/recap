@@ -44,6 +44,8 @@ export type Props = {
 	color: string?,
 	-- A menu's or popover's trigger: whether what it opens is open.
 	expanded: (() -> boolean)?,
+	-- false: a click leaves the keyboard where it is (a field's own ⌄).
+	focusable: boolean?,
 }
 
 local function tip_text(props: Props): string
@@ -144,6 +146,7 @@ return function(props: Props): Node
 		description = if props.keys and #props.keys > 0 then keys.spoken(props.keys) else nil,
 		checked = on,
 		expanded = props.expanded,
+		focusable = props.focusable,
 		w = size,
 		h = size,
 		p = 0,

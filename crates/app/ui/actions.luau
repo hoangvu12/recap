@@ -102,7 +102,6 @@ function M.start_rename(index: number, speaker: string, current: string)
 		return
 	end
 	state.rename_text:set(current)
-	state.rename_pick:set(1)
 	state.renaming:set({ index = index, speaker = speaker })
 end
 
