@@ -1,4 +1,4 @@
-//! A live meeting, saved as it goes (GLOSSARY: Live session): the engine's
+//! A live meeting, saved as it goes (GLOSSARY: Meeting): the engine's
 //! meeting plus the store. No zgx: the host shows its events.
 //!
 //! - **Start:** the meeting is created in the store (status recording) and
@@ -27,7 +27,7 @@ pub fn read_pauses(folder: &std::path::Path) -> Vec<recap_engine::PauseMark> {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct SessionConfig {
+pub struct LiveMeetingConfig {
     /// When Start was pressed, ms since the epoch.
     pub started_ms: u64,
     /// "Caption my own speech": my lines show in the overlay too. Me is
@@ -39,9 +39,9 @@ pub struct SessionConfig {
     pub live_choices: Vec<crate::presenter::LiveChoice>,
 }
 
-/// What a live session tells the UI.
+/// What a live meeting tells the UI.
 #[derive(Clone, Debug)]
-pub enum SessionEvent {
+pub enum LiveMeetingEvent {
     /// Everything the engine says, `Finished` last of these.
     Engine(EngineEvent),
     /// Something the user should know (the backup took over, a save failed).
@@ -50,10 +50,10 @@ pub enum SessionEvent {
     Saved(MeetingInfo),
 }
 
-pub struct LiveSession {
+pub struct LiveMeeting {
     /// The stored meeting; none when it runs unsaved.
     pub id: Option<MeetingId>,
-    pub events: UnboundedReceiver<SessionEvent>,
+    pub events: UnboundedReceiver<LiveMeetingEvent>,
     pub control: MeetingControl,
 }
 
@@ -68,16 +68,16 @@ pub fn notices() -> (impl Fn(String) + Clone + Send + Sync + 'static, UnboundedR
 /// it inside the engine's tokio runtime.
 pub fn start(
     store: Option<Store>,
-    config: SessionConfig,
+    config: LiveMeetingConfig,
     source: Box<dyn AudioSource>,
     live: Arc<dyn LiveStt>,
     notices: Option<UnboundedReceiver<String>>,
-) -> LiveSession {
+) -> LiveMeeting {
     let (out, events) = mpsc::unbounded_channel();
     let saved = store.and_then(|store| match store.create(config.started_ms) {
         Ok(info) => Some((store, info.id)),
         Err(error) => {
-            let _ = out.send(SessionEvent::Notice(format!("This meeting can't be saved: {error}")));
+            let _ = out.send(LiveMeetingEvent::Notice(format!("This meeting can't be saved: {error}")));
             None
         }
     });
@@ -90,16 +90,16 @@ pub fn start(
     let (engine, control) = meeting.split();
     let id = saved.as_ref().map(|(_, id)| id.clone());
     tokio::spawn(run(engine, notices, saved, out));
-    LiveSession { id, events, control }
+    LiveMeeting { id, events, control }
 }
 
 async fn run(
     mut engine: UnboundedReceiver<EngineEvent>,
     mut notices: Option<UnboundedReceiver<String>>,
     saved: Option<(Store, MeetingId)>,
-    out: UnboundedSender<SessionEvent>,
+    out: UnboundedSender<LiveMeetingEvent>,
 ) {
-    let send = |event: SessionEvent| drop(out.send(event));
+    let send = |event: LiveMeetingEvent| drop(out.send(event));
     let mut result: Option<MeetingResult> = None;
     loop {
         let notice = async {
@@ -115,21 +115,21 @@ async fn run(
                 if let (EngineEvent::Committed(segment), Some((store, id))) = (&event, &saved)
                     && let Err(error) = store.append_live(id, &[stored(segment)])
                 {
-                    send(SessionEvent::Notice(format!("The transcript can't be saved: {error}")));
+                    send(LiveMeetingEvent::Notice(format!("The transcript can't be saved: {error}")));
                 }
                 if let EngineEvent::Finished(r) = &event {
                     result = Some(r.clone());
                 }
-                send(SessionEvent::Engine(event));
+                send(LiveMeetingEvent::Engine(event));
             }
-            Some(text) = notice => send(SessionEvent::Notice(text)),
+            Some(text) = notice => send(LiveMeetingEvent::Notice(text)),
             else => break,
         }
     }
     // News that came as the meeting ended (a switch to the backup).
     if let Some(rx) = notices.as_mut() {
         while let Ok(text) = rx.try_recv() {
-            send(SessionEvent::Notice(text));
+            send(LiveMeetingEvent::Notice(text));
         }
     }
     let (Some((store, id)), Some(result)) = (saved, result) else { return };
@@ -137,15 +137,15 @@ async fn run(
         let path = store.folder(&id).join(PAUSES);
         let written = serde_json::to_vec_pretty(&result.pauses).map_err(std::io::Error::other).and_then(|json| std::fs::write(&path, json));
         if let Err(error) = written {
-            send(SessionEvent::Notice(format!("{}: {error}", path.display())));
+            send(LiveMeetingEvent::Notice(format!("{}: {error}", path.display())));
         }
     }
     match store.update(&id, |info| {
         info.duration_ms = result.duration_ms;
         info.status = Status::Processing;
     }) {
-        Ok(info) => send(SessionEvent::Saved(info)),
-        Err(error) => send(SessionEvent::Notice(format!("This meeting can't be saved: {error}"))),
+        Ok(info) => send(LiveMeetingEvent::Saved(info)),
+        Err(error) => send(LiveMeetingEvent::Notice(format!("This meeting can't be saved: {error}"))),
     }
 }
 

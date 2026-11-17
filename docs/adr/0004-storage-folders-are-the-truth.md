@@ -6,7 +6,7 @@ Status: accepted (ticket #3)
 
 A meeting must survive a crash, and the database must be rebuildable
 (DESIGN §4.6). Later tickets write to a meeting from different places: the
-live session (segments), the pipeline (refined segments, speakers, summary)
+live meeting (segments), the pipeline (refined segments, speakers, summary)
 and Home's actions (rename, delete, recover, search, export).
 
 ## Decision
@@ -31,7 +31,7 @@ and Home's actions (rename, delete, recover, search, export).
 - **Status** is `recording` → `processing` → `done`. A meeting that isn't
   `done` and isn't live is unfinished, and Home offers Recover.
 - `Store` is `Clone + Send + Sync` (one connection behind a mutex), so the
-  live session and the pipeline can write from tokio tasks.
+  live meeting and the pipeline can write from tokio tasks.
 
 ## Consequences
 

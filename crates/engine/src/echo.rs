@@ -1,7 +1,7 @@
 //! Echo dedup (GLOSSARY: Echo). On laptop speakers the mic hears the meeting
 //! audio, so what Them says comes back as Me. A Me segment is an echo when
 //! Them said the same words (similarity ≥ [`ECHO_SIMILARITY`]) within
-//! [`ECHO_WINDOW_MS`] of it. The live session drops echoes before they are
+//! [`ECHO_WINDOW_MS`] of it. The live meeting drops echoes before they are
 //! shown or saved; the after-Stop transcript uses the same rule.
 
 /// How far apart (ms, between the two segments) an echo can be.

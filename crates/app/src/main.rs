@@ -39,7 +39,7 @@ use recap::{
     playback::{Output, Player, RodioOutput},
     processing::{self, Processing, ProcessingConfig},
     seed,
-    session::{self, SessionConfig},
+    live_meeting::{self, LiveMeetingConfig},
     settings::ProvidersHost,
     soak::Soak,
     user_settings::{Microphone, PickFolder, SettingsHost},
@@ -162,7 +162,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
                 // A job switching to its backup is told in the Notes notice
                 // line (ProcessingEvent::Notice), not only on stderr.
-                let (notify, notices) = session::notices();
+                let (notify, notices) = live_meeting::notices();
                 let batch = options.batch(&providers, notify.clone());
                 let llm = options.llm(&providers, notify);
                 processing::with_notices(Processing::full(batch, llm).start(store, id, config), notices)
@@ -183,7 +183,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             move |_| {
                 if !host.is_live() {
                     let settings = settings.current();
-                    let config = SessionConfig {
+                    let config = LiveMeetingConfig {
                         started_ms: now_ms(),
                         caption_me: settings.caption_my_speech,
                         live: settings.live_options(),
@@ -192,10 +192,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     match options.source(&capture_options(&settings)) {
                         Ok((source, note)) => {
                             let _inside = runtime.enter();
-                            let (notify, notices) = session::notices();
+                            let (notify, notices) = live_meeting::notices();
                             let live = options.live(&providers, notify);
-                            let started = session::start(host.store(), config.clone(), source, live, Some(notices));
-                            tasks.spawn(host.follow_session(&config, started));
+                            let started = live_meeting::start(host.store(), config.clone(), source, live, Some(notices));
+                            tasks.spawn(host.follow_meeting(&config, started));
                             if let Some(note) = note {
                                 host.notice(&note);
                             }

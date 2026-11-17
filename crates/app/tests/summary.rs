@@ -1,5 +1,5 @@
 //! Seam 1 after Stop, the AI half: the test WAV recorded through a live
-//! session, transcribed by a fake batch STT (the recorded ElevenLabs
+//! meeting, transcribed by a fake batch STT (the recorded ElevenLabs
 //! answers), then named and summarised by a fake `Llm` that answers from
 //! fixtures (tests/fixtures/llm_*.json). What the steps ask, what they keep
 //! and what is left on disk.

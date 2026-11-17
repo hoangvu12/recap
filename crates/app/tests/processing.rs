@@ -1,5 +1,5 @@
 //! Seam 1 after Stop: a meeting recorded from the WAV source through the
-//! real live session and store, then processed with a fake batch STT that
+//! real live meeting and store, then processed with a fake batch STT that
 //! replays the recorded ElevenLabs answers (tests/fixtures/stt_*.json, from
 //! `processing_real.rs`). What the UI is told and what is left on disk.
 

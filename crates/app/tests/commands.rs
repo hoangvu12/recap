@@ -1,5 +1,5 @@
 //! What the tray, the global hotkeys and the call toasts do: one set of
-//! commands, run against the real host (a live session on a fed source).
+//! commands, run against the real host (a live meeting on a fed source).
 
 use std::{
     cell::{Cell, RefCell},
@@ -12,7 +12,7 @@ use futures::{executor::LocalPool, task::LocalSpawnExt};
 use recap::{
     commands::{Command, Commands},
     host::{self, Host},
-    session::{self, SessionConfig},
+    live_meeting::{self, LiveMeetingConfig},
 };
 use recap_engine::{FrameFeed, MeetingState, Script, ScriptedLiveStt};
 use zgx_script::{Value, testing::TestApp};
@@ -65,9 +65,9 @@ impl Rig {
         let _inside = self.runtime.enter();
         let (feed, source) = FrameFeed::new();
         feed.push_silence(Duration::from_millis(500));
-        let config = SessionConfig::default();
-        let live = session::start(None, config.clone(), Box::new(source), Arc::new(ScriptedLiveStt::new(Script::test_meeting())), None);
-        self.pool.spawner().spawn_local(self.host.follow_session(&config, live)).unwrap();
+        let config = LiveMeetingConfig::default();
+        let live = live_meeting::start(None, config.clone(), Box::new(source), Arc::new(ScriptedLiveStt::new(Script::test_meeting())), None);
+        self.pool.spawner().spawn_local(self.host.follow_meeting(&config, live)).unwrap();
         self.feed = Some(feed);
         assert!(self.until(|r| r.host.state() == Some(MeetingState::Recording)), "recording");
     }

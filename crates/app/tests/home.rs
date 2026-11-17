@@ -170,11 +170,11 @@ fn a_stored_meeting_shows_its_pauses_where_they_were() {
         .append_live(&info.id, &[segment(Them, None, 0, "Before the break."), segment(Them, None, 5_000, "After it.")])
         .unwrap();
     std::fs::write(
-        store.folder(&info.id).join(recap::session::PAUSES),
+        store.folder(&info.id).join(recap::live_meeting::PAUSES),
         serde_json::to_vec(&[pause(4_000), pause(9_000)]).unwrap(),
     )
     .unwrap();
-    let pauses = recap::session::read_pauses(&store.folder(&info.id));
+    let pauses = recap::live_meeting::read_pauses(&store.folder(&info.id));
     assert_eq!(pauses.len(), 2);
 
     // The live transcript: the same side on both sides of a pause is two rows.

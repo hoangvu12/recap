@@ -64,7 +64,7 @@ use crate::{
     playback::{self, Player, PlayerEvent, What},
     presenter::{Changed, Presenter},
     processing::{self, ProcessingEvent, Progress, StepId},
-    session::{self, LiveSession, SessionConfig, SessionEvent},
+    live_meeting::{self, LiveMeeting, LiveMeetingConfig, LiveMeetingEvent},
     speakers, summary,
 };
 
@@ -600,7 +600,7 @@ impl Host {
         let loaded = store.meeting(id).and_then(|m| Ok((m, store.transcript(id)?)));
         match loaded {
             Ok((Some(meeting), segments)) => {
-                let pauses = session::read_pauses(&store.folder(id));
+                let pauses = live_meeting::read_pauses(&store.folder(id));
                 let mut presenter = Presenter::stored_with_pauses(&meeting.info, &segments, &pauses);
                 // Its last processing's news (a backup took over), if any.
                 if let Some(text) = self.processing_notices.borrow().get(id) {
@@ -765,15 +765,15 @@ impl Host {
         }));
     }
 
-    /// Show a live session (started at `config.started_ms`): its events,
+    /// Show a live meeting (started at `config.started_ms`): its events,
     /// until it is saved, become the UI's state; Home lists it once saved.
     /// Await what this returns on the UI thread (`cx.tasks.spawn`).
-    pub fn follow_session(
+    pub fn follow_meeting(
         &self,
-        config: &SessionConfig,
-        session: LiveSession,
+        config: &LiveMeetingConfig,
+        live: LiveMeeting,
     ) -> impl std::future::Future<Output = ()> + 'static {
-        let LiveSession { id, mut events, control } = session;
+        let LiveMeeting { id, mut events, control } = live;
         let mut presenter = Presenter::new(config.started_ms)
             .with_my_captions(config.caption_me)
             .with_live_choices(config.live_choices.clone());
@@ -790,7 +790,7 @@ impl Host {
         async move {
             while let Some(event) = events.recv().await {
                 match event {
-                    SessionEvent::Engine(event) => {
+                    LiveMeetingEvent::Engine(event) => {
                         let changed = host.presenter.borrow_mut().apply(&event);
                         host.publish(changed);
                         if matches!(event, EngineEvent::Finished(_)) {
@@ -800,8 +800,8 @@ impl Host {
                             host.close_window("overlay");
                         }
                     }
-                    SessionEvent::Notice(text) => host.notice(&text),
-                    SessionEvent::Saved(info) => {
+                    LiveMeetingEvent::Notice(text) => host.notice(&text),
+                    LiveMeetingEvent::Saved(info) => {
                         host.live.borrow_mut().take();
                         host.control.borrow_mut().take();
                         host.presenter.borrow_mut().saved_as(info.id.as_str());

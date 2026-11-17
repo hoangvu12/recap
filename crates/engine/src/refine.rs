@@ -5,7 +5,7 @@
 //!
 //! Words become sentences first (a speaker change, a full stop, or a pause of
 //! [`SENTENCE_GAP_MS`] ends one): the echo check compares sentences, as the
-//! live session compares segments. The kept sentences, in time order, join
+//! live meeting compares segments. The kept sentences, in time order, join
 //! into turns while the same speaker goes on.
 
 use serde::{Deserialize, Serialize};

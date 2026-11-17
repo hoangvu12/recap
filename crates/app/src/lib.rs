@@ -5,7 +5,7 @@
 //! - [`windows`]: each `ui.window`'s native options, opened as its state says.
 //! - [`fonts`]: the bundled faces.
 //! - [`live`]: how Start begins a meeting (audio, live provider, dev flags).
-//! - [`session`]: a live meeting saved as it goes (engine + store).
+//! - [`live_meeting`]: a live meeting saved as it goes (engine + store).
 //! - [`processing`]: the after-Stop pipeline, a resumable job queue of steps.
 //! - [`naming`], [`summary`]: its AI steps, Naming speakers and Writing
 //!   summary; the summary's Markdown, its ticks and the Summary tab's state.
@@ -41,7 +41,7 @@ pub mod playback;
 pub mod presenter;
 pub mod processing;
 pub mod seed;
-pub mod session;
+pub mod live_meeting;
 pub mod settings;
 pub mod soak;
 pub mod speakers;

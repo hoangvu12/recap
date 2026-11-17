@@ -1,5 +1,5 @@
 //! The acceptance test of CLAUDE.md, for real: the test WAV recorded
-//! through a live session, then processed by ElevenLabs batch and the
+//! through a live meeting, then processed by ElevenLabs batch and the
 //! installed Claude Code CLI (the user's own login). Ignored unless asked
 //! for; skipped without `ELEVENLABS_API_KEY`.
 //!

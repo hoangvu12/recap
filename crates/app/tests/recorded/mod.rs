@@ -1,30 +1,30 @@
-//! A stored, stopped meeting of the test WAV, as a live session leaves it:
+//! A stored, stopped meeting of the test WAV, as a live meeting leaves it:
 //! recorded to audio.ogg, status processing, ready for the pipeline.
 
 #![allow(dead_code)]
 
 use std::{path::Path, sync::Arc, sync::OnceLock, time::Duration};
 
-use recap::session::{self, SessionConfig, SessionEvent};
+use recap::live_meeting::{self, LiveMeetingConfig, LiveMeetingEvent};
 use recap_engine::{Script, ScriptedLiveStt, WavSource};
 use recap_storage::{MeetingId, MeetingInfo, Status, Store};
 
 pub const STARTED: u64 = 1_794_830_400_000;
 pub const WAV: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../testdata/meeting_tts.wav");
 
-/// Replay the test WAV through a live session into `store` (unpaced, the
+/// Replay the test WAV through a live meeting into `store` (unpaced, the
 /// scripted live provider); the meeting once saved.
 pub async fn record(store: &Store) -> MeetingInfo {
     let source = WavSource::open(Path::new(WAV)).unwrap();
     let live = Arc::new(ScriptedLiveStt::new(Script::test_meeting()));
-    let config = SessionConfig { started_ms: STARTED, caption_me: false, ..Default::default() };
-    let mut session = session::start(Some(store.clone()), config, Box::new(source), live, None);
+    let config = LiveMeetingConfig { started_ms: STARTED, caption_me: false, ..Default::default() };
+    let mut meeting = live_meeting::start(Some(store.clone()), config, Box::new(source), live, None);
     loop {
-        let event = tokio::time::timeout(Duration::from_secs(60), session.events.recv())
+        let event = tokio::time::timeout(Duration::from_secs(60), meeting.events.recv())
             .await
-            .expect("the session keeps talking")
-            .expect("the session ends with Saved");
-        if let SessionEvent::Saved(info) = event {
+            .expect("the meeting keeps talking")
+            .expect("the meeting ends with Saved");
+        if let LiveMeetingEvent::Saved(info) = event {
             return info;
         }
     }

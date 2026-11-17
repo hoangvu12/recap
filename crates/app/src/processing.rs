@@ -40,7 +40,7 @@ pub const PROGRESS: &str = "processing.json";
 /// The batch transcripts of the two sides, as the provider gave them.
 pub const STT_THEM: &str = "stt_them.json";
 pub const STT_ME: &str = "stt_me.json";
-/// The recording, in the meeting's folder (the live session writes it).
+/// The recording, in the meeting's folder (the live meeting writes it).
 pub const AUDIO: &str = "audio.ogg";
 
 /// Below this level a side is silence (no mic): nothing to transcribe.
