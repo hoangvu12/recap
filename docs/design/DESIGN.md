@@ -7,7 +7,6 @@ Inputs to this doc:
 - `ux_study/ui_references.md` and `ux_study/refs/board_*.html`: Otter, Fireflies, Grain, Notion, Granola, Slack.
 - `research_zgx.md`: what zgx can and can't do.
 - `research_rust_stack.md`: crates and APIs.
-- `research_wispr.md`: Wispr internals.
 - `oss_live/results.md`: speech-to-text accuracy tests.
 - `raycast_capture/`: being captured on the PC. It will become the design-system section.
 

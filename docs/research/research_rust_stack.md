@@ -246,7 +246,7 @@ let r: SttResponse = client.post("https://api.elevenlabs.io/v1/speech-to-text")
 
 ## 5. Meeting detection
 
-Mirror Wispr's `session_plus_registry` design (research_wispr.md §1):
+Combine two signals, as other notetakers do: active capture sessions and the ConsentStore registry.
 
 | Signal | How (Rust) | Notes |
 |---|---|---|
