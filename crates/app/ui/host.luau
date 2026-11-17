@@ -394,6 +394,11 @@ M.hotkey_conflicts = ui.shared("hotkey_conflicts", {} :: { [string]: string })
 export type CallToast = { seq: number, title: string, body: string }
 M.call_toast = ui.shared("call_toast", { seq = 0, title = "", body = "" } :: CallToast)
 
+-- A summary is ready and its Notes window isn't showing it (host.rs): a new
+-- `seq` is a "Summary ready" notification; clicking it opens meeting `id`.
+export type SummaryToast = { seq: number, id: string, title: string }
+M.summary_toast = ui.shared("summary_toast", { seq = 0, id = "", title = "" } :: SummaryToast)
+
 -- Which windows are open (crates/app/src/windows.rs makes them).
 M.windows = {
 	home = ui.shared("window.home", false),

@@ -16,6 +16,8 @@
 //!          speakers_dialog  { id, speakers, people }: the Name speakers dialog's
 //!                           meeting (`speakers::dialog`; id "": none)
 //!          playback         { key, duration_ms }: what plays now (key "": nothing)
+//!          summary_toast    { seq, id, title }: a summary is ready and its Notes window
+//!                           isn't showing it (a new seq: notify; ui/toasts.luau)
 //!          window.<id>     whether window <id> is open
 //! function transcript_row(i)    Row i (from 1), or nil
 //!          meeting_detail(id)   { id, title, overview, started_ms, duration_ms, status, speakers }
@@ -126,6 +128,8 @@ pub struct Host {
     /// Meetings renamed while processing: their summary is written again
     /// once it ends.
     summary_again: Rc<RefCell<HashSet<MeetingId>>>,
+    summary_toast: Shared,
+    toast_seq: Rc<std::cell::Cell<u64>>,
 }
 
 fn value(json: serde_json::Value) -> Value {
@@ -178,6 +182,8 @@ impl Host {
             player: Rc::default(),
             playing: Rc::default(),
             summary_again: Rc::default(),
+            summary_toast: script.shared("summary_toast", value(serde_json::json!({ "seq": 0, "id": "", "title": "" }))),
+            toast_seq: Rc::default(),
             script,
         };
         let presenter = host.presenter.clone();
@@ -661,6 +667,24 @@ impl Host {
         self.summary.set(value(view));
     }
 
+    /// Meeting `info` is processed: if it has a summary and its Notes window
+    /// isn't showing it (closed, or on another meeting), say so with a
+    /// notification ("Summary ready"; clicking it opens the meeting).
+    fn summary_ready(&self, info: &recap_storage::MeetingInfo) {
+        let showing = self.window_open("notes") && self.shown().as_ref() == Some(&info.id);
+        if showing {
+            return;
+        }
+        let Some(store) = self.store() else { return };
+        if !store.meeting(&info.id).ok().flatten().is_some_and(|m| m.summary.is_some()) {
+            return;
+        }
+        let seq = self.toast_seq.get() + 1;
+        self.toast_seq.set(seq);
+        let title = if info.title.is_empty() { "Your meeting" } else { info.title.as_str() };
+        self.summary_toast.set(value(serde_json::json!({ "seq": seq, "id": info.id.as_str(), "title": title })));
+    }
+
     /// Whether meeting `id` is being processed now.
     pub fn is_processing(&self, id: &MeetingId) -> bool {
         self.running.borrow().contains(id)
@@ -699,11 +723,12 @@ impl Host {
                         }
                         host.refresh_meetings();
                     }
-                    ProcessingEvent::Finished(_) => {
+                    ProcessingEvent::Finished(info) => {
                         if shown {
                             host.processing.set(value(no_processing()));
                         }
                         host.refresh_meetings();
+                        host.summary_ready(&info);
                     }
                     ProcessingEvent::Stopped(error) => {
                         if !failed {
