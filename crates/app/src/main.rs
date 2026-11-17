@@ -302,14 +302,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 keep.borrow_mut().take()
             {
                 drop((follow, server, host, providers_host, settings_host, resident, overlay));
-                engine.shutdown_background();
+                // The engine's tasks get a moment to finish what they write
+                // (the meeting itself was saved before Quit got here).
+                engine.shutdown_timeout(Duration::from_secs(2));
             }
-            // A soak run ends here, saved, with its verdict as the exit code:
-            // the GPU teardown after this can fault in D3D12Core.dll on
-            // Quit (0xC0000005), which would hide the verdict.
-            if let Some(failed) = &soak_exit {
-                std::process::exit(i32::from(failed.load(Ordering::Relaxed)));
-            }
+            // Every quit (tray Quit, a soak's end) ends here, everything saved
+            // and flushed: the GPU teardown after this faults in
+            // D3D12Core.dll (0xC0000005), which would show as a crash and
+            // hide a soak's verdict. A soak exits with its verdict.
+            use std::io::Write;
+            let _ = std::io::stdout().flush();
+            let _ = std::io::stderr().flush();
+            std::process::exit(soak_exit.as_ref().map_or(0, |failed| i32::from(failed.load(Ordering::Relaxed))));
         });
     });
     if failed.load(Ordering::Relaxed) {

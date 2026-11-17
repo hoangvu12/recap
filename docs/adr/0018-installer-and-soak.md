@@ -14,5 +14,5 @@ Ticket #18 needs a per-user installer and a check that Recap runs for 3+ hours w
 
 - Hot reload still watches the installed `ui\`. Editing those files changes the installed app, which is harmless for a personal tool.
 - The VC++ runtime isn't bundled: the build links it dynamically, and on a machine without it Recap won't start. This laptop has it.
-- Quitting the app (the tray's Quit, and the soak's end) can fault in `D3D12Core.dll` (0xC0000005) during GPU teardown, after everything is saved. The soak exits at the end of `on_closed`, before the teardown, so its exit code is its verdict. The zgx/wgpu teardown itself isn't fixed here.
+- Quitting the app (the tray's Quit, and the soak's end) can fault in `D3D12Core.dll` (0xC0000005) during GPU teardown, after everything is saved. Every quit now exits at the end of `on_closed` (`std::process::exit`, after the script state is saved, the host dropped, the engine given 2 s to finish, stdout/stderr flushed), before the teardown: 0 normally, a soak's verdict for a soak. The zgx/wgpu teardown itself isn't fixed here.
 - A long meeting legitimately holds its transcript in memory (about 1 MB over 3 h). The 8 MiB/h limit leaves room for that.
