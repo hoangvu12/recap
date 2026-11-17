@@ -219,7 +219,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .with_click_through(Rc::new(move || overlay.toggle_click_through()))
         };
         *reopen.borrow_mut() = Some(commands.clone());
-        let resident = resident(cx, &host, &settings_host, &commands);
+        // A soak run leaves the global hotkeys to the real Recap.
+        let resident = resident(cx, &host, &settings_host, &commands, soak.is_none());
         match &soak {
             // The Run key is the real Recap's: a soak run leaves it alone.
             None => recap::autostart::connect(
@@ -290,6 +291,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let keep =
             RefCell::new(Some((follow, server, host, providers_host, settings_host, resident, overlay, engine)));
         let reopen = reopen.clone();
+        let soak_exit = soak.is_some().then(|| soak_failed.clone());
         cx.on_closed(move || {
             saving.save();
             reopen.borrow_mut().take();
@@ -298,6 +300,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             {
                 drop((follow, server, host, providers_host, settings_host, resident, overlay));
                 engine.shutdown_background();
+            }
+            // A soak run ends here, saved, with its verdict as the exit code:
+            // the GPU teardown after this can fault in D3D12Core.dll on
+            // Quit (0xC0000005), which would hide the verdict.
+            if let Some(failed) = &soak_exit {
+                std::process::exit(i32::from(failed.load(Ordering::Relaxed)));
             }
         });
     });
@@ -315,6 +323,7 @@ fn resident(
     host: &Host,
     settings: &SettingsHost,
     commands: &Commands,
+    with_hotkeys: bool,
 ) -> Box<dyn std::any::Any> {
     use recap::{hotkeys::{HotkeysHost, SystemKeys}, tray::Tray};
 
@@ -345,6 +354,7 @@ fn resident(
 
     // Global hotkeys, as Settings has them.
     match SystemKeys::new() {
+        Ok(_) if !with_hotkeys => {}
         Ok(keys) => {
             let mut presses = SystemKeys::presses();
             let hotkeys = HotkeysHost::connect(settings, &host.script, &cx.ui.runtime, Box::new(keys));
@@ -390,6 +400,6 @@ fn resident(
 }
 
 #[cfg(not(windows))]
-fn resident(_: &zgx_desktop::WindowContext, _: &Host, _: &SettingsHost, _: &Commands) -> Box<dyn std::any::Any> {
+fn resident(_: &zgx_desktop::WindowContext, _: &Host, _: &SettingsHost, _: &Commands, _: bool) -> Box<dyn std::any::Any> {
     Box::new(())
 }

@@ -48,7 +48,7 @@ recap --soak <minutes>
 
 This runs the whole app (Home, Notes and the overlay) through a single endless meeting. `testdata/meeting_tts.wav` plays in a loop in real time, the captions are scripted (no API is called), and the recording is written to disk. Every minute the run writes the process's private bytes, handle count and GDI/USER objects to `soak.csv`. When the time is up, it stops the meeting, writes `soak_result.txt` (PASS or FAIL, with each measure's trend per hour) and quits. It exits with code 1 if anything kept growing. Growth counts as sustained when, after a 5-minute warm-up, the trend stays over the limit across the whole run and also across its second half. The limits are 8 MiB/h of private bytes, 60 handles/h, and 20 GDI or USER objects/h.
 
-The soak run keeps its data in `RECAP_DATA`, or `%TEMP%\recap-soak` when that isn't set. It runs as its own instance, so an installed Recap can keep running. It doesn't touch the Run key.
+The soak run keeps its data in `RECAP_DATA`, or `%TEMP%\recap-soak` when that isn't set. It runs as its own instance, so an installed Recap can keep running. It doesn't touch the Run key and doesn't register the global hotkeys, but it does show its own tray icon: don't quit it from there. `soak_result.txt` is rewritten every minute (`RUNNING minute N of M: ...`), so a run that ends early still leaves its numbers. Add `--background` to keep Home closed. While a soak runs, a second `--soak` hands off to it and exits at once.
 
 The full check is a manual step before a release. Run it for 3 hours on a release build, at low priority:
 

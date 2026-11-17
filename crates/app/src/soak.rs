@@ -66,6 +66,11 @@ impl Soak {
                 let _ = writeln!(csv, "{}", sample.csv()).and_then(|_| csv.flush());
                 eprintln!("recap: soak {}", sample.csv());
                 samples.push(sample);
+                // So far, in case the run ends early (quit, killed).
+                if minute < minutes {
+                    let so_far = verdict(&samples, &Limits::default()).report();
+                    let _ = std::fs::write(&result_path, format!("RUNNING minute {minute} of {minutes}: {so_far}"));
+                }
             }
             let verdict = verdict(&samples, &Limits::default());
             let _ = std::fs::write(&result_path, verdict.report());
