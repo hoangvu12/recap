@@ -102,6 +102,27 @@ test("Ctrl K opens the panel on the selected meeting with its actions and keys",
 	expect(#app:state("calls")).to_be(0)
 end)
 
+-- Whether `target`'s own node has the keyboard (its focus ring shows).
+local function focused(win, target): boolean
+	local first = string.match(win:tree(target), "^[^\n]*") or ""
+	return string.find(first, " focused", 1, true) ~= nil
+end
+
+test("with the panel open only its search has the focus; closing gives it back", function()
+	local app = mount()
+	local win = home(app)
+	win:click("#home-search")
+	app:frames(1)
+	expect(focused(win, "#home-search")).to_be(true)
+	win:key("ctrl+k")
+	app:frames(2)
+	expect(focused(win, "#action-search")).to_be(true)
+	expect(focused(win, "#home-search")).to_be(false)
+	win:key("Escape")
+	app:frames(2)
+	expect(focused(win, "#home-search")).to_be(true)
+end)
+
 test("Ctrl K again closes the panel; the footer's Actions opens it too", function()
 	local app = mount()
 	local win = home(app)

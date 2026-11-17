@@ -66,7 +66,7 @@ local SPEAKER_HUES = { "purple", "green", "orange", "blue", "yellow" }
 -- Each meeting's speakers' labels as last shown, by "<meeting>|<n>", and the
 -- label a speaker is flashing with (renamed just now).
 local shown: { [string]: string } = {}
-local flashing: { [string]: string } = {}
+local flashing: { [string]: { label: string, until_s: number } } = {}
 
 -- Is speaker `n` labelled `label` a rename just now?
 local function renamed(n: number, label: string): boolean
@@ -74,7 +74,8 @@ local function renamed(n: number, label: string): boolean
 		return false
 	end
 	local key = `{host.meeting:peek().id or ""}|{n}`
-	if flashing[key] == label then
+	local flash = flashing[key]
+	if flash and flash.label == label and os.clock() < flash.until_s then
 		return true
 	end
 	local before = shown[key]
@@ -82,12 +83,10 @@ local function renamed(n: number, label: string): boolean
 	if before == nil or before == label then
 		return false
 	end
-	flashing[key] = label
-	ui.after(FLASH_MS, function()
-		if flashing[key] == label then
-			flashing[key] = nil
-		end
-	end)
+	-- A deadline, not a timer: this runs while a row builds, and a timer
+	-- started there is stopped when that build runs again (LEARNINGS), so
+	-- the flash would never end and every later build would flash again.
+	flashing[key] = { label = label, until_s = os.clock() + FLASH_MS / 1000 }
 	return true
 end
 

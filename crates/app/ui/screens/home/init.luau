@@ -16,6 +16,10 @@ local Hud = require("@components/hud")
 local List = require("@self/list")
 local Detail = require("@self/detail")
 
+-- Home's search, once mounted: it gets the keyboard back when the action
+-- panel closes.
+local search_field: any = nil
+
 local function Header(): Node
 	return ui.row {
 		id = "home-header",
@@ -39,6 +43,13 @@ local function Header(): Node
 			bg = "$rc.transparent",
 			border = 0,
 			p = 0,
+			-- No ring: Raycast's search shows its caret only. (Windows'
+			-- focus ring stayed drawn round it beside the open action
+			-- panel, whose search has the keyboard.)
+			focus = { outline = 0 },
+			on_mount = function(el)
+				search_field = el
+			end,
 		},
 		ui.row {
 			id = "home-filter",
@@ -135,6 +146,15 @@ return function(): Node
 		if state.home_selected:peek() ~= id then
 			state.home_selected:set(id)
 		end
+	end)
+	-- The action panel closed: the keyboard is back in the search.
+	local panel_was_open = false
+	ui.effect(function()
+		local open = state.actions_open:get() == "home"
+		if panel_was_open and not open and search_field then
+			search_field:focus()
+		end
+		panel_was_open = open
 	end)
 	return ui.column {
 		id = "home-window",

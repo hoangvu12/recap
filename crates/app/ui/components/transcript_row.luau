@@ -126,7 +126,17 @@ return ui.component(function(props: Props): Node
 	local fresh_on = ui.use_state(false)
 	local last_final = if first then first.final else ""
 	local last_partial = if first then first.partial else ""
-	local seq = 0
+	-- When the fresh words join the final run (os.clock seconds). A timer
+	-- started in this effect is stopped by its next run (the row's next
+	-- partial, often within 150 ms), so each run arms it again while the
+	-- words are still fresh.
+	local join_at = 0
+	local function arm()
+		ui.after(math.max(1, math.floor((join_at - os.clock()) * 1000)), function()
+			fresh_from:set(-1)
+			fresh_on:set(false)
+		end)
+	end
 	ui.effect(function()
 		local r = row:get()
 		if r == nil then
@@ -138,14 +148,10 @@ return ui.component(function(props: Props): Node
 				fresh_from:set(#last_final)
 			end
 			fresh_on:set(true)
-			seq += 1
-			local mine = seq
-			ui.after(motion.base, function()
-				if mine == seq then
-					fresh_from:set(-1)
-					fresh_on:set(false)
-				end
-			end)
+			join_at = os.clock() + motion.base / 1000
+		end
+		if fresh_on:peek() then
+			arm()
 		end
 		last_final, last_partial = r.final, r.partial
 	end)
