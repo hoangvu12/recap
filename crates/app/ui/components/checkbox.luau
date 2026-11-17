@@ -29,6 +29,7 @@ return function(props: Props): Node
 		rounded = 0,
 		bg = "$rc.transparent",
 		hover = { bg = "$rc.transparent" },
+		cursor = "pointer",
 		on_click = function()
 			props.on_change(not done())
 		end,

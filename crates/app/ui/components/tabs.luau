@@ -39,6 +39,12 @@ function M.Tab(props: TabProps): Node
 	local select = props.on_select
 	local disabled = props.disabled
 	out.role = "tab"
+	-- A hand over a tab it shows; the arrow over a disabled one.
+	out.cursor = if disabled
+		then function(): string
+			return if disabled() then "default" else "pointer"
+		end
+		else "pointer"
 	out.on_click = function()
 		if not (disabled and disabled()) then
 			select()

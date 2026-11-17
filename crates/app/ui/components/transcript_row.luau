@@ -75,6 +75,7 @@ local function SpeakerChip(index: number, first: host.Row): Node
 			bg = "$rc.transparent",
 			hover = { bg = "$rc.transparent" },
 			label = `Rename {label}`,
+			cursor = "pointer",
 			on_click = function()
 				actions.start_rename(index, speaker, label)
 			end,
@@ -169,7 +170,11 @@ return ui.component(function(props: Props): Node
 		w_full = true,
 		px = 8,
 		pb = 6,
-		-- A stored meeting's line plays from where it starts (again: stops).
+		-- A stored meeting's line plays from where it starts (again: stops):
+		-- a hand over it then, the arrow while the meeting is live.
+		cursor = function(): string
+			return if host.meeting:get().state == "stopped" then "pointer" else "default"
+		end,
 		on_click = function()
 			actions.play_line(index)
 		end,

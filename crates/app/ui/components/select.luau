@@ -136,6 +136,7 @@ return function(props: Props): Node
 			border = if field then 1 else nil,
 			border_color = if field then "$rc.stroke.field" else nil,
 			hover = { bg = "$rc.fill.hover" },
+			cursor = "pointer",
 			on_click = ui.toggle(open),
 			if field then ui.show(has_logos, Logos(chosen)) else nil,
 			ui.text {
@@ -188,6 +189,7 @@ return function(props: Props): Node
 						label = o.label,
 						checked = on,
 						radio = true,
+						cursor = "pointer",
 						on_click = function()
 							props.on_change(o.value)
 						end,

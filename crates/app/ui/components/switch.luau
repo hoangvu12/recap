@@ -23,6 +23,7 @@ return function(props: Props): Node
 			shrink = 0,
 			rounded = 999,
 			bg = motion.tween(on, { from = "$rc.fill.selected", to = "$rc.accent", duration = motion.fast_in }),
+			cursor = "pointer",
 			on_click = function()
 				props.on_change(not props.on())
 			end,

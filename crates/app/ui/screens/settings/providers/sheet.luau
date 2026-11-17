@@ -48,6 +48,7 @@ local function PresetRow(preset: host.Preset): Node
 			rounded = 8,
 			bg = "$rc.transparent",
 			hover = { bg = "$rc.fill.hover" },
+			cursor = "pointer",
 			on_click = function()
 				state.provider_selected:set(preset.id)
 			end,

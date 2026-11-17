@@ -45,6 +45,7 @@ local function JumpPill(list: Ref): Node
 				border = 1,
 				border_color = "$rc.stroke.field",
 				shadow = { { x = 0, y = 8, blur = 10, spread = -6, color = "#0000001A" }, { x = 0, y = 20, blur = 25, spread = -5, color = "#00000033" } },
+				cursor = "pointer",
 				on_click = function()
 					actions.jump_to_live(list:peek())
 				end,

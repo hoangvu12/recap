@@ -170,6 +170,7 @@ return function(props: Props): Node
 				hovered:set(false)
 			end
 			else nil,
+		cursor = "pointer",
 		on_click = props.on_click,
 		face,
 		if on then ui.show(on, ui.div { id = `{props.id}-on`, absolute = true, w = 0, h = 0, aria_hidden = true }) else nil,

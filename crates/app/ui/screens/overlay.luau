@@ -201,6 +201,7 @@ local function failed(): Node
 			end,
 			ui.button {
 				id = "switch-live",
+				cursor = "pointer",
 				on_click = function()
 					local choice = host.live:peek().switch_to
 					if choice then

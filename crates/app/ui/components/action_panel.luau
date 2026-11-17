@@ -42,6 +42,7 @@ local function Item(where: state.Where, action: meeting_actions.Action): Node
 			label = action.label,
 			-- The search keeps the keyboard; arrows move the highlight.
 			focusable = false,
+			cursor = "pointer",
 			h = 32,
 			w_full = true,
 			shrink = 0,

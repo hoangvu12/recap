@@ -168,6 +168,7 @@ local function Suggest(i: number, s: host.DialogSpeaker): Node?
 			border = 1,
 			border_color = "$rc.stroke.field",
 			hover = { bg = "$rc.fill.hover" },
+			cursor = "pointer",
 			on_click = function()
 				text:set(s.suggest)
 			end,

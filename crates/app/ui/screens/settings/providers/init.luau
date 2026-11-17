@@ -126,6 +126,7 @@ local function AiRow(row: State<host.ProviderRow>, first: boolean): Node
 			rounded = 6,
 			bg = "$rc.transparent",
 			hover = { bg = "$rc.fill.hover" },
+			cursor = "pointer",
 			on_click = function()
 				actions.edit_provider(id)
 			end,
@@ -190,6 +191,7 @@ local function AddRow(): Node
 			rounded = 6,
 			bg = "$rc.transparent",
 			hover = { bg = "$rc.fill.hover" },
+			cursor = "pointer",
 			on_click = actions.open_add_provider,
 			ui.row {
 				w = 28,

@@ -72,6 +72,7 @@ return function(props: Props): Node
 				end)
 			end
 			else nil,
+		cursor = "pointer",
 		on_click = props.on_click,
 		if props.icon then Icon { name = props.icon, size = 14, color = props.color or "$rc.text.primary" } else nil,
 		ui.text {

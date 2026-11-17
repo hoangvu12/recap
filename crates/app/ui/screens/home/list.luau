@@ -47,6 +47,7 @@ local function StartRow(): Node
 		rounded = 8,
 		bg = "$rc.transparent",
 		hover = { bg = "$rc.fill.hover" },
+		cursor = "pointer",
 		on_click = actions.start_notes,
 		ui.row { w = 18, h = 18, shrink = 0, items = "center", Icon { name = "record", color = "$rc.rec" } },
 		ui.text { "Start new notes", grow = 1, basis = 0, text_size = 13, weight = 500, color = "$rc.text.primary" },
@@ -73,6 +74,7 @@ local function MeetingRow(selected: ReadOnlyState<string>, item: State<host.Meet
 		rounded = 8,
 		bg = "$rc.transparent",
 		hover = { bg = "$rc.fill.hover" },
+		cursor = "pointer",
 		on_click = function()
 			actions.select_meeting(id)
 		end,

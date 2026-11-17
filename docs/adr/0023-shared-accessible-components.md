@@ -30,6 +30,8 @@ Uses: the Actions panel is a `popover` anchored above the footer's Actions butto
 
 **The overlay's tooltips are drawn inside the overlay.** `icon_button`'s `inline_tip = true` replaces zgx's popup tooltip with a node in the same window: after 300 ms of hover, under the button with its right edge on the button's (the toolbar sits at the overlay's top right, where a centred tip would run off), gone on leave or press. One that follows another within 400 ms shows at once (Base UI's delay group). It is `aria_hidden`: the button's `label` already says it. Only the overlay's toolbar uses it; the other windows are active when the user hovers them.
 
+**Cursors.** zgx keeps the arrow over buttons, checkboxes and menu items (as Chrome and AppKit do). The user wants a hand over what can be clicked, so everything clickable sets `cursor = "pointer"`: the shared components themselves (button, icon_button, select and its items, tabs, switch, checkbox, the action panel's items) and the hand-built rows (meeting rows, Start new notes, presets, AI providers, Add provider, token chips, hotkey fields, speaker chips, the AI's name hint, Jump to live, Switch to). A disabled tab shows the arrow. A transcript line shows the hand only when it can play (a stored meeting), not while live. Text fields keep zgx's I-beam; window-drag areas keep the arrow, as Windows title bars do. A new clickable node sets the hand too.
+
 ## Consequences
 
 - One place to fix each control. A new screen gets names, states and keys by using the components.

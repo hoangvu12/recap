@@ -98,6 +98,7 @@ local function Tokens(): Node
 				rounded = 4,
 				bg = "$rc.accent.soft",
 				hover = { bg = "$rc.fill.hover" },
+				cursor = "pointer",
 				on_click = function()
 					state.form.command:set(state.form.command:peek() .. `\{{token}\}`)
 				end,

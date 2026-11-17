@@ -28,6 +28,7 @@ local function Option(i: number, s: speakers.Suggestion): Node
 			return if picked() then "$rc.fill.selected" else "$rc.transparent"
 		end,
 		hover = { bg = "$rc.fill.hover" },
+		cursor = "pointer",
 		on_click = function()
 			actions.commit_rename(s.name)
 		end,

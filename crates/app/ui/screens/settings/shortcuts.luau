@@ -40,6 +40,7 @@ local function Keys(id: string): Node
 			return if recording() then "$rc.stroke.focus" else "$rc.transparent"
 		end,
 		hover = { bg = "$rc.fill.hover" },
+		cursor = "pointer",
 		on_click = function()
 			actions.record_hotkey(id)
 		end,
