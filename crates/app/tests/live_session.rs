@@ -47,7 +47,9 @@ async fn a_replayed_meeting_is_saved_as_it_goes_and_left_for_processing() {
     let dir = tempfile::tempdir().unwrap();
     let store = Store::open(dir.path()).unwrap();
     let source = WavSource::open(std::path::Path::new(WAV)).unwrap();
-    let mut live = session::start(Some(store.clone()), config(true), Box::new(source), scripted(), None);
+    // "Caption my own speech" off: it only hides my lines from the overlay;
+    // they are still transcribed and saved for Notes (story 21).
+    let mut live = session::start(Some(store.clone()), config(false), Box::new(source), scripted(), None);
 
     // Created at Start: listed while it records.
     let id = live.id.clone().expect("a stored meeting");

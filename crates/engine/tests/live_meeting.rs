@@ -50,9 +50,9 @@ fn states(events: &[EngineEvent]) -> Vec<MeetingState> {
         .collect()
 }
 
-fn start(source: impl recap_engine::AudioSource + 'static, caption_me: bool) -> Meeting {
+fn start(source: impl recap_engine::AudioSource + 'static) -> Meeting {
     Meeting::start(
-        MeetingConfig { caption_me, ..MeetingConfig::default() },
+        MeetingConfig::default(),
         Box::new(source),
         Arc::new(ScriptedLiveStt::new(script())),
     )
@@ -60,7 +60,7 @@ fn start(source: impl recap_engine::AudioSource + 'static, caption_me: bool) -> 
 
 #[tokio::test]
 async fn a_replayed_script_becomes_partials_then_finals_with_me_and_them() {
-    let mut meeting = start(SilenceSource::new(Duration::from_secs(150)), true);
+    let mut meeting = start(SilenceSource::new(Duration::from_secs(150)));
     let (events, result) = drain(&mut meeting).await;
 
     assert_eq!(states(&events).first(), Some(&MeetingState::Recording));
@@ -99,17 +99,20 @@ async fn a_replayed_script_becomes_partials_then_finals_with_me_and_them() {
 }
 
 #[tokio::test]
-async fn with_my_captions_off_only_them_is_transcribed_live() {
-    let mut meeting = start(SilenceSource::new(Duration::from_secs(150)), false);
-    let (events, result) = drain(&mut meeting).await;
-    assert!(segments(&events).iter().all(|s| s.source == Source::Them));
-    assert!(result.rows.iter().all(|r| r.source == Source::Them));
-    assert_eq!(result.rows.len(), script().lines.iter().filter(|l| l.voice != "Mark").count());
+async fn both_sides_are_always_transcribed_live() {
+    // "Caption my own speech" only decides the overlay; the engine always
+    // transcribes Me for the Notes transcript (story 21).
+    let mut meeting = start(SilenceSource::new(Duration::from_secs(150)));
+    let (_, result) = drain(&mut meeting).await;
+    let mine = script().lines.iter().filter(|l| l.voice == "Mark").count();
+    assert!(mine > 0);
+    assert_eq!(result.rows.iter().filter(|r| r.source == Source::Me).count(), mine);
+    assert_eq!(result.segments.iter().filter(|s| s.source == Source::Me).count(), mine);
 }
 
 #[tokio::test]
 async fn elapsed_ticks_once_a_second_of_audio() {
-    let mut meeting = start(SilenceSource::new(Duration::from_millis(3_500)), true);
+    let mut meeting = start(SilenceSource::new(Duration::from_millis(3_500)));
     let (events, result) = drain(&mut meeting).await;
     let ticks: Vec<u64> = events
         .iter()
@@ -125,7 +128,7 @@ async fn elapsed_ticks_once_a_second_of_audio() {
 #[tokio::test]
 async fn pause_holds_the_timer_and_captions_until_resume() {
     let (feed, source) = FrameFeed::new();
-    let mut meeting = start(source, true);
+    let mut meeting = start(source);
 
     feed.push_silence(Duration::from_secs(2));
     wait_for(&mut meeting, |e| matches!(e, EngineEvent::Elapsed(2_000))).await;
@@ -167,7 +170,7 @@ async fn pause_holds_the_timer_and_captions_until_resume() {
 #[tokio::test]
 async fn stop_finishes_with_what_was_said_so_far() {
     let (feed, source) = FrameFeed::new();
-    let mut meeting = start(source, true);
+    let mut meeting = start(source);
     // The first line (Me) takes about 12 s; 15 s gets it final and Them started.
     feed.push_silence(Duration::from_secs(15));
     wait_for(&mut meeting, |e| matches!(e, EngineEvent::Elapsed(15_000))).await;
@@ -292,7 +295,7 @@ impl recap_engine::LiveStt for TwoLines {
 
 fn two_lines(me: &'static str, them: &'static str) -> Meeting {
     Meeting::start(
-        MeetingConfig { caption_me: true, ..MeetingConfig::default() },
+        MeetingConfig::default(),
         Box::new(SilenceSource::new(Duration::from_secs(12))),
         Arc::new(TwoLines { me, them, me_lag_ms: 150 }),
     )
@@ -351,7 +354,7 @@ fn committed(events: &[EngineEvent]) -> Vec<(Source, String)> {
 #[tokio::test]
 async fn pause_and_resume_leave_one_marker_in_the_transcript() {
     let (feed, source) = FrameFeed::new();
-    let mut meeting = start(source, true);
+    let mut meeting = start(source);
     feed.push_silence(Duration::from_secs(2));
     wait_for(&mut meeting, |e| matches!(e, EngineEvent::Elapsed(2_000))).await;
 
@@ -387,7 +390,7 @@ async fn pause_and_resume_leave_one_marker_in_the_transcript() {
 #[tokio::test]
 async fn stop_while_paused_still_marks_the_pause() {
     let (feed, source) = FrameFeed::new();
-    let mut meeting = start(source, false);
+    let mut meeting = start(source);
     feed.push_silence(Duration::from_secs(1));
     wait_for(&mut meeting, |e| matches!(e, EngineEvent::Elapsed(1_000))).await;
     meeting.pause();

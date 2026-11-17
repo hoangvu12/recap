@@ -30,7 +30,8 @@ pub fn read_pauses(folder: &std::path::Path) -> Vec<recap_engine::PauseMark> {
 pub struct SessionConfig {
     /// When Start was pressed, ms since the epoch.
     pub started_ms: u64,
-    /// "Caption my own speech": a second live socket for Me.
+    /// "Caption my own speech": my lines show in the overlay too. Me is
+    /// transcribed live either way, for Notes (ADR 0019).
     pub caption_me: bool,
     pub live: LiveOptions,
     /// The engines live captions may switch to if theirs fails (the
@@ -82,7 +83,7 @@ pub fn start(
     });
     let recording = saved.as_ref().map(|(store, id)| store.folder(id).join("audio.ogg"));
     let meeting = Meeting::start(
-        MeetingConfig { caption_me: config.caption_me, live: config.live, recording },
+        MeetingConfig { live: config.live, recording },
         source,
         live,
     );

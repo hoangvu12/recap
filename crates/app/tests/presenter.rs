@@ -283,7 +283,7 @@ async fn the_test_meeting_replays_into_the_ui_state() {
     let source = SilenceSource::new(Duration::from_secs(120));
     let stt = Arc::new(ScriptedLiveStt::new(Script::test_meeting()));
     let mut meeting =
-        Meeting::start(MeetingConfig { caption_me: true, ..Default::default() }, Box::new(source), stt);
+        Meeting::start(MeetingConfig::default(), Box::new(source), stt);
     let mut p = Presenter::new(0);
     while let Some(event) = meeting.next_event().await {
         p.apply(&event);

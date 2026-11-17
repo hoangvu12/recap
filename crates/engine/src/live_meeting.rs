@@ -14,8 +14,9 @@ use crate::{
 /// How a meeting runs.
 #[derive(Clone, Debug, Default)]
 pub struct MeetingConfig {
-    /// Caption my own speech live too (a second socket). Them is always on.
-    pub caption_me: bool,
+    /// Both sides are always transcribed live: Me feeds the Notes transcript
+    /// and the echo check. Whether my lines show in the overlay is the app's
+    /// choice (ADR 0019).
     pub live: LiveOptions,
     /// Where to record the meeting (Ogg/Opus, ch0 Me, ch1 Them). Paused audio
     /// is left out, so the file's time is meeting time. Complete once
@@ -60,8 +61,6 @@ enum Control {
     Stop,
     /// Caption the sides whose provider failed with this one.
     Live(Arc<dyn LiveStt>),
-    /// Caption my own speech too, or no longer.
-    CaptionMe(bool),
 }
 
 /// Pause, resume or stop a running meeting from anywhere (the UI thread, a
@@ -85,10 +84,6 @@ impl MeetingControl {
     /// ("Switch to Deepgram"); the others keep theirs.
     pub fn replace_live(&self, live: Arc<dyn LiveStt>) {
         let _ = self.0.send(Control::Live(live));
-    }
-    /// Caption my own speech too (`true`), or stop (`false`), mid-meeting.
-    pub fn caption_me(&self, on: bool) {
-        let _ = self.0.send(Control::CaptionMe(on));
     }
 }
 
@@ -165,8 +160,7 @@ enum Heard {
 struct Sides {
     live: Arc<dyn LiveStt>,
     options: LiveOptions,
-    /// The sides that should be captioned (Them always; Me with my
-    /// captions on).
+    /// The sides that should be captioned (both, always).
     wanted: Vec<Source>,
     running: HashMap<Source, Side>,
     heard: mpsc::UnboundedSender<(Source, Heard)>,
@@ -217,20 +211,6 @@ impl Sides {
             if !self.running.contains_key(&source) {
                 self.start(source, engine);
             }
-        }
-    }
-
-    fn caption_me(&mut self, on: bool, engine: &Engine) {
-        if on {
-            if !self.wanted.contains(&Source::Me) {
-                self.wanted.push(Source::Me);
-                self.start(Source::Me, engine);
-            }
-        } else {
-            self.wanted.retain(|s| *s != Source::Me);
-            // Its audio closes: it says the rest of what it heard and ends
-            // on its own.
-            self.running.remove(&Source::Me);
         }
     }
 }
@@ -435,13 +415,13 @@ async fn run(
         None => None,
     };
 
-    // Them always; Me only when my captions are on.
+    // Both sides, always: Me feeds the Notes transcript and the echo check.
     let (heard_tx, mut heard) = mpsc::unbounded_channel::<(Source, Heard)>();
     let (ended_tx, mut ended) = mpsc::unbounded_channel::<(Source, u64)>();
     let mut sides = Sides {
         live,
         options: config.live.clone(),
-        wanted: if config.caption_me { vec![Source::Them, Source::Me] } else { vec![Source::Them] },
+        wanted: vec![Source::Them, Source::Me],
         running: HashMap::new(),
         heard: heard_tx,
         ended: ended_tx,
@@ -472,7 +452,6 @@ async fn run(
                     sides.live = live;
                     sides.start_missing(&engine);
                 }
-                Control::CaptionMe(on) => sides.caption_me(on, &engine),
                 _ => {}
             },
             Some((source, heard)) = heard.recv() => match heard {

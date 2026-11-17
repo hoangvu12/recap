@@ -784,12 +784,9 @@ impl Host {
         self.control.borrow().clone()
     }
 
-    /// Show my lines in the captions, or no longer, and caption my speech
-    /// in the running meeting accordingly.
+    /// Show my lines in the overlay's captions, or no longer. My speech is
+    /// transcribed for Notes either way (ADR 0019).
     pub fn set_my_captions(&self, on: bool) {
-        if let Some(control) = self.control() {
-            control.caption_me(on);
-        }
         let changed = self.presenter.borrow_mut().set_my_captions(on);
         self.publish(changed);
     }

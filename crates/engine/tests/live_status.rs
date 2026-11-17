@@ -21,7 +21,8 @@ struct Line {
     /// What it says on my side (the same words would be an echo of Them).
     my_line: &'static str,
     after_ms: u64,
-    /// Fail with this once `after_ms` is heard, instead of speaking.
+    /// Fail Them with this once `after_ms` is heard, instead of speaking (Me
+    /// then stays quiet, and doesn't fail).
     fail: Option<ProviderErrorKind>,
     /// Report Reconnecting, then Connected, before speaking.
     blips: bool,
@@ -70,6 +71,9 @@ impl LiveStt for Line {
                 if heard >= me.after_ms && !said {
                     said = true;
                     if let Some(kind) = me.fail {
+                        if source == Source::Me {
+                            continue;
+                        }
                         return Err(ProviderError::new(kind, "out of credit"));
                     }
                     if me.blips {
@@ -86,9 +90,9 @@ impl LiveStt for Line {
     }
 }
 
-fn start(live: Line, caption_me: bool) -> (FrameFeed, Meeting) {
+fn start(live: Line) -> (FrameFeed, Meeting) {
     let (feed, source) = FrameFeed::new();
-    let meeting = Meeting::start(MeetingConfig { caption_me, ..MeetingConfig::default() }, Box::new(source), Arc::new(live));
+    let meeting = Meeting::start(MeetingConfig::default(), Box::new(source), Arc::new(live));
     (feed, meeting)
 }
 
@@ -114,7 +118,7 @@ fn said(event: &EngineEvent, text: &str) -> bool {
 
 #[tokio::test]
 async fn each_side_says_which_provider_captions_it() {
-    let (feed, mut meeting) = start(Line::new("ElevenLabs", "Hello."), false);
+    let (feed, mut meeting) = start(Line::new("ElevenLabs", "Hello."));
     let events = until(&mut meeting, |e| matches!(e, EngineEvent::Live { .. })).await;
     assert!(matches!(
         events.last(),
@@ -126,7 +130,7 @@ async fn each_side_says_which_provider_captions_it() {
 #[tokio::test]
 async fn a_provider_failing_is_told_at_once_while_recording_goes_on() {
     let live = Line { fail: Some(ProviderErrorKind::Quota), ..Line::new("ElevenLabs", "") };
-    let (feed, mut meeting) = start(live, false);
+    let (feed, mut meeting) = start(live);
     feed.push_silence(Duration::from_secs(2));
     let events = until(&mut meeting, |e| matches!(e, EngineEvent::Error { .. })).await;
     let Some(EngineEvent::Error { source, error }) = events.last() else { unreachable!() };
@@ -144,7 +148,7 @@ async fn a_provider_failing_is_told_at_once_while_recording_goes_on() {
 #[tokio::test]
 async fn switching_provider_after_a_failure_brings_captions_back() {
     let live = Line { fail: Some(ProviderErrorKind::Auth), ..Line::new("ElevenLabs", "") };
-    let (feed, mut meeting) = start(live, false);
+    let (feed, mut meeting) = start(live);
     feed.push_silence(Duration::from_secs(2));
     until(&mut meeting, |e| matches!(e, EngineEvent::Error { .. })).await;
 
@@ -164,7 +168,7 @@ async fn switching_provider_after_a_failure_brings_captions_back() {
 #[tokio::test]
 async fn a_new_provider_replaces_only_sides_that_failed() {
     let failing = Line { fail: Some(ProviderErrorKind::Quota), ..Line::new("ElevenLabs", "") };
-    let (feed, mut meeting) = start(failing, false);
+    let (feed, mut meeting) = start(failing);
     feed.push_silence(Duration::from_secs(2));
     until(&mut meeting, |e| matches!(e, EngineEvent::Error { .. })).await;
     let backup = Line::new("Deepgram", "Again.");
@@ -172,14 +176,14 @@ async fn a_new_provider_replaces_only_sides_that_failed() {
     meeting.control().replace_live(Arc::new(backup));
     feed.push_silence(Duration::from_secs(2));
     until(&mut meeting, |e| said(e, "Again.")).await;
-    assert_eq!(*sides.lock().unwrap(), [Source::Them], "Me was never captioned, so it stays off");
+    assert_eq!(*sides.lock().unwrap(), [Source::Them], "Me never failed, so it keeps its provider");
     drop(feed);
 }
 
 #[tokio::test]
 async fn reconnecting_and_back_are_told() {
     let live = Line { blips: true, ..Line::new("ElevenLabs", "Still here.") };
-    let (feed, mut meeting) = start(live, false);
+    let (feed, mut meeting) = start(live);
     feed.push_silence(Duration::from_secs(2));
     let events = until(&mut meeting, |e| said(e, "Still here.")).await;
     let statuses: Vec<&LiveStatus> = events
@@ -194,29 +198,16 @@ async fn reconnecting_and_back_are_told() {
 }
 
 #[tokio::test]
-async fn my_captions_turned_on_mid_meeting_start_captioning_me() {
+async fn both_sides_are_captioned_from_the_start() {
     let live = Line { after_ms: 500, ..Line::new("ElevenLabs", "Okay.") };
     let sides = live.sides.clone();
-    let (feed, mut meeting) = start(live, false);
-    feed.push_silence(Duration::from_secs(1));
-    until(&mut meeting, |e| matches!(e, EngineEvent::Elapsed(1_000))).await;
-    assert_eq!(*sides.lock().unwrap(), [Source::Them]);
-
-    meeting.control().caption_me(true);
+    let (feed, mut meeting) = start(live);
     feed.push_silence(Duration::from_secs(1));
     until(&mut meeting, |e| matches!(e, EngineEvent::Segment(s) if s.source == Source::Me && s.is_final)).await;
     assert_eq!(*sides.lock().unwrap(), [Source::Them, Source::Me]);
-
-    // Off again: Me is no longer captioned; turning it on twice starts one.
-    meeting.control().caption_me(false);
-    meeting.control().caption_me(false);
-    meeting.control().caption_me(true);
-    meeting.control().caption_me(true);
-    feed.push_silence(Duration::from_secs(1));
-    until(&mut meeting, |e| matches!(e, EngineEvent::Elapsed(3_000))).await;
-    assert_eq!(*sides.lock().unwrap(), [Source::Them, Source::Me, Source::Me]);
     drop(feed);
-    finish(&mut meeting).await;
+    let (_, result) = finish(&mut meeting).await;
+    assert!(result.segments.iter().any(|s| s.source == Source::Me), "my line is kept for Notes");
 }
 
 async fn finish(meeting: &mut Meeting) -> (Vec<EngineEvent>, recap_engine::MeetingResult) {
