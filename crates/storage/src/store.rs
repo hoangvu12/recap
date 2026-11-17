@@ -11,12 +11,18 @@ use crate::{
     id,
 };
 
+/// The known people's file's name (the app keeps it in Recap's home,
+/// beside settings.json; the store's root unless given).
+pub const PEOPLE: &str = "people.json";
+
 /// Recap's meetings on disk: the folders and the database that indexes them.
 /// Clones share one connection; every call is one short transaction.
 #[derive(Clone)]
 pub struct Store {
     root: Arc<PathBuf>,
     conn: Arc<Mutex<Connection>>,
+    /// Where the known people are kept beside the database (it may be lost).
+    people_file: Arc<PathBuf>,
 }
 
 impl Store {
@@ -26,14 +32,28 @@ impl Store {
     }
 
     /// The store at `root`, made if new. Without `app.db` the database is
-    /// rebuilt from the meeting folders.
+    /// rebuilt from the meeting folders. Known people are kept in
+    /// `root/people.json`.
     pub fn open(root: &Path) -> Result<Self> {
+        Self::open_with_people(root, &root.join(PEOPLE))
+    }
+
+    /// The store at `root`, its known people kept in `people_file` (the app:
+    /// Recap's home, beside settings.json, wherever the meetings are).
+    pub fn open_with_people(root: &Path, people_file: &Path) -> Result<Self> {
         files::ensure_dir(&root.join("meetings"))?;
         let db_path = root.join("app.db");
         let fresh = !db_path.exists();
-        let store = Self { root: Arc::new(root.to_owned()), conn: Arc::new(Mutex::new(db::open(&db_path)?)) };
+        let store = Self {
+            root: Arc::new(root.to_owned()),
+            conn: Arc::new(Mutex::new(db::open(&db_path)?)),
+            people_file: Arc::new(people_file.to_owned()),
+        };
         if fresh {
             store.rebuild()?;
+        } else if !people_file.exists() {
+            // A store from before people had a file: give them one.
+            store.keep_people(&store.conn())?;
         }
         Ok(store)
     }
@@ -111,7 +131,19 @@ impl Store {
         let tx = conn.transaction()?;
         db::put_info(&tx, &info)?;
         tx.commit()?;
+        if info.speakers.iter().any(|s| s.name.is_some()) {
+            self.keep_people(&conn)?;
+        }
         Ok(info)
+    }
+
+    /// The known people, written to their file (a name may be new).
+    fn keep_people(&self, conn: &Connection) -> Result<()> {
+        let people = db::people(conn)?;
+        if files::read_json::<Vec<String>>(&self.people_file)?.as_ref() != Some(&people) {
+            files::write_json(&self.people_file, &people)?;
+        }
+        Ok(())
     }
 
     /// Name speaker `speaker` (`me`, `S1`..) of meeting `id`, or unname it
@@ -188,7 +220,8 @@ impl Store {
     }
 
     /// Index every meeting folder again, as if the database were new. The
-    /// app's own tables (people, keyterms, providers, settings) stay.
+    /// app's own tables (people, keyterms, providers, settings) stay, and the
+    /// people in their file come back (a lost database loses none).
     pub fn rebuild(&self) -> Result<()> {
         let mut conn = self.conn();
         let mut found = Vec::new();
@@ -201,13 +234,17 @@ impl Store {
                 found.push(folder);
             }
         }
+        let kept = files::read_json::<Vec<String>>(&self.people_file)?.unwrap_or_default();
         let tx = conn.transaction()?;
         db::clear_meetings(&tx)?;
+        for name in &kept {
+            db::add_person(&tx, name)?;
+        }
         for folder in &found {
             db::put_folder(&tx, folder)?;
         }
         tx.commit()?;
-        Ok(())
+        self.keep_people(&conn)
     }
 
     /// Audio retention: delete `audio.ogg` of finished meetings that started

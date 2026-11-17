@@ -102,17 +102,26 @@ pub(crate) fn put_info(tx: &Transaction, info: &MeetingInfo) -> Result<()> {
             "INSERT INTO speakers (meeting_id, seq, speaker, name) VALUES (?1, ?2, ?3, ?4)",
             params![id, seq as i64, speaker.id, speaker.name],
         )?;
-        // Every name given is a known person (one row whatever its case).
-        if let Some(name) = speaker.name.as_deref().map(str::trim).filter(|n| !n.is_empty()) {
-            tx.execute(
-                "INSERT INTO people (name) SELECT ?1
-                 WHERE NOT EXISTS (SELECT 1 FROM people WHERE name = ?1 COLLATE NOCASE)",
-                [name],
-            )?;
+        // Every name given is a known person.
+        if let Some(name) = speaker.name.as_deref() {
+            add_person(tx, name)?;
         }
     }
     let names: Vec<&str> = info.speakers.iter().filter_map(|s| s.name.as_deref()).collect();
     set_search(tx, &info.id, "meta", &[format!("{} {}", info.title, names.join(" "))])
+}
+
+/// `name` (trimmed) as a known person: one row whatever its case.
+pub(crate) fn add_person(tx: &Transaction, name: &str) -> Result<()> {
+    let name = name.trim();
+    if !name.is_empty() {
+        tx.execute(
+            "INSERT INTO people (name) SELECT ?1
+             WHERE NOT EXISTS (SELECT 1 FROM people WHERE name = ?1 COLLATE NOCASE)",
+            [name],
+        )?;
+    }
+    Ok(())
 }
 
 fn set_search(tx: &Transaction, id: &MeetingId, kind: &str, texts: &[String]) -> Result<()> {

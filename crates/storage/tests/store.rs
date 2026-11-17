@@ -363,5 +363,31 @@ fn renaming_a_speaker_keeps_the_name_and_the_person() {
     let speakers = store.meeting(&id).unwrap().unwrap().info.speakers;
     assert_eq!(speakers[2].name.as_deref(), Some("David"));
     assert_eq!(speakers[1].name, None);
-    assert_eq!(store.people().unwrap(), ["David", "Tom"]);
+    // The people too, Priya included though no meeting names her now:
+    // they are kept in people.json.
+    assert_eq!(store.people().unwrap(), ["David", "Priya", "Tom"]);
+}
+
+#[test]
+fn people_round_trip_through_their_file_beside_the_settings() {
+    // The meetings in a storage folder of their own; people.json in Recap's
+    // home, beside settings.json.
+    let (home, folder) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let people_file = home.path().join("people.json");
+    let store = Store::open_with_people(folder.path(), &people_file).unwrap();
+    let id = write_meeting(&store);
+    store.rename_speaker(&id, "S2", Some("David")).unwrap();
+    assert!(people_file.is_file());
+    // A person whose meeting is gone is still known.
+    store.delete(&id).unwrap();
+    assert_eq!(store.people().unwrap(), ["David", "Priya", "Tom"]);
+
+    drop(store);
+    for file in ["app.db", "app.db-wal", "app.db-shm"] {
+        let _ = fs::remove_file(folder.path().join(file));
+    }
+    let store = Store::open_with_people(folder.path(), &people_file).unwrap();
+    assert!(store.list().unwrap().is_empty());
+    assert_eq!(store.people().unwrap(), ["David", "Priya", "Tom"]);
+    assert!(!folder.path().join("people.json").exists(), "not in the storage folder");
 }

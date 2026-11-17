@@ -184,7 +184,7 @@ impl SettingsHost {
             async move {
                 let Some(folder) = pick().await else { return Ok(Value::Nil) };
                 // A folder the store can't open is refused before it is kept.
-                if let Err(error) = Store::open(&folder) {
+                if let Err(error) = Store::open_with_people(&folder, &h.people_file()) {
                     h.refuse("storage", &error.to_string());
                     return Ok(Value::Nil);
                 }
@@ -194,6 +194,11 @@ impl SettingsHost {
             }
         });
         host
+    }
+
+    /// Where the known people are kept: Recap's home, beside settings.json.
+    pub fn people_file(&self) -> PathBuf {
+        self.0.path.with_file_name(recap_storage::PEOPLE)
     }
 
     /// The settings now.
@@ -264,7 +269,7 @@ impl SettingsHost {
             let moved = old.storage_folder != new.storage_folder;
             if moved {
                 let root = new.meetings_root(&home);
-                match Store::open(&root) {
+                match Store::open_with_people(&root, &home.join(recap_storage::PEOPLE)) {
                     Ok(store) => host.set_store(Some(store)),
                     Err(error) => {
                         if let Some(me) = me.upgrade() {

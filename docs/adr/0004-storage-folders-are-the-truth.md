@@ -39,6 +39,13 @@ and Home's actions (rename, delete, recover, search, export).
   only in the database. A rebuild keeps them, but deleting `app.db` loses
   them. They're small, and Settings can rewrite them; give them files too if
   that turns out to matter.
+- *Amended (final review):* `people` mattered (the rename suggestions grow
+  from every meeting, also names a meeting no longer gives). They are kept in
+  `people.json` too, in Recap's home beside settings.json
+  (`Store::open_with_people`; `Store::open` keeps it in the store's root).
+  Every rename that names someone rewrites it if it changed, and a rebuild
+  reads it back before indexing the folders, so losing `app.db` loses no one.
+  `keyterms` and `settings` stay unused (settings.json holds both).
 - Search with several words needs every word to appear in one row (one
   segment, or the title and names). That's enough for #13 to start from.
 - Home's day groups are computed in Luau (local time). Luau's `os.time(table)`

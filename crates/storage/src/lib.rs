@@ -25,7 +25,9 @@
 //! [`Store::search`]. It is cheap to clone and shared across threads.
 //! [`Store::prune_audio`] applies audio retention. [`Store::rename_speaker`]
 //! names a voice; every name a meeting gives is a known person
-//! ([`Store::people`], the rename suggestions).
+//! ([`Store::people`], the rename suggestions), kept in `people.json` too
+//! ([`PEOPLE`]; the app keeps it beside settings.json) so a lost database
+//! loses none of them.
 //!
 //! The user's [`Settings`] live in `settings.json` in Recap's home folder
 //! (beside the store unless a storage folder moves the meetings away).
@@ -40,7 +42,7 @@ use recap_engine::Source;
 use serde::{Deserialize, Serialize};
 
 pub use settings::{GlossaryError, Hotkeys, MeetingAudio, Settings, Theme};
-pub use store::Store;
+pub use store::{PEOPLE, Store};
 
 /// A meeting's id: its folder's name (when it started, UTC, `20261116-100000`).
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]

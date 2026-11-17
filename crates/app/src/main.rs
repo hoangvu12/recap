@@ -59,9 +59,10 @@ fn now_ms() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64)
 }
 
-/// The store in `root`, or none (Home stays empty) when it can't open.
-fn open_store(root: &Path, seed_it: bool) -> Option<Store> {
-    let store = Store::open(root).map_err(|error| eprintln!("recap: {}: {error}", root.display())).ok()?;
+/// The store in `root` (its known people in `people`), or none (Home stays
+/// empty) when it can't open.
+fn open_store(root: &Path, people: &Path, seed_it: bool) -> Option<Store> {
+    let store = Store::open_with_people(root, people).map_err(|error| eprintln!("recap: {}: {error}", root.display())).ok()?;
     if seed_it {
         match seed::test_meeting(&store, now_ms()) {
             Ok(info) => eprintln!("recap: seeded {} in {}", info.id, store.folder(&info.id).display()),
@@ -87,7 +88,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     .ok_or("no LOCALAPPDATA: set RECAP_DATA")?;
     let settings_path = home.join("settings.json");
     let settings = Settings::load(&settings_path).unwrap_or_default();
-    let store = open_store(&settings.meetings_root(&home), flag("--seed"));
+    let store = open_store(&settings.meetings_root(&home), &home.join(recap_storage::PEOPLE), flag("--seed"));
     let open_settings = flag("--settings");
     let providers =
         Providers::open(Registry::builtin(), Some(home.join("providers.json")), std::sync::Arc::new(Keyring::new()));
