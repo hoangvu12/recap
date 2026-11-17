@@ -45,8 +45,8 @@ pub use fallback::{Fallback, FallbackNotice};
 pub use live_capture::{CaptureError, LiveCapture, microphones};
 pub use live_meeting::{Meeting, MeetingConfig, MeetingControl};
 pub use provider::{
-    AUTO_LANGUAGE, BatchRequest, BatchStt, BatchTranscript, BoxFuture, Capabilities, LiveEvent, LiveOptions, LiveStatus,
-    LiveStt, Llm, ProviderError, ProviderErrorKind, Word, language_code,
+    AUTO_LANGUAGE, BatchRequest, BatchStt, BatchTranscript, BoxFuture, Capabilities, LiveEvent, LiveOptions,
+    LiveStatus, LiveStt, Llm, ProviderError, ProviderErrorKind, Word, language_code,
 };
 pub use recorder::{Recorder, Recording};
 pub use refine::Turn;

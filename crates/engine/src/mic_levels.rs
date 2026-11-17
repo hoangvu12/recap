@@ -29,6 +29,10 @@ pub const MARGIN_DB: f32 = 12.0;
 pub const ABOVE_FLOOR_DB: f32 = 8.0;
 /// A Me segment holding less of mine than this is an echo, ms.
 pub const MINE_MS: u64 = 300;
+/// ...or less than this share of it: a long echo row picks up a few loud
+/// frames (a cough, a word said over Them), and someone speaking fills far
+/// more of their own line (60% and more, measured).
+pub const MINE_SHARE: f64 = 0.2;
 /// Them counts as speaking above this, dBFS.
 const THEM_SPEAKING_DB: f32 = -50.0;
 /// The gain the threshold sits at, clamped: never so strict that speaking
@@ -178,12 +182,13 @@ impl MicLevels {
     }
 
     /// Whether the mic, over `start_ms..end_ms`, only heard the meeting
-    /// audio: Them spoke then, and the mic was never clearly above it.
-    /// Levels unknown there, or Them quiet (nothing to echo), say no.
+    /// audio: Them spoke then, and the mic was hardly ever clearly above it
+    /// (less than [`MINE_MS`], or than [`MINE_SHARE`] of the line). Levels
+    /// unknown there, or Them quiet (nothing to echo), say no.
     pub fn is_echo(&self, start_ms: u64, end_ms: u64) -> bool {
         let them_spoke = Self::frames(start_ms, end_ms).any(|i| self.them_peak(i) > THEM_SPEAKING_DB);
         let (mine, known) = self.mine_ms(start_ms, end_ms);
-        them_spoke && known >= MINE_MS && mine < MINE_MS
+        them_spoke && known >= MINE_MS && (mine < MINE_MS || (mine as f64) < MINE_SHARE * known as f64)
     }
 }
 
@@ -248,6 +253,24 @@ mod tests {
         assert!(levels.is_echo(61_000, 61_500), "an echo burst louder than usual");
     }
 
+    // Seen in a real call: a 34 s Me row of echo held 0.6 s of loud frames.
+    #[test]
+    fn a_long_echo_row_with_a_few_loud_frames_is_still_echo() {
+        let mut frames = Vec::new();
+        for i in 0..400 {
+            frames.push(if i % 40 < 30 { (-58.0, -32.0) } else { (-64.0, -75.0) });
+        }
+        // Over 30 s of Them, the mic is clearly up for 600 ms (a cough).
+        for frame in &mut frames[100..106] {
+            *frame = (-36.0, -32.0);
+        }
+        let levels = meeting(&frames);
+        assert_eq!(levels.mine_ms(5_000, 35_000).0, 600);
+        assert!(levels.is_echo(5_000, 35_000));
+        // The same 600 ms as a short line of its own is the user.
+        assert!(!levels.is_echo(9_900, 10_700));
+    }
+
     #[test]
     fn me_speaking_is_not_echo() {
         // Alone (Them quiet), over Them, and quietly over Them.
@@ -271,7 +294,8 @@ mod tests {
     fn the_two_sides_alike_is_no_reason_to_drop() {
         // The test WAV: both channels the same audio. Levels can't tell;
         // the text rule does (crate::echo).
-        let frames: Vec<(f32, f32)> = (0..300).map(|i| if i % 40 < 30 { (-30.0, -30.0) } else { (-90.0, -90.0) }).collect();
+        let frames: Vec<(f32, f32)> =
+            (0..300).map(|i| if i % 40 < 30 { (-30.0, -30.0) } else { (-90.0, -90.0) }).collect();
         let levels = meeting(&frames);
         assert!(!levels.is_echo(1_000, 2_000));
     }
@@ -285,12 +309,11 @@ mod tests {
 
     #[test]
     fn a_recording_gives_the_same_levels_as_its_frames() {
-        let frames: Vec<(f32, f32)> = (0..200).map(|i| if i % 40 < 30 { (-58.0, -32.0) } else { (-64.0, -75.0) }).collect();
+        let frames: Vec<(f32, f32)> =
+            (0..200).map(|i| if i % 40 < 30 { (-58.0, -32.0) } else { (-64.0, -75.0) }).collect();
         let live = meeting(&frames);
-        let (me, them): (Vec<i16>, Vec<i16>) = frames
-            .iter()
-            .flat_map(|&(m, t)| tone(m).into_iter().zip(tone(t)))
-            .unzip();
+        let (me, them): (Vec<i16>, Vec<i16>) =
+            frames.iter().flat_map(|&(m, t)| tone(m).into_iter().zip(tone(t))).unzip();
         let recorded = MicLevels::from_recording(&me, &them);
         assert_eq!(recorded.threshold_db(), live.threshold_db());
         assert_eq!(recorded.mine_ms(0, 20_000), live.mine_ms(0, 20_000));

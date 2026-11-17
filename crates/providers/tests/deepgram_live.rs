@@ -134,8 +134,7 @@ async fn a_language_option_is_passed_on() {
 #[tokio::test]
 async fn language_auto_is_multi() {
     let server = FakeListen::start(vec![vec![Step::AwaitText("CloseStream"), Step::Close(1000, "")]]).await;
-    let session =
-        start(&client(config(&server.base)), LiveOptions { keyterms: vec![], language: Some("auto".into()) });
+    let session = start(&client(config(&server.base)), LiveOptions { keyterms: vec![], language: Some("auto".into()) });
     session.send([frame(0, 0)]);
     let _ = session.finish().await;
     assert_eq!(server.conns()[0].query("language"), ["multi"]);

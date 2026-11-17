@@ -104,8 +104,10 @@ async fn out_of_elevenlabs_quota_the_transcript_comes_from_deepgram() {
         Some(deepgram("ws://127.0.0.1:9", &deepgram_api.base) as Arc<dyn BatchStt>),
     )
     .on_switch(on_switch);
-    let transcript =
-        job.transcribe(BatchRequest { samples: vec![0; 16_000], diarize: true, keyterms: vec![], language: None }).await.unwrap();
+    let transcript = job
+        .transcribe(BatchRequest { samples: vec![0; 16_000], diarize: true, keyterms: vec![], language: None })
+        .await
+        .unwrap();
     assert_eq!(transcript.words.len(), 102);
     assert_eq!(transcript.words[0].speaker.as_deref(), Some("S1"));
     let told = seen.lock().unwrap().clone();

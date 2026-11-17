@@ -14,8 +14,12 @@ fn main() {
         std::process::exit(2);
     };
     let rec = Recording::read(std::path::Path::new(&input)).expect("it decodes");
-    let spec =
-        hound::WavSpec { channels: 2, sample_rate: SAMPLE_RATE, bits_per_sample: 16, sample_format: hound::SampleFormat::Int };
+    let spec = hound::WavSpec {
+        channels: 2,
+        sample_rate: SAMPLE_RATE,
+        bits_per_sample: 16,
+        sample_format: hound::SampleFormat::Int,
+    };
     let mut wav = hound::WavWriter::create(&output, spec).expect("the WAV opens");
     let n = rec.me.len().max(rec.them.len());
     for i in 0..n {

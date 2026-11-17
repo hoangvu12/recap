@@ -202,7 +202,8 @@ impl Host {
         });
         let stopper = host.clone();
         host.script.action("stop", move |_| stopper.stop());
-        for (name, act) in [("pause", MeetingControl::pause as fn(&MeetingControl)), ("resume", MeetingControl::resume)] {
+        for (name, act) in [("pause", MeetingControl::pause as fn(&MeetingControl)), ("resume", MeetingControl::resume)]
+        {
             let control = host.control.clone();
             host.script.action(name, move |_| {
                 if let Some(control) = &*control.borrow() {

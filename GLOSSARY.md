@@ -21,5 +21,8 @@
 | **Overlay** | The always-on-top caption bar. Always dark, hidden from screen capture. | HUD, subtitle window |
 | **Notes window** | The side panel with the Notes / Transcript / Summary tabs. | main window |
 | **Home** | The meetings list window (Raycast list + detail). | library |
-| **Echo dedup** | Dropping mic segments that repeat system text (±1.75 s, similarity ≥ 0.85). | |
+| **Echo dedup** | Dropping mic segments that are the meeting audio heard back: by level (the mic was barely above the speaker bleed while Them spoke, ADR 0021) or by text (they repeat system text, ±1.75 s, similarity ≥ 0.85). | |
+| **Bleed** | Meeting audio picked up by the mic from the speakers. Measured as the mic's level relative to Them's. | crosstalk |
+| **Meeting language** | The language setting sent to the STT providers. **Auto** lets the provider detect it, including switches mid-call (ADR 0022). | locale |
+| **Click-through** | The overlay letting the pointer pass to the window under it. Reset off for every new meeting (ADR 0020). | ghost mode |
 | **Recover** | Reprocessing a meeting whose recording exists but which never finished processing (crash, killed app). | |
