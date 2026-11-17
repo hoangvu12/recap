@@ -4,9 +4,11 @@ Recap is a meeting notetaker for Windows. During a call it shows live captions o
 
 It works with any call app (Teams, Zoom, Meet in a browser). Nothing joins the call. Recap records your mic and the meeting audio on your own PC.
 
-![Home](docs/screenshots/home.jpg)
+![Recap on the desktop: Home, the Notes window, and the caption bar](docs/screenshots/desktop.jpg)
 
 ## Screenshots
+
+![Home](docs/screenshots/home.jpg)
 
 Live captions. Grey words may still change, and white words are final. Screen sharing doesn't show the bar.
 
