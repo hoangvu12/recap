@@ -22,6 +22,7 @@ fn without_a_file_the_defaults_show() {
     assert_eq!(s.theme, Theme::System);
     assert_eq!(s.caption_size, 20);
     assert!(s.partial_text && s.hide_from_share && s.suggest_on_call);
+    assert!(s.captions_on_start, "the caption bar opens with a meeting, as it always did");
     assert!(!s.caption_my_speech && !s.autostart);
     assert_eq!(s.meeting_audio, MeetingAudio::System);
     assert_eq!(s.hotkeys.start_notes, "Ctrl+Alt+N");

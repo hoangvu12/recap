@@ -236,6 +236,30 @@ test("hovering shows the toolbar after a moment", function()
 	expect(win:has("#overlay-toolbar")).to_be(true)
 end)
 
+test("the x hides the caption bar and the meeting goes on", function()
+	local app = mount()
+	local win = overlay(app, TWO)
+	-- There without hovering, and named.
+	expect(win:has("#overlay-close")).to_be(true)
+	expect(string.match(win:tree("#overlay-close"), '"([^"]+)"')).to_be("Hide captions")
+	local calls = #(app:state("calls") or {})
+	win:click("#overlay-close")
+	expect(app:state("window.overlay")).to_be(false)
+	-- No stop or pause asked for.
+	expect(#(app:state("calls") or {})).to_be(calls)
+end)
+
+test("the toolbar sits beside the x, not over it", function()
+	local app = mount()
+	local win = overlay(app, TWO)
+	win:hover("#captions")
+	app:frames(20)
+	expect(win:has("#overlay-toolbar")).to_be(true)
+	-- A click lands where a person's would: it fails if the toolbar covers it.
+	win:click("#overlay-close")
+	expect(app:state("window.overlay")).to_be(false)
+end)
+
 local function toolbar(app, opts)
 	local win = overlay(app, TWO, opts)
 	win:hover("#captions")

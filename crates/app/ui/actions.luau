@@ -198,6 +198,17 @@ function M.open_notes()
 	host.invoke("open_notes")
 end
 
+-- Hide the caption bar (its ✕); the meeting goes on. Notes' Captions
+-- button, or its hotkey, shows it again. ADR 0024.
+function M.hide_captions()
+	host.windows.overlay:set(false)
+end
+
+-- Show the caption bar, or hide it (Notes' Captions button, while live).
+function M.toggle_captions()
+	host.windows.overlay:set(not host.windows.overlay:peek())
+end
+
 -- Caption text `delta` points larger (−/+ in the overlay's toolbar), within
 -- Settings' 14–40.
 function M.caption_size(delta: number)

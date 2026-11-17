@@ -1,5 +1,6 @@
 --!strict
--- The Notes window (screens/2 "Notes live"): header with the tabs, the tab's
+-- The Notes window (screens/2 "Notes live"): the title strip with the
+-- window's buttons, header with the tabs, the tab's
 -- content, the footer action bar.
 local state = require("@app/state")
 local host = require("@app/host")
@@ -9,6 +10,7 @@ local meeting_actions = require("@lib/meeting_actions")
 local ConfirmDelete = require("@components/confirm_delete")
 local Hud = require("@components/hud")
 local Announce = require("@components/announce")
+local TitleBar = require("@components/title_bar")
 local Header = require("@self/header")
 local Footer = require("@self/footer")
 local Transcript = require("@self/transcript")
@@ -83,6 +85,7 @@ return function(): Node
 			end
 			return false
 		end,
+		TitleBar { id = "notes-titlebar", title = "Recap" },
 		Header(),
 		ui.switch(state.notes_tab, {
 			notes = MyNotes(),

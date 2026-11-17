@@ -13,6 +13,7 @@ local function settings(over)
 		theme = "system",
 		autostart = false,
 		language = "auto",
+		captions_on_start = true,
 		caption_my_speech = false,
 		caption_size = 20,
 		caption_lines = 2,
@@ -80,6 +81,14 @@ test("a switch asks the host to flip its setting", function()
 	expect(last_call(app)).to_equal({ name = "set_settings", arg = { partial_text = false } })
 	win:click("#set-caption_my_speech")
 	expect(last_call(app)).to_equal({ name = "set_settings", arg = { caption_my_speech = true } })
+end)
+
+test("a switch says whether the caption bar opens as a meeting starts", function()
+	local app = mount()
+	local win = open(app, "captions")
+	expect(win:text("#set-captions_on_start-state")).to_be("on")
+	win:click("#set-captions_on_start")
+	expect(last_call(app)).to_equal({ name = "set_settings", arg = { captions_on_start = false } })
 end)
 
 test("caption size and lines step within their range", function()

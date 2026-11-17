@@ -73,7 +73,8 @@ return function(): Node
 		window_drag = true,
 		ui.column {
 			px = 16,
-			pt = 12,
+			-- Under the title strip (components/title_bar).
+			pt = 4,
 			gap = 4,
 			ui.row {
 				w_full = true,

@@ -1,5 +1,6 @@
 --!strict
--- Home (screens/7 "Home · meetings"): the search header, the meetings list
+-- Home (screens/7 "Home · meetings"): the title strip with the window's
+-- buttons, the search header, the meetings list
 -- beside the selected meeting's detail, the footer action bar.
 -- ↑/↓ select, Enter (or a double click) opens the meeting in the Notes
 -- window, read mode.
@@ -15,6 +16,7 @@ local ActionPanel = require("@components/action_panel")
 local ConfirmDelete = require("@components/confirm_delete")
 local Hud = require("@components/hud")
 local Announce = require("@components/announce")
+local TitleBar = require("@components/title_bar")
 local List = require("@self/list")
 local Detail = require("@self/detail")
 
@@ -170,6 +172,7 @@ return function(): Node
 			end
 			return false
 		end,
+		TitleBar { id = "home-titlebar", title = "Recap" },
 		Header(),
 		ui.div { h = 1, w_full = true, shrink = 0, bg = "$rc.stroke.hairline" },
 		ui.row {

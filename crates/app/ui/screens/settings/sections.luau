@@ -139,7 +139,8 @@ end
 -- `lines`: the Captions page also sets how many lines the overlay shows.
 function M.Captions(lines: boolean): Node
 	local rows: { Node } = {
-		SwitchRow("Caption my own speech", "caption_my_speech", true),
+		SwitchRow("Show captions when a meeting starts", "captions_on_start", true),
+		SwitchRow("Caption my own speech", "caption_my_speech"),
 		Labelled {
 			label = "Caption size",
 			control = Stepper {

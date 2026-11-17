@@ -11,7 +11,8 @@
 -- - paused: the last line dimmed, then "Paused" and the resume hotkey.
 -- No new words for 8 s: the text dims (400 ms), undimmed at once by the
 -- next. A new turn or a wrap shifts the lines up (150 ms); a partial
--- revised in place doesn't. Hovering 150 ms shows the toolbar.
+-- revised in place doesn't. Hovering 150 ms shows the toolbar. ✕ at the
+-- top right hides the bar; the meeting goes on.
 --
 -- Caption size, lines, partial text and my lines come from Settings, live.
 local host = require("@app/host")
@@ -31,6 +32,8 @@ local PARTIAL = "#FFFFFF8C"
 local IDLE_MS = 8000
 local IDLE_OPACITY = 0.5
 local IDLE_FADE_MS = 400
+-- The ✕'s size (points square).
+local CLOSE = 28
 
 local function text_size(): number
 	return host.settings:get().caption_size
@@ -277,7 +280,29 @@ local function Toolbar(): Node
 			duration = motion.fast_in,
 			ease = motion.ease.outExpo,
 		})
-	end, { exit = motion.fast_out, box = { absolute = true, top = 8, right = 8 } })
+	end, { exit = motion.fast_out, box = { absolute = true, top = 8, right = 8 + CLOSE + 4 } })
+end
+
+-- ✕ at the top right, always there: hides the caption bar, the meeting goes
+-- on (ADR 0024). Not Windows' own buttons: the bar has no taskbar button,
+-- so a minimized one couldn't be brought back (ADR 0020).
+local function Close(): Node
+	return ui.row {
+		absolute = true,
+		-- Level with the toolbar's buttons (its top 8, padding 4).
+		top = 12,
+		right = 8,
+		IconButton {
+			id = "overlay-close",
+			icon = "close",
+			label = "Hide captions",
+			size = CLOSE,
+			icon_size = 14,
+			color = "$rc.text.tertiary",
+			on_click = actions.hide_captions,
+			inline_tip = true,
+		},
+	}
 end
 
 return function(): Node
@@ -502,6 +527,7 @@ return function(): Node
 			return m == "reconnecting" or m == "paused"
 		end, ui.div { id = "captions-dimmed", w = 0, h = 0, aria_hidden = true }),
 		Toolbar(),
+		Close(),
 		-- Said to screen readers, not shown: losing the connection, and
 		-- what failed (urgent).
 		Announce {

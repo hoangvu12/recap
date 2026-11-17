@@ -229,7 +229,9 @@ return function(): Node
 		ui.row {
 			w_full = true,
 			h = 56,
-			px = 16,
+			pl = 16,
+			-- Clear of Windows' minimize, maximize and close (components/title_bar).
+			pr = 138,
 			shrink = 0,
 			items = "center",
 			window_drag = true,

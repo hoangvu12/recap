@@ -27,19 +27,21 @@ pub fn root() -> WindowOptions {
 /// The native options of window `id`, around what Luau declared.
 pub fn options(id: &str, title: &str, width: f64, height: f64, frame_autosave: Option<String>) -> WindowOptions {
     let base = WindowOptions { title: title.into(), width, height, frame_autosave, ..Default::default() };
+    // Every window a person works in has Windows' minimize, maximize and
+    // close over its top right (`Inset`), its own title strip under them
+    // (ui/components/title_bar.luau). ADR 0024.
     match id {
-        // A Raycast-like panel: no title bar (its header moves it).
-        "notes" => WindowOptions { titlebar: Titlebar::Hidden, min_size: Some((360., 480.)), ..base },
-        // The meetings list: a Raycast window, its search header moves it.
-        "home" => WindowOptions { titlebar: Titlebar::Hidden, min_size: Some((640., 400.)), ..base },
-        // Settings (screens/8): its own "‹ › Settings" strip, Windows'
-        // caption buttons over its top right.
+        "notes" => WindowOptions { titlebar: Titlebar::Inset, min_size: Some((360., 480.)), ..base },
+        "home" => WindowOptions { titlebar: Titlebar::Inset, min_size: Some((640., 400.)), ..base },
+        // Settings (screens/8): its own "‹ › Settings" strip.
         "settings" => WindowOptions { titlebar: Titlebar::Inset, min_size: Some((680., 480.)), ..base },
-        // The Name speakers dialog (screens/6): frameless, its header moves it.
-        "speakers" => WindowOptions { titlebar: Titlebar::Hidden, min_size: Some((420., 360.)), ..base },
+        // The Name speakers dialog (screens/6): its header under the buttons.
+        "speakers" => WindowOptions { titlebar: Titlebar::Inset, min_size: Some((420., 360.)), ..base },
         // Captions over the call: frameless and above every window. Opened
         // hidden: `overlay::OverlayHost::attach` makes it a tool window
-        // hidden from capture, then shows it.
+        // hidden from capture, then shows it. No caption buttons: a tool
+        // window has no taskbar button, so a minimized one would be lost
+        // (ADR 0020); its own ✕ hides it (ADR 0024).
         "overlay" => WindowOptions {
             titlebar: Titlebar::Hidden,
             level: WindowLevel::AlwaysOnTop,
@@ -233,17 +235,17 @@ mod tests {
     }
 
     #[test]
-    fn notes_is_a_frameless_panel_that_stays_readable() {
+    fn notes_has_the_window_buttons_and_stays_readable() {
         let o = options("notes", "Recap", 420., 900., None);
-        assert_eq!(o.titlebar, Titlebar::Hidden);
+        assert_eq!(o.titlebar, Titlebar::Inset);
         assert_eq!(o.level, WindowLevel::Normal);
         assert_eq!(o.min_size, Some((360., 480.)));
     }
 
     #[test]
-    fn home_is_a_frameless_window_wide_enough_for_list_and_detail() {
+    fn home_has_the_window_buttons_and_room_for_list_and_detail() {
         let o = options("home", "Recap", 860., 600., Some("home".into()));
-        assert_eq!(o.titlebar, Titlebar::Hidden);
+        assert_eq!(o.titlebar, Titlebar::Inset);
         assert_eq!(o.level, WindowLevel::Normal);
         assert_eq!(o.min_size, Some((640., 400.)));
     }
@@ -256,9 +258,9 @@ mod tests {
     }
 
     #[test]
-    fn name_speakers_is_a_frameless_dialog() {
+    fn name_speakers_has_the_window_buttons() {
         let o = options("speakers", "Name speakers", 480., 620., Some("speakers".into()));
-        assert_eq!(o.titlebar, Titlebar::Hidden);
+        assert_eq!(o.titlebar, Titlebar::Inset);
         assert_eq!(o.level, WindowLevel::Normal);
         assert_eq!(o.min_size, Some((420., 360.)));
     }

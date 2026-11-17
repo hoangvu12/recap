@@ -127,6 +127,9 @@ pub struct Settings {
     pub language: String,
 
     // Captions (the overlay, #8)
+    /// Open the caption bar as a meeting starts; off, Notes' Captions
+    /// button (or its hotkey) opens it. ADR 0024.
+    pub captions_on_start: bool,
     /// Caption my own speech too (dimmed); a second live socket for Me.
     pub caption_my_speech: bool,
     /// The overlay's text size, px ([`Settings::CAPTION_SIZES`]).
@@ -166,6 +169,7 @@ impl Default for Settings {
             theme: Theme::System,
             autostart: false,
             language: AUTO_LANGUAGE.to_owned(),
+            captions_on_start: true,
             caption_my_speech: false,
             caption_size: 20,
             caption_lines: 2,

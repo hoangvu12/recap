@@ -206,7 +206,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             if let Some(note) = note {
                                 host.notice(&note);
                             }
-                            host.open_window("overlay");
+                            if settings.captions_on_start {
+                                host.open_window("overlay");
+                            }
                         }
                         Err(error) => host.notice(&format!("Can't start: {error}")),
                     }

@@ -281,6 +281,8 @@ export type Settings = {
 	autostart: boolean,
 	-- What meetings are spoken in: "auto" (detected), or a code ("en", "vi").
 	language: string,
+	-- The caption bar opens as a meeting starts.
+	captions_on_start: boolean,
 	caption_my_speech: boolean,
 	caption_size: number,
 	caption_lines: number,
@@ -370,6 +372,7 @@ M.settings = ui.shared("settings", {
 	theme = "system",
 	autostart = false,
 	language = "auto",
+	captions_on_start = true,
 	caption_my_speech = false,
 	caption_size = 20,
 	caption_lines = 2,

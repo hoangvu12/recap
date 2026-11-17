@@ -1,7 +1,7 @@
 --!strict
 -- The Notes window's footer action bar (DESIGN §9.3): the rec dot and the
 -- timer on the left; the primary action with ↵ and "Actions Ctrl K" on the
--- right.
+-- right. While live, the Captions button before Stop.
 local host = require("@app/host")
 local actions = require("@app/actions")
 local state = require("@app/state")
@@ -9,6 +9,7 @@ local format = require("@lib/format")
 local processing = require("@lib/processing")
 local RecDot = require("@components/rec_dot")
 local Button = require("@components/button")
+local IconButton = require("@components/icon_button")
 local ActionPanel = require("@components/action_panel")
 
 -- The footer's labels are regular weight (Home's are 500).
@@ -16,6 +17,26 @@ local WEIGHT = 400
 
 local function Divider(): Node
 	return ui.div { w = 1, h = 16, mx = 4, bg = "$rc.stroke.hairline" }
+end
+
+-- Shows or hides the caption bar while live; highlighted while it shows
+-- (ADR 0024). `hotkey` ("Ctrl+Alt+O", "" for none) follows its name in the
+-- tooltip.
+local function CaptionsToggle(hotkey: string): Node
+	local keys: { string } = {}
+	for key in string.gmatch(hotkey, "[^+]+") do
+		table.insert(keys, key)
+	end
+	return IconButton {
+		id = "captions-toggle",
+		icon = "captions",
+		label = "Captions",
+		keys = keys,
+		on = function()
+			return host.windows.overlay:get()
+		end,
+		on_click = actions.toggle_captions,
+	}
 end
 
 return function(): Node
@@ -86,6 +107,13 @@ return function(): Node
 				ui.row {
 					items = "center",
 					gap = 4,
+					-- The caption bar, shown or hidden; highlighted while it
+					-- shows (ADR 0024).
+					-- Built again when its hotkey changes (the tooltip shows it).
+					ui.presence(function()
+						return host.settings:get().hotkeys.captions
+					end, CaptionsToggle),
+					Divider(),
 					ui.show(
 						paused,
 						Button { id = "resume", label = "Resume", keys = { "↵" }, weight = WEIGHT, on_click = actions.toggle_pause }
