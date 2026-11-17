@@ -47,6 +47,20 @@ test("after Stop the card shows the three steps over the live transcript", funct
 	expect(win:has("#processing-error")).to_be(false)
 end)
 
+-- Seen in the real app: Summary was clickable at once after Stop, onto an
+-- empty summary (screens/16 has it dimmed while the card works).
+test("the Summary tab waits while the card works, and opens once it failed or is done", function()
+	local app = mount()
+	local win = stopped(app, steps("running", "pending", "pending"))
+	local function dimmed()
+		return string.find(string.split(win:tree("#tab-summary"), "\n")[1], "disabled", 1, true) ~= nil
+	end
+	expect(dimmed()).to_be(true)
+	app:set_state("processing", steps("error", "pending", "pending", "ElevenLabs has no API key"))
+	app:frames(2)
+	expect(dimmed()).to_be(false)
+end)
+
 test("a done step turns into a check with the time it took", function()
 	local app = mount()
 	local win = stopped(app, steps("running", "pending", "pending"))
@@ -121,6 +135,23 @@ test("once every step is done the card goes and the refined transcript shows its
 	expect(win:wait("#row-1", { text = "Speaker 1" })).to_be(true)
 	expect(win:text("#row-2")).to_be("Speaker 2")
 	expect(win:has("#hide")).to_be(false)
+end)
+
+-- Seen in the real app: the host sends every step done, then clears the
+-- steps at once; the card stayed for good, its rows blank.
+test("all done then cleared at once: the card holds its three checks, then goes", function()
+	local app = mount()
+	local win = stopped(app, steps("done", "done", "running"))
+	app:set_state("processing", steps("done", "done", "done"))
+	app:frames(1)
+	app:set_state("processing", { id = "", steps = {} })
+	app:frames(2)
+	-- Holding: the checks and labels are still there.
+	expect(win:has("#processing")).to_be(true)
+	expect(win:text("#step-3-label")).to_be("Writing summary")
+	expect(win:has("#step-3-done")).to_be(true)
+	expect(win:wait("#processing", { gone = true })).to_be(true)
+	expect(app:state("processing_holding")).to_be(false)
 end)
 
 test("a live meeting has no card and no speakers header", function()

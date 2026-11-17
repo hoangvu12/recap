@@ -135,6 +135,19 @@ fn captions_show_and_hide_the_overlay() {
     assert_eq!(r.shared("window.overlay"), Value::Bool(false));
 }
 
+// Seen in the real app: the overlay stayed over the call after Stop.
+#[test]
+fn stopping_the_meeting_closes_the_overlay() {
+    let mut r = rig();
+    r.go_live();
+    r.host.open_window("overlay");
+    r.host.open_window("notes");
+    r.commands.run(Command::ToggleNotes);
+    assert!(r.until(|r| !r.host.is_live()), "stopped");
+    assert_eq!(r.shared("window.overlay"), Value::Bool(false));
+    assert_eq!(r.shared("window.notes"), Value::Bool(true), "Notes stays for processing");
+}
+
 #[test]
 fn click_through_flips_the_overlay_it_is_given() {
     let r = rig();

@@ -312,6 +312,8 @@ return function(): Node
 		local s = state.caption_shift:peek()
 		state.caption_shift:set({ px = px, count = s.count + 1 })
 	end
+	-- The captions' room under the timer (px), once laid out.
+	local room = ui.state("captions_room", 0)
 	local newest: number? = nil
 	local turned = false
 	local height: number? = nil
@@ -396,34 +398,54 @@ return function(): Node
 			basis = 0,
 			justify = "end",
 			overflow = "clip",
+			on_resize = function(size)
+				room:set(size.h)
+			end,
+			-- Whole lines only: the room cut to a multiple of the line
+			-- height, so the line running out of the top goes at once
+			-- rather than show cut through (seen in the real app).
 			ui.column {
-				id = "captions-block",
+				id = "captions-room",
 				w_full = true,
-				-- Idle: dims to 50% over 400 ms (reduced motion: at once).
-				opacity = motion.tween(state.captions_idle, { from = 1, to = IDLE_OPACITY, duration = IDLE_FADE_MS }),
 				shrink = 0,
-				on_resize = function(size)
-					local before = height
-					height = size.h
-					if turned or before == nil then
-						return
+				justify = "end",
+				overflow = "clip",
+				h = function(): number?
+					local h = room:get()
+					if h <= 0 then
+						return nil
 					end
-					if size.h > before + 2 then
-						shift(size.h - before)
-					end
+					return math.max(1, math.floor(h / line_height()) * line_height())
 				end,
-				ui.show(function()
-					return mode() == "reconnecting"
-				end, reconnecting()),
-				line(2),
-				line(1),
-				line(0),
-				ui.show(function()
-					return mode() == "paused"
-				end, paused()),
-				ui.show(function()
-					return mode() == "error"
-				end, failed()),
+				ui.column {
+					id = "captions-block",
+					w_full = true,
+					-- Idle: dims to 50% over 400 ms (reduced motion: at once).
+					opacity = motion.tween(state.captions_idle, { from = 1, to = IDLE_OPACITY, duration = IDLE_FADE_MS }),
+					shrink = 0,
+					on_resize = function(size)
+						local before = height
+						height = size.h
+						if turned or before == nil then
+							return
+						end
+						if size.h > before + 2 then
+							shift(size.h - before)
+						end
+					end,
+					ui.show(function()
+						return mode() == "reconnecting"
+					end, reconnecting()),
+					line(2),
+					line(1),
+					line(0),
+					ui.show(function()
+						return mode() == "paused"
+					end, paused()),
+					ui.show(function()
+						return mode() == "error"
+					end, failed()),
+				},
 			},
 		},
 		-- Markers tests read: idle-dimmed, and dimmed by a status.

@@ -5,15 +5,23 @@ local host = require("@app/host")
 local state = require("@app/state")
 local actions = require("@app/actions")
 local format = require("@lib/format")
+local processing = require("@lib/processing")
 local Icon = require("@components/icon")
 
 local function tab(id: state.NotesTab, label: string): Node
 	local selected = function()
 		return state.notes_tab:get() == id
 	end
-	-- Summary waits for the meeting to be processed.
+	-- Summary waits for the meeting to be processed (screens/16: dimmed
+	-- while the card works, unless a summary is already there).
 	local disabled = function()
-		return id == "summary" and host.meeting:get().state ~= "stopped"
+		if id ~= "summary" then
+			return false
+		end
+		if host.meeting:get().state ~= "stopped" then
+			return true
+		end
+		return processing.working(host.processing:get()) and host.summary:get().id == ""
 	end
 	return ui.button {
 		id = `tab-{id}`,

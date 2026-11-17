@@ -14,8 +14,19 @@ local STEPS = 3
 -- All done: how long the three ✓ stay before the card goes.
 local HOLD_MS = 400
 
+-- The steps shown: the host's, kept through the hold after it clears them
+-- (else the three ✓ blank out as the card goes).
+local last: host.Processing = { id = "", steps = {} }
+local shown = ui.computed(function(): host.Processing
+	local p = host.processing:get()
+	if #p.steps > 0 then
+		last = p
+	end
+	return last
+end)
+
 local function step(i: number): host.Step?
-	return host.processing:get().steps[i]
+	return shown:get().steps[i]
 end
 
 local function StepRow(i: number): Node
@@ -163,22 +174,26 @@ end
 -- All done: the card holds 400 ms on the three ✓, then fades out over
 -- 150 ms. (Both tabs' cards follow the one state.)
 local holding = ui.state("processing_holding", false)
-local was_active = false
-ui.effect(function()
-	local p = host.processing:get()
-	local active = processing.active(p)
-	if was_active and not active and #p.steps > 0 then
-		holding:set(true)
-		ui.after(HOLD_MS, function()
-			holding:set(false)
-		end)
-	elseif active then
-		holding:set(false)
-	end
-	was_active = active
-end)
 
 return function(): Node
+	-- A timer started in an effect belongs to that run: the effect running
+	-- again stops it. The host clears `processing` right after the last
+	-- step, so the hold's timer was stopped at once and an empty card stayed
+	-- (seen in the real app). So every run while holding starts it again.
+	local was_active = processing.active(host.processing:peek())
+	ui.effect(function()
+		local p = host.processing:get()
+		local active = processing.active(p)
+		if active then
+			holding:set(false)
+		elseif (was_active and #p.steps > 0) or holding:peek() then
+			holding:set(true)
+			ui.after(HOLD_MS, function()
+				holding:set(false)
+			end)
+		end
+		was_active = active
+	end)
 	return motion.Presence(function(): boolean
 		return processing.active(host.processing:get()) or holding:get()
 	end, function()

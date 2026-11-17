@@ -115,7 +115,7 @@ return function(): Node
 							return not paused()
 						end, Keycap("↵")),
 					},
-					ui.div { w = 1, h = 16, mx = 4, bg = "$rc.stroke.hairline" },
+					-- No divider after: Actions doesn't show while live.
 				}
 			),
 			-- After Stop (screens/3a, 3b): Hide Esc while it processes, Retry ↵
@@ -191,15 +191,24 @@ return function(): Node
 					ui.div { w = 1, h = 16, mx = 4, bg = "$rc.stroke.hairline" },
 				}
 			),
-			bare_button {
-				id = "actions",
-				label = "Actions",
-				color = "$rc.text.secondary",
-				on_click = function()
-					actions.toggle_actions("notes")
+			-- The panel acts on a stored meeting: while live it has nothing
+			-- to offer, so Actions shows once the meeting is stopped (seen
+			-- in the real app: a live Actions that did nothing).
+			ui.show(
+				function()
+					local m = host.meeting:get()
+					return m.state == "stopped" and (m.id or "") ~= ""
 				end,
-				ui.row { id = "actions-keys", gap = 4, Keycap("Ctrl"), Keycap("K") },
-			},
+				bare_button {
+					id = "actions",
+					label = "Actions",
+					color = "$rc.text.secondary",
+					on_click = function()
+						actions.toggle_actions("notes")
+					end,
+					ui.row { id = "actions-keys", gap = 4, Keycap("Ctrl"), Keycap("K") },
+				}
+			),
 		},
 	}
 end

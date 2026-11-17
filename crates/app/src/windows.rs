@@ -9,7 +9,7 @@
 
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use zgx_desktop::{Titlebar, WindowContext, WindowHandle, WindowLevel, WindowOptions};
+use zgx_desktop::{Titlebar, WindowBounds, WindowContext, WindowHandle, WindowLevel, WindowOptions};
 use zgx_script::{ScriptHost, Value};
 
 /// The hidden root window: it hosts the script and draws nothing.
@@ -49,6 +49,75 @@ pub fn options(id: &str, title: &str, width: f64, height: f64, frame_autosave: O
         },
         _ => base,
     }
+}
+
+/// A rectangle in physical desktop pixels (a display's work area).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Area {
+    pub x: i32,
+    pub y: i32,
+    pub w: i32,
+    pub h: i32,
+}
+
+/// The overlay's bottom edge above the work area's (logical): clear of a
+/// call's own controls, over its video (screens/14, 15).
+const OVERLAY_ABOVE: f64 = 160.;
+/// Notes' gap to the work area's edges (logical).
+const NOTES_GAP: f64 = 16.;
+
+/// Where window `id` (`width` × `height`, logical) first opens on work
+/// area `area` at `scale`, before it has a saved frame (a saved one wins):
+/// the overlay low in the middle, Notes down the right edge, kept within
+/// the area's height. Others: where Windows puts them (`None`).
+pub fn first_bounds(id: &str, width: f64, height: f64, area: Area, scale: f64) -> Option<WindowBounds> {
+    let px = |logical: f64| (logical * scale).round() as i32;
+    let (w, h) = (px(width).min(area.w), px(height));
+    match id {
+        "overlay" => {
+            let h = h.min(area.h);
+            let y = (area.y + area.h - h - px(OVERLAY_ABOVE)).max(area.y);
+            Some(WindowBounds::new(w as u32, h as u32).at(area.x + (area.w - w) / 2, y))
+        }
+        "notes" => {
+            let h = h.min(area.h - 2 * px(NOTES_GAP)).max(1);
+            let x = area.x + area.w - w - px(NOTES_GAP);
+            Some(WindowBounds::new(w as u32, h as u32).at(x.max(area.x), area.y + px(NOTES_GAP)))
+        }
+        _ => None,
+    }
+}
+
+/// The primary display's work area and scale, if Windows tells.
+#[cfg(windows)]
+pub fn work_area() -> Option<(Area, f64)> {
+    use windows::Win32::{
+        Foundation::RECT,
+        UI::{
+            HiDpi::GetDpiForSystem,
+            WindowsAndMessaging::{SPI_GETWORKAREA, SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS, SystemParametersInfoW},
+        },
+    };
+    let mut rect = RECT::default();
+    // SAFETY: SPI_GETWORKAREA writes one RECT into the pointer given.
+    unsafe {
+        SystemParametersInfoW(
+            SPI_GETWORKAREA,
+            0,
+            Some(std::ptr::from_mut(&mut rect).cast()),
+            SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS(0),
+        )
+    }
+    .ok()?;
+    // SAFETY: no arguments; the process is DPI aware (winit makes it so).
+    let dpi = unsafe { GetDpiForSystem() };
+    let area = Area { x: rect.left, y: rect.top, w: rect.right - rect.left, h: rect.bottom - rect.top };
+    (area.w > 0 && area.h > 0 && dpi > 0).then_some((area, f64::from(dpi) / 96.))
+}
+
+#[cfg(not(windows))]
+pub fn work_area() -> Option<(Area, f64)> {
+    None
 }
 
 /// When the app quits.
@@ -107,8 +176,13 @@ pub fn follow_into(
             any_wanted |= wanted;
             let shown = open.borrow().get(&window.id).is_some_and(|handle| !handle.is_closed());
             if wanted && !shown {
-                let options =
+                let mut options =
                     options(&window.id, &window.title, window.width, window.height, window.frame_autosave.clone());
+                // Seen in the real app: the overlay opened in the middle of
+                // the screen, over Home and Notes.
+                if let Some((area, scale)) = work_area() {
+                    options.bounds = first_bounds(&window.id, window.width, window.height, area, scale);
+                }
                 let (view_host, state, id, title) =
                     (host.clone(), window.open.clone(), window.id.clone(), window.title.clone());
                 let opened = opened.clone();
@@ -194,6 +268,37 @@ mod tests {
         let o = options("dialog", "Dialog", 640., 480., None);
         assert_eq!(o.titlebar, Titlebar::Standard);
         assert_eq!(o.level, WindowLevel::Normal);
+    }
+
+    // The laptop's: 1707 × 912 logical at 150%, the taskbar below.
+    const LAPTOP: Area = Area { x: 0, y: 0, w: 2560, h: 1368 };
+
+    #[test]
+    fn the_overlay_first_opens_low_in_the_middle_not_over_the_screen_centre() {
+        let b = first_bounds("overlay", 720., 120., LAPTOP, 1.5).unwrap();
+        assert_eq!(b.size, (1080, 180));
+        let (x, y) = b.position.unwrap();
+        assert_eq!(x, (2560 - 1080) / 2);
+        assert_eq!(y, 1368 - 180 - 240);
+    }
+
+    #[test]
+    fn notes_first_opens_down_the_right_edge_within_the_work_area() {
+        let b = first_bounds("notes", 420., 900., LAPTOP, 1.5).unwrap();
+        // 900 logical doesn't fit 912 less the gaps: it shrinks to fit.
+        assert_eq!(b.size, (630, 1368 - 48));
+        assert_eq!(b.position, Some((2560 - 630 - 24, 24)));
+        // On a big display it keeps its height.
+        let big = Area { x: -1920, y: 0, w: 1920, h: 1160 };
+        let b = first_bounds("notes", 420., 900., big, 1.).unwrap();
+        assert_eq!(b.size, (420, 900));
+        assert_eq!(b.position, Some((-1920 + 1920 - 420 - 16, 16)));
+    }
+
+    #[test]
+    fn other_windows_open_where_windows_puts_them() {
+        assert_eq!(first_bounds("home", 860., 600., LAPTOP, 1.5), None);
+        assert_eq!(first_bounds("settings", 800., 732., LAPTOP, 1.5), None);
     }
 
     #[test]

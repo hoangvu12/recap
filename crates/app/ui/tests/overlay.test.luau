@@ -107,6 +107,24 @@ test("it shows as many lines as Settings says, 1 to 3", function()
 	expect(win:text("#caption-2")).to_be("one")
 end)
 
+-- Seen in the real app: a wrapped newest line pushed the line above it half
+-- out of the top, cut through its words under the timer.
+test("the captions show whole lines only, at any caption size", function()
+	local function room_height(win)
+		local line = string.split(win:tree("#captions-room"), "\n")[1]
+		return tonumber(string.match(line, "%d+x(%d+)"))
+	end
+	local app = mount()
+	local win = overlay(app, TWO)
+	app:frames(2)
+	-- 20 px text: 28 px lines; the room under the timer holds two.
+	expect(room_height(win)).to_be(56)
+	app:set_state("settings", settings { caption_size = 24 })
+	app:frames(3)
+	-- 34 px lines: one whole line, not one and a bit.
+	expect(room_height(win)).to_be(34)
+end)
+
 test("with partial text off only final words show", function()
 	local app = mount()
 	local win = overlay(app, TWO, { settings = { partial_text = false } })

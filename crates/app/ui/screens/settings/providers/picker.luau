@@ -33,7 +33,10 @@ return function(props: Props): Node
 		return if choice then providers.find(view, (choice :: any)[slot]) else nil
 	end)
 	-- The menu stands where its anchor is: a row that grows holds it.
-	return ui.row { grow = 1, basis = 0, ui.menu {
+	local width = ui.state(`picker.{base}.width`, 0)
+	return ui.row { grow = 1, basis = 0, on_resize = function(size)
+		width:set(size.w)
+	end, ui.menu {
 		open = open,
 		match_anchor_width = true,
 		p = 4,
@@ -41,7 +44,13 @@ return function(props: Props): Node
 		anchor = ui.button {
 			id = base,
 			h = 30,
-			w_full = true,
+			-- The column's width, measured: a menu's anchor is sized to
+			-- its content (`w_full` there is the content's width, and the
+			-- name's basis 0 left it 68 px wide with the name cut to "…").
+			w = function(): number?
+				local w = width:get()
+				return if w > 0 then w else nil
+			end,
 			px = 10,
 			gap = 8,
 			items = "center",
