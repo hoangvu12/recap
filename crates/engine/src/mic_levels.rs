@@ -186,7 +186,11 @@ impl MicLevels {
     /// (less than [`MINE_MS`], or than [`MINE_SHARE`] of the line). Levels
     /// unknown there, or Them quiet (nothing to echo), say no.
     pub fn is_echo(&self, start_ms: u64, end_ms: u64) -> bool {
-        let them_spoke = Self::frames(start_ms, end_ms).any(|i| self.them_peak(i) > THEM_SPEAKING_DB);
+        // Echo comes back late: Them speaking after the line can't be in it
+        // (the look-back already covers the lag before it).
+        let last = (end_ms.saturating_sub(1) / FRAME_MS) as usize;
+        let them_spoke =
+            Self::frames(start_ms, end_ms).take_while(|&i| i <= last).any(|i| self.them_peak(i) > THEM_SPEAKING_DB);
         let (mine, known) = self.mine_ms(start_ms, end_ms);
         them_spoke && known >= MINE_MS && (mine < MINE_MS || (mine as f64) < MINE_SHARE * known as f64)
     }
@@ -283,7 +287,8 @@ mod tests {
     fn noise_under_the_floor_is_not_me_but_not_echo_either() {
         let levels = call(-62.0, -75.0);
         assert_eq!(levels.mine_ms(60_000, 61_000).0, 0, "not mine");
-        // Them quiet: there was nothing to echo; the words decide.
+        // Them quiet: there was nothing to echo; the words decide. Them
+        // starting again right after the line (frame 610) doesn't count.
         assert!(!levels.is_echo(60_000, 61_000));
         // A silent meeting (scripted tests): nothing is judged by level.
         let silent = meeting(&vec![(-100.0, -100.0); 300]);
