@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use recap_engine::{Llm, ProviderErrorKind};
 use recap_providers::{
-    Draft, Group, Job, MemorySecrets, Providers, Registry, Secrets, Slot, fake, mask,
+    ProviderForm, Group, Job, MemorySecrets, Providers, Registry, Secrets, Slot, fake, mask,
 };
 
 fn registry() -> Registry {
@@ -76,7 +76,7 @@ fn each_job_starts_with_a_main_and_a_backup() {
 #[test]
 fn a_job_lists_only_providers_that_can_do_it() {
     let (providers, _) = providers();
-    providers.save(Draft::new("fake_ai")).unwrap();
+    providers.save(ProviderForm::new("fake_ai")).unwrap();
     assert_eq!(providers.eligible(Job::Live), ["elevenlabs", "deepgram"]);
     // The batch-only engine can't caption live, nor name speakers.
     assert_eq!(providers.eligible(Job::Transcript), ["elevenlabs", "deepgram"]);
@@ -120,10 +120,10 @@ fn keys_go_to_the_secret_store_and_show_masked() {
     let providers = Providers::open(registry(), Some(path.clone()), secrets.clone());
     providers.set_key("elevenlabs", "sk_0123456789abcdef3f9a").unwrap();
     let id = providers
-        .save(Draft {
+        .save(ProviderForm {
             key: Some("sk-or-v1-0123456789abcdef0123456789abcdef91be".into()),
             model: Some("deepseek/deepseek-chat-v3".into()),
-            ..Draft::new("openrouter")
+            ..ProviderForm::new("openrouter")
         })
         .unwrap();
     assert_eq!(id, "openrouter");
@@ -154,7 +154,7 @@ fn masks_keep_the_prefix_and_the_last_four() {
 #[test]
 fn rows_say_where_a_local_or_command_line_provider_runs() {
     let (providers, _) = providers();
-    providers.save(Draft::new("ollama")).unwrap();
+    providers.save(ProviderForm::new("ollama")).unwrap();
     let view = providers.view();
     let ai = view["ai"].as_array().unwrap();
     let claude = ai.iter().find(|r| r["id"] == "claude_code").unwrap();
@@ -168,10 +168,10 @@ fn rows_say_where_a_local_or_command_line_provider_runs() {
 #[test]
 fn the_same_preset_twice_gets_its_own_id_and_editing_keeps_it() {
     let (providers, _) = providers();
-    assert_eq!(providers.save(Draft::new("openrouter")).unwrap(), "openrouter");
-    assert_eq!(providers.save(Draft::new("openrouter")).unwrap(), "openrouter-2");
+    assert_eq!(providers.save(ProviderForm::new("openrouter")).unwrap(), "openrouter");
+    assert_eq!(providers.save(ProviderForm::new("openrouter")).unwrap(), "openrouter-2");
     let edited = providers
-        .save(Draft { id: Some("openrouter".into()), model: Some("x/y".into()), ..Draft::new("openrouter") })
+        .save(ProviderForm { id: Some("openrouter".into()), model: Some("x/y".into()), ..ProviderForm::new("openrouter") })
         .unwrap();
     assert_eq!(edited, "openrouter");
     let view = providers.view();
@@ -184,11 +184,11 @@ fn the_same_preset_twice_gets_its_own_id_and_editing_keeps_it() {
 fn a_custom_command_keeps_its_name_command_and_input() {
     let (providers, _) = providers();
     let id = providers
-        .save(Draft {
+        .save(ProviderForm {
             name: Some("Gemini CLI".into()),
             command: Some("gemini -p {prompt} --output-format json".into()),
             input: Some(recap_providers::TranscriptInput::File),
-            ..Draft::new("custom_command")
+            ..ProviderForm::new("custom_command")
         })
         .unwrap();
     assert_eq!(id, "gemini-cli");
@@ -203,7 +203,7 @@ fn a_custom_command_keeps_its_name_command_and_input() {
 #[test]
 fn removing_a_provider_takes_it_out_of_its_jobs_and_forgets_its_key() {
     let (providers, secrets) = providers();
-    let id = providers.save(Draft { key: Some("k-123456789".into()), ..Draft::new("fake_ai") }).unwrap();
+    let id = providers.save(ProviderForm { key: Some("k-123456789".into()), ..ProviderForm::new("fake_ai") }).unwrap();
     providers.set_job(Job::Summary, Slot::Backup, Some(&id)).unwrap();
     providers.remove(&id).unwrap();
     assert_eq!(providers.choice(Job::Summary), (Some("claude_code".into()), None));
@@ -219,7 +219,7 @@ fn choices_and_providers_survive_a_restart() {
     let secrets = Arc::new(MemorySecrets::default());
     {
         let providers = Providers::open(registry(), Some(path.clone()), secrets.clone());
-        let id = providers.save(Draft::new("fake_ai")).unwrap();
+        let id = providers.save(ProviderForm::new("fake_ai")).unwrap();
         providers.set_job(Job::Summary, Slot::Backup, Some(&id)).unwrap();
         providers.set_job(Job::Live, Slot::Main, Some("deepgram")).unwrap();
     }
@@ -231,8 +231,8 @@ fn choices_and_providers_survive_a_restart() {
 #[tokio::test]
 async fn test_says_ok_with_the_latency() {
     let (providers, _) = providers();
-    let id = providers.save(Draft::new("fake_ai")).unwrap();
-    let outcome = providers.test(Draft { id: Some(id.clone()), ..Draft::new("fake_ai") }).await;
+    let id = providers.save(ProviderForm::new("fake_ai")).unwrap();
+    let outcome = providers.test(ProviderForm { id: Some(id.clone()), ..ProviderForm::new("fake_ai") }).await;
     assert!(outcome.ok, "{outcome:?}");
     assert!(outcome.error.is_none());
     // A tested provider shows it on its row.
@@ -244,7 +244,7 @@ async fn test_says_ok_with_the_latency() {
 #[tokio::test]
 async fn test_says_what_went_wrong() {
     let (providers, _) = providers();
-    let outcome = providers.test(Draft { model: Some("quota".into()), ..Draft::new("fake_ai") }).await;
+    let outcome = providers.test(ProviderForm { model: Some("quota".into()), ..ProviderForm::new("fake_ai") }).await;
     assert!(!outcome.ok);
     assert_eq!(outcome.error.as_deref(), Some("Out of credit (fake)"));
 }
@@ -252,12 +252,12 @@ async fn test_says_what_went_wrong() {
 #[tokio::test]
 async fn test_without_a_key_asks_for_one() {
     let (providers, _) = providers();
-    let outcome = providers.test(Draft::new("openrouter")).await;
+    let outcome = providers.test(ProviderForm::new("openrouter")).await;
     assert!(!outcome.ok);
     assert_eq!(outcome.error.as_deref(), Some("Add an API key"));
     // A typed (unsaved) key is what is tested (against nothing: port 9).
     let outcome = providers
-        .test(Draft { key: Some("sk-typed".into()), base_url: Some("http://127.0.0.1:9".into()), ..Draft::new("anthropic") })
+        .test(ProviderForm { key: Some("sk-typed".into()), base_url: Some("http://127.0.0.1:9".into()), ..ProviderForm::new("anthropic") })
         .await;
     assert_ne!(outcome.error.as_deref(), Some("Add an API key"));
 }
@@ -265,7 +265,7 @@ async fn test_without_a_key_asks_for_one() {
 #[tokio::test]
 async fn adapters_not_built_yet_say_so() {
     let (providers, _) = providers();
-    let outcome = providers.test(Draft { id: Some("batch_only".into()), ..Draft::new("batch_only") }).await;
+    let outcome = providers.test(ProviderForm { id: Some("batch_only".into()), ..ProviderForm::new("batch_only") }).await;
     assert!(!outcome.ok);
     assert!(outcome.error.unwrap().contains("not built yet"));
 }
@@ -306,8 +306,8 @@ fn elevenlabs_offers_live_captions_and_the_transcript() {
 #[tokio::test]
 async fn the_summary_job_falls_back_to_its_backup() {
     let (providers, _) = providers();
-    let main = providers.save(Draft { name: Some("Main".into()), model: Some("auth".into()), ..Draft::new("fake_ai") }).unwrap();
-    let backup = providers.save(Draft { name: Some("Backup".into()), ..Draft::new("fake_ai") }).unwrap();
+    let main = providers.save(ProviderForm { name: Some("Main".into()), model: Some("auth".into()), ..ProviderForm::new("fake_ai") }).unwrap();
+    let backup = providers.save(ProviderForm { name: Some("Backup".into()), ..ProviderForm::new("fake_ai") }).unwrap();
     providers.set_job(Job::Summary, Slot::Main, Some(&main)).unwrap();
     providers.set_job(Job::Summary, Slot::Backup, Some(&backup)).unwrap();
     let switched = Arc::new(std::sync::Mutex::new(Vec::new()));

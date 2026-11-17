@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use recap::{host, settings::ProvidersHost};
-use recap_providers::{Draft, Job, MemorySecrets, Providers, Registry, Secrets, fake};
+use recap_providers::{ProviderForm, Job, MemorySecrets, Providers, Registry, Secrets, fake};
 use zgx_script::{ScriptHost, testing::TestApp};
 
 struct Fixture {
@@ -74,7 +74,7 @@ fn a_key_typed_in_change_goes_to_the_secret_store_and_shows_masked() {
 fn test_runs_the_providers_test_and_shows_the_outcome() {
     let mut id = String::new();
     let (_f, mut win) = settings(|p| {
-        id = p.save(Draft { model: Some("quota".into()), ..Draft::new("fake_ai") }).unwrap();
+        id = p.save(ProviderForm { model: Some("quota".into()), ..ProviderForm::new("fake_ai") }).unwrap();
     });
     win.click(&format!("#ai-{id}"));
     assert!(win.wait_until(|w| w.find("#form-test").is_some()));

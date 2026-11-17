@@ -533,8 +533,8 @@ function M.edit_provider(id: string)
 	end
 end
 
--- The open form as a Draft: what it shows, the key only if typed.
-function M.draft(): host.Draft
+-- The open provider form: what it shows, the key only if typed.
+function M.provider_form(): host.ProviderForm
 	local sheet = state.provider_sheet:peek()
 	local f = state.form
 	local key = f.key:peek()
@@ -553,8 +553,7 @@ end
 -- The form's Test button.
 function M.test_provider()
 	local sheet = state.provider_sheet:peek()
-	local draft = M.draft()
-	host.call("test_provider", { target = providers.target(sheet.id, sheet.preset), draft = draft })
+	host.call("test_provider", { target = providers.target(sheet.id, sheet.preset), form = M.provider_form() })
 end
 
 -- The form's Add Provider / Save (Ctrl Enter).
@@ -562,7 +561,7 @@ function M.save_provider()
 	if state.provider_sheet:peek().screen ~= "form" then
 		return
 	end
-	host.invoke("save_provider", M.draft())
+	host.invoke("save_provider", M.provider_form())
 	M.close_provider_sheet()
 end
 

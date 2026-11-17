@@ -8,7 +8,7 @@ use std::{path::Path, sync::Arc};
 
 use recap_engine::{Llm, ProviderErrorKind};
 use recap_providers::{
-    Draft, Job, MemorySecrets, Provider, ProviderSettings, Providers, Registry, Secrets, Slot, TranscriptInput,
+    ProviderForm, Job, MemorySecrets, Provider, ProviderSettings, Providers, Registry, Secrets, Slot, TranscriptInput,
 };
 use serde_json::{Value, json};
 
@@ -350,7 +350,7 @@ async fn the_test_button_makes_a_tiny_real_call() {
     let server = fake_http::serve(vec![(200, chat(r#"{"ok": true}"#))]).await;
     let (providers, _) = providers();
     let outcome = providers
-        .test(Draft { key: Some("sk-typed".into()), base_url: Some(server.url.clone()), ..Draft::new("openai") })
+        .test(ProviderForm { key: Some("sk-typed".into()), base_url: Some(server.url.clone()), ..ProviderForm::new("openai") })
         .await;
     assert!(outcome.ok, "{outcome:?}");
     let request = &server.requests()[0];
@@ -359,7 +359,7 @@ async fn the_test_button_makes_a_tiny_real_call() {
 
     let refused = fake_http::serve(vec![(401, json!({ "error": { "message": "Incorrect API key provided" } }))]).await;
     let outcome = providers
-        .test(Draft { key: Some("sk-wrong".into()), base_url: Some(refused.url.clone()), ..Draft::new("openai") })
+        .test(ProviderForm { key: Some("sk-wrong".into()), base_url: Some(refused.url.clone()), ..ProviderForm::new("openai") })
         .await;
     assert!(!outcome.ok);
     assert!(outcome.error.unwrap().contains("Incorrect API key provided"));
@@ -370,9 +370,9 @@ async fn the_summary_falls_back_from_a_refused_key_to_the_backup() {
     let main_server = fake_http::serve(vec![(401, json!({ "error": { "message": "bad key" } }))]).await;
     let backup_server = fake_http::serve(vec![(200, message(&good().to_string()))]).await;
     let (providers, secrets) = providers();
-    let main = providers.save(Draft { base_url: Some(main_server.url.clone()), ..Draft::new("openrouter") }).unwrap();
+    let main = providers.save(ProviderForm { base_url: Some(main_server.url.clone()), ..ProviderForm::new("openrouter") }).unwrap();
     secrets.set(&main, "sk-or-bad").unwrap();
-    let backup = providers.save(Draft { base_url: Some(backup_server.url.clone()), key: Some("sk-ant-good".into()), ..Draft::new("anthropic") }).unwrap();
+    let backup = providers.save(ProviderForm { base_url: Some(backup_server.url.clone()), key: Some("sk-ant-good".into()), ..ProviderForm::new("anthropic") }).unwrap();
     providers.set_job(Job::Summary, Slot::Main, Some(&main)).unwrap();
     providers.set_job(Job::Summary, Slot::Backup, Some(&backup)).unwrap();
     let switched = Arc::new(std::sync::Mutex::new(Vec::new()));

@@ -252,9 +252,9 @@ export type Providers = {
 	presets: { Preset },
 }
 
--- A provider as its form has it (crates/providers: Draft): `id` when
+-- A provider as its form has it (crates/providers: ProviderForm): `id` when
 -- saved, `key` only when typed.
-export type Draft = {
+export type ProviderForm = {
 	id: string?,
 	preset: string,
 	name: string?,

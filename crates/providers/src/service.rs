@@ -45,7 +45,7 @@ pub enum ProvidersError {
 /// is the one typed, never shown back.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize)]
 #[serde(default)]
-pub struct Draft {
+pub struct ProviderForm {
     pub id: Option<String>,
     pub preset: String,
     pub name: Option<String>,
@@ -56,7 +56,7 @@ pub struct Draft {
     pub key: Option<String>,
 }
 
-impl Draft {
+impl ProviderForm {
     pub fn new(preset: &str) -> Self {
         Self { preset: preset.into(), ..Default::default() }
     }
@@ -247,23 +247,23 @@ impl Providers {
         self.persist(&state.config)
     }
 
-    /// Save a provider: a new one from its preset, or `draft.id` changed.
+    /// Save a provider: a new one from its preset, or `form.id` changed.
     /// A speech engine only takes a key. Its key, if typed, goes to the
     /// secret store. Answers its id.
-    pub fn save(&self, draft: Draft) -> Result<String, ProvidersError> {
-        let preset = *self.registry.preset(&draft.preset).ok_or_else(|| ProvidersError::UnknownPreset(draft.preset.clone()))?;
+    pub fn save(&self, form: ProviderForm) -> Result<String, ProvidersError> {
+        let preset = *self.registry.preset(&form.preset).ok_or_else(|| ProvidersError::UnknownPreset(form.preset.clone()))?;
         if preset.group == Group::Speech {
-            if let Some(key) = non_empty(draft.key.as_ref()) {
+            if let Some(key) = non_empty(form.key.as_ref()) {
                 self.secrets.set(preset.id, key)?;
             }
             return Ok(preset.id.into());
         }
         let mut state = self.state.lock().expect("providers");
-        let existing = draft.id.as_ref().and_then(|id| state.config.ai.iter().position(|p| &p.id == id));
+        let existing = form.id.as_ref().and_then(|id| state.config.ai.iter().position(|p| &p.id == id));
         let mut config = match existing {
             Some(at) => state.config.ai[at].clone(),
             None => {
-                let name = non_empty(draft.name.as_ref()).unwrap_or(preset.name);
+                let name = non_empty(form.name.as_ref()).unwrap_or(preset.name);
                 let base = if preset.fields.name { slug(name) } else { preset.id.into() };
                 let base = if base.is_empty() { preset.id.to_string() } else { base };
                 let taken = |id: &str| state.config.ai.iter().any(|p| p.id == id) || self.speech().any(|p| p.id == id);
@@ -271,20 +271,20 @@ impl Providers {
                 Self::from_preset(&preset, &id.expect("an id is free"))
             }
         };
-        if let Some(name) = non_empty(draft.name.as_ref()) {
+        if let Some(name) = non_empty(form.name.as_ref()) {
             config.name = name.into();
         }
         for (field, value) in
-            [(&mut config.model, &draft.model), (&mut config.base_url, &draft.base_url), (&mut config.command, &draft.command)]
+            [(&mut config.model, &form.model), (&mut config.base_url, &form.base_url), (&mut config.command, &form.command)]
         {
             if let Some(value) = value {
                 *field = value.trim().into();
             }
         }
-        if let Some(input) = draft.input {
+        if let Some(input) = form.input {
             config.input = input;
         }
-        if let Some(key) = non_empty(draft.key.as_ref()) {
+        if let Some(key) = non_empty(form.key.as_ref()) {
             self.secrets.set(&config.id, key.trim())?;
         }
         let id = config.id.clone();
@@ -368,44 +368,44 @@ impl Providers {
         Ok((entry.kind.build)(&self.settings_of(&entry.config, self.stored_key(id))))
     }
 
-    /// The Test button: build `draft` as its form has it (a typed key, or
+    /// The Test button: build the provider as `form` has it (a typed key, or
     /// the saved one) and run its test, timed. A saved provider's outcome
     /// shows on its row.
-    pub fn test(&self, draft: Draft) -> impl Future<Output = TestOutcome> + Send + 'static {
+    pub fn test(&self, form: ProviderForm) -> impl Future<Output = TestOutcome> + Send + 'static {
         let prepared = (|| {
-            let saved = draft.id.as_deref().and_then(|id| self.entry(id));
+            let saved = form.id.as_deref().and_then(|id| self.entry(id));
             let (mut config, preset, kind) = match saved {
                 Some(Entry { config, preset, kind }) => (config, preset, kind),
                 None => {
-                    let preset = *self.registry.preset(&draft.preset).ok_or("Unknown provider")?;
+                    let preset = *self.registry.preset(&form.preset).ok_or("Unknown provider")?;
                     let kind = *self.registry.kind(preset.kind).ok_or("Unknown provider")?;
                     (Self::from_preset(&preset, preset.id), preset, kind)
                 }
             };
-            if let Some(name) = non_empty(draft.name.as_ref()) {
+            if let Some(name) = non_empty(form.name.as_ref()) {
                 config.name = name.into();
             }
             for (field, value) in [
-                (&mut config.model, &draft.model),
-                (&mut config.base_url, &draft.base_url),
-                (&mut config.command, &draft.command),
+                (&mut config.model, &form.model),
+                (&mut config.base_url, &form.base_url),
+                (&mut config.command, &form.command),
             ] {
                 if let Some(value) = value {
                     *field = value.trim().into();
                 }
             }
-            if let Some(input) = draft.input {
+            if let Some(input) = form.input {
                 config.input = input;
             }
-            let key = non_empty(draft.key.as_ref())
+            let key = non_empty(form.key.as_ref())
                 .map(|k| k.trim().to_string())
-                .or_else(|| draft.id.as_deref().and_then(|id| self.stored_key(id)));
+                .or_else(|| form.id.as_deref().and_then(|id| self.stored_key(id)));
             if preset.fields.key && key.is_none() {
                 return Err("Add an API key");
             }
             Ok((kind.build)(&self.settings_of(&config, key)))
         })();
-        let (state, id) = (self.state.clone(), draft.id.clone());
+        let (state, id) = (self.state.clone(), form.id.clone());
         async move {
             let provider = match prepared {
                 Ok(provider) => provider,

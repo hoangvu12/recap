@@ -5,16 +5,16 @@
 //! shared   providers        Providers::view(): jobs, stt, ai, presets (keys masked)
 //!          provider_test    { target, status = idle|running|ok|error, latency_ms, error }
 //! action   set_job          { job, slot, provider }  a job's main or backup
-//!          save_provider    Draft (its key, if typed, goes to Credential Manager)
+//!          save_provider    ProviderForm (its key, if typed, goes to Credential Manager)
 //!          remove_provider  id
-//! async    test_provider    { target, draft }: runs the provider's test() on the
+//! async    test_provider    { target, form }: runs the provider's test() on the
 //!                           engine runtime; the outcome lands in provider_test
 //! ```
 //!
 //! A later Settings page registers its own keys and actions in a module
 //! like this one, called from main.rs.
 
-use recap_providers::{Draft, Job, Providers, Slot};
+use recap_providers::{ProviderForm, Job, Providers, Slot};
 use serde::Deserialize;
 use zgx_script::{ScriptHost, Shared, Value};
 
@@ -37,7 +37,7 @@ struct SetJob {
 #[derive(Deserialize)]
 struct TestRequest {
     target: String,
-    draft: Draft,
+    form: ProviderForm,
 }
 
 /// The providers' state and actions, on `script`. Tests run on `runtime`
@@ -67,8 +67,8 @@ impl ProvidersHost {
 
         let h = host.clone();
         script.action("save_provider", move |arg| {
-            let Some(draft) = json::<Draft>(&arg) else { return };
-            if let Err(error) = h.providers.save(draft) {
+            let Some(form) = json::<ProviderForm>(&arg) else { return };
+            if let Err(error) = h.providers.save(form) {
                 eprintln!("recap: save provider: {error}");
             }
             h.publish();
@@ -88,14 +88,14 @@ impl ProvidersHost {
         script.async_action("test_provider", move |arg| {
             let (h, runtime, test_state) = (h.clone(), runtime.clone(), test_state.clone());
             async move {
-                let Some(TestRequest { target, draft }) = json::<TestRequest>(&arg) else {
+                let Some(TestRequest { target, form }) = json::<TestRequest>(&arg) else {
                     return Err("test_provider: bad request".to_string());
                 };
                 test_state.set(value(serde_json::json!({
                     "target": target, "status": "running", "latency_ms": 0, "error": "",
                 })));
                 let outcome = runtime
-                    .spawn(h.providers.test(draft))
+                    .spawn(h.providers.test(form))
                     .await
                     .map_err(|error| format!("test_provider: {error}"))?;
                 test_state.set(value(serde_json::json!({

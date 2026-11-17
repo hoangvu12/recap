@@ -34,4 +34,4 @@ pub use registry::{Family, Fields, Group, Kind, Preset, Registry};
 /// The speech adapters, for tests that point them at local fakes.
 pub use stt::{deepgram, elevenlabs};
 pub use secrets::{Keyring, MemorySecrets, SecretError, Secrets, mask};
-pub use service::{Draft, Providers, ProvidersError, TestOutcome};
+pub use service::{ProviderForm, Providers, ProvidersError, TestOutcome};
