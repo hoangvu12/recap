@@ -31,15 +31,17 @@ pub async fn post(name: &str, request: reqwest::RequestBuilder) -> Result<Value,
         ProviderError::new(kind, format!("Can't reach {name}: {}", error.without_url()))
     })?;
     let status = response.status().as_u16();
-    let text = response
-        .text()
-        .await
-        .map_err(|error| ProviderError::new(ProviderErrorKind::Network, format!("{name} hung up: {}", error.without_url())))?;
+    let text = response.text().await.map_err(|error| {
+        ProviderError::new(ProviderErrorKind::Network, format!("{name} hung up: {}", error.without_url()))
+    })?;
     if !(200..300).contains(&status) {
         return Err(status_error(name, status, &text));
     }
     serde_json::from_str(&text).map_err(|_| {
-        ProviderError::new(ProviderErrorKind::Protocol, format!("{name} answered something that isn't JSON: {}", clip(&text)))
+        ProviderError::new(
+            ProviderErrorKind::Protocol,
+            format!("{name} answered something that isn't JSON: {}", clip(&text)),
+        )
     })
 }
 

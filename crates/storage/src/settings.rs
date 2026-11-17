@@ -251,11 +251,8 @@ impl Settings {
         let mut seen: Vec<String> = Vec::new();
         for (id, default) in defaults.all() {
             let slot = self.hotkeys.get_mut(id).expect("a known hotkey");
-            let value = if slot.trim().is_empty() {
-                Some(String::new())
-            } else {
-                hotkey(slot).filter(|k| !seen.contains(k))
-            };
+            let value =
+                if slot.trim().is_empty() { Some(String::new()) } else { hotkey(slot).filter(|k| !seen.contains(k)) };
             *slot = value.unwrap_or_else(|| default.to_owned());
             if !slot.is_empty() {
                 seen.push(slot.clone());
@@ -324,7 +321,8 @@ pub fn hotkey(keys: &str) -> Option<String> {
         }
     }
     let key = key?;
-    let function_key = key.len() > 1 && key.starts_with('F') && key[1..].parse::<u8>().is_ok_and(|n| (1..=24).contains(&n));
+    let function_key =
+        key.len() > 1 && key.starts_with('F') && key[1..].parse::<u8>().is_ok_and(|n| (1..=24).contains(&n));
     if !(ctrl || alt || shift || win) && !function_key {
         return None;
     }
@@ -342,16 +340,18 @@ pub fn hotkey(keys: &str) -> Option<String> {
 fn key_name(key: &str) -> Option<String> {
     let mut chars = key.chars();
     if let (Some(c), None) = (chars.next(), chars.next()) {
-        return c.is_ascii_alphanumeric().then(|| c.to_ascii_uppercase().to_string()).or_else(|| {
-            ",.;/[]-=`'\\".contains(c).then(|| c.to_string())
-        });
+        return c
+            .is_ascii_alphanumeric()
+            .then(|| c.to_ascii_uppercase().to_string())
+            .or_else(|| ",.;/[]-=`'\\".contains(c).then(|| c.to_string()));
     }
     if let Some(n) = key.strip_prefix('f').and_then(|n| n.parse::<u8>().ok())
         && (1..=24).contains(&n)
     {
         return Some(format!("F{n}"));
     }
-    const NAMED: [&str; 13] =
-        ["Space", "Enter", "Tab", "Home", "End", "PageUp", "PageDown", "Insert", "Delete", "Up", "Down", "Left", "Right"];
+    const NAMED: [&str; 13] = [
+        "Space", "Enter", "Tab", "Home", "End", "PageUp", "PageDown", "Insert", "Delete", "Up", "Down", "Left", "Right",
+    ];
     NAMED.iter().find(|n| n.eq_ignore_ascii_case(key)).map(|n| (*n).to_owned())
 }

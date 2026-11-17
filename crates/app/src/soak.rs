@@ -120,10 +120,8 @@ impl Sample {
         // counters are written into a struct of the size given.
         unsafe {
             let process = GetCurrentProcess();
-            let mut memory = PROCESS_MEMORY_COUNTERS_EX {
-                cb: size_of::<PROCESS_MEMORY_COUNTERS_EX>() as u32,
-                ..Default::default()
-            };
+            let mut memory =
+                PROCESS_MEMORY_COUNTERS_EX { cb: size_of::<PROCESS_MEMORY_COUNTERS_EX>() as u32, ..Default::default() };
             let _ = GetProcessMemoryInfo(
                 process,
                 (&mut memory as *mut PROCESS_MEMORY_COUNTERS_EX).cast::<PROCESS_MEMORY_COUNTERS>(),
@@ -203,7 +201,8 @@ pub fn verdict(samples: &[Sample], limits: &Limits) -> Verdict {
     let mut ok = true;
     let mut lines = Vec::new();
     for (name, value, limit, unit) in measures {
-        let trend = |points: &[&Sample]| per_hour(&points.iter().map(|s| (s.minute as f64, value(s))).collect::<Vec<_>>());
+        let trend =
+            |points: &[&Sample]| per_hour(&points.iter().map(|s| (s.minute as f64, value(s))).collect::<Vec<_>>());
         let (all, second_half) = (trend(&warm), trend(late));
         let grew = all > limit && second_half > limit;
         ok &= !grew;
@@ -225,8 +224,7 @@ fn per_hour(points: &[(f64, f64)]) -> f64 {
         return 0.;
     }
     let (mx, my) = (points.iter().map(|p| p.0).sum::<f64>() / n, points.iter().map(|p| p.1).sum::<f64>() / n);
-    let (num, den) = points
-        .iter()
-        .fold((0., 0.), |(num, den), (x, y)| (num + (x - mx) * (y - my), den + (x - mx) * (x - mx)));
+    let (num, den) =
+        points.iter().fold((0., 0.), |(num, den), (x, y)| (num + (x - mx) * (y - my), den + (x - mx) * (x - mx)));
     if den == 0. { 0. } else { num / den * 60. }
 }

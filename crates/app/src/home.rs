@@ -19,11 +19,7 @@ pub fn speaker_label(speaker: &Speaker) -> String {
 /// A meeting's speakers as chips: the label and its place (from 1), which
 /// picks the chip's hue.
 pub fn speakers(info: &MeetingInfo) -> Value {
-    info.speakers
-        .iter()
-        .enumerate()
-        .map(|(i, s)| json!({ "label": speaker_label(s), "n": i + 1 }))
-        .collect()
+    info.speakers.iter().enumerate().map(|(i, s)| json!({ "label": speaker_label(s), "n": i + 1 })).collect()
 }
 
 /// `meetings`: every meeting in `list` (newest first; Luau groups them by

@@ -4,8 +4,8 @@
 use std::sync::{Arc, Mutex};
 
 use recap_engine::{
-    AudioFrame, BatchRequest, BatchStt, BatchTranscript, BoxFuture, Capabilities, Fallback, FallbackNotice,
-    LiveEvent, LiveOptions, LiveStt, Llm, ProviderError, ProviderErrorKind, Source, Word,
+    AudioFrame, BatchRequest, BatchStt, BatchTranscript, BoxFuture, Capabilities, Fallback, FallbackNotice, LiveEvent,
+    LiveOptions, LiveStt, Llm, ProviderError, ProviderErrorKind, Source, Word,
 };
 use tokio::sync::mpsc;
 
@@ -66,7 +66,8 @@ async fn quota_auth_and_network_errors_hand_the_job_to_the_backup() {
         let main = FakeLlm::new("Claude Code", Err(error(kind)));
         let backup = FakeLlm::new("OpenRouter", Ok(serde_json::json!({ "title": "backup" })));
         let (seen, on_switch) = notices();
-        let job = Fallback::new(main.clone() as Arc<dyn Llm>, Some(backup.clone() as Arc<dyn Llm>)).on_switch(on_switch);
+        let job =
+            Fallback::new(main.clone() as Arc<dyn Llm>, Some(backup.clone() as Arc<dyn Llm>)).on_switch(on_switch);
         let answer = job.complete_json("p".into(), serde_json::json!({})).await.unwrap();
         assert_eq!(answer["title"], "backup", "{kind:?}");
         assert_eq!((main.calls(), backup.calls()), (1, 1));
@@ -99,7 +100,10 @@ async fn when_the_backup_fails_too_its_error_is_reported() {
     let main = FakeLlm::new("Claude Code", Err(error(ProviderErrorKind::Auth)));
     let backup = FakeLlm::new("OpenRouter", Err(error(ProviderErrorKind::Network)));
     let job = Fallback::new(main as Arc<dyn Llm>, Some(backup as Arc<dyn Llm>));
-    assert_eq!(job.complete_json("p".into(), serde_json::json!({})).await.unwrap_err().kind, ProviderErrorKind::Network);
+    assert_eq!(
+        job.complete_json("p".into(), serde_json::json!({})).await.unwrap_err().kind,
+        ProviderErrorKind::Network
+    );
 }
 
 /// A batch provider that answers one word, or fails.
@@ -168,7 +172,12 @@ impl LiveStt for FakeLive {
                 }
                 heard += 1;
                 let text = format!("{name} {}", frame.start_ms);
-                let _ = events.send(LiveEvent { text, is_final: true, start_ms: frame.start_ms, end_ms: frame.start_ms + 100 });
+                let _ = events.send(LiveEvent {
+                    text,
+                    is_final: true,
+                    start_ms: frame.start_ms,
+                    end_ms: frame.start_ms + 100,
+                });
             }
             Ok(())
         })
@@ -210,7 +219,8 @@ async fn live_captions_go_on_with_the_backup_from_where_the_main_failed() {
 #[tokio::test]
 async fn a_live_error_that_does_not_fall_back_ends_the_session() {
     let job = Fallback::new(
-        Arc::new(FakeLive { name: "ElevenLabs", fail_after: Some((1, ProviderErrorKind::Protocol)) }) as Arc<dyn LiveStt>,
+        Arc::new(FakeLive { name: "ElevenLabs", fail_after: Some((1, ProviderErrorKind::Protocol)) })
+            as Arc<dyn LiveStt>,
         Some(Arc::new(FakeLive { name: "Deepgram", fail_after: None }) as Arc<dyn LiveStt>),
     );
     let (result, texts) = caption(&job, 5).await;

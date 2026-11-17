@@ -162,7 +162,10 @@ fn the_meetings_folder_is_the_storage_folder_or_home() {
 fn meeting_with_audio(store: &Store, started_ms: u64, status: Status) -> recap_storage::MeetingId {
     let info = store.create(started_ms).unwrap();
     store
-        .append_live(&info.id, &[Segment { source: Source::Them, speaker: None, start_ms: 0, end_ms: 900, text: "Hi Tom".into() }])
+        .append_live(
+            &info.id,
+            &[Segment { source: Source::Them, speaker: None, start_ms: 0, end_ms: 900, text: "Hi Tom".into() }],
+        )
         .unwrap();
     store.update(&info.id, |i| i.status = status).unwrap();
     let folder = store.folder(&info.id);

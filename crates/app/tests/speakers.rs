@@ -79,7 +79,10 @@ fn the_dialog_shows_each_speaker_with_two_quotes_and_a_suggestion() {
     assert_eq!(list[0]["locked"], true);
     assert_eq!(
         list[0]["quotes"],
-        json!(["Okay, let's get started. Thanks for joining, Priya and David. Today I…", "One more week pushes us to December first."])
+        json!([
+            "Okay, let's get started. Thanks for joining, Priya and David. Today I…",
+            "One more week pushes us to December first."
+        ])
     );
 
     assert_eq!(list[1]["label"], "Speaker 1");
@@ -220,7 +223,11 @@ async fn the_player_plays_on_its_own_thread_and_says_when_it_ends() {
     assert!((90_000..100_000).contains(&duration_ms), "{duration_ms}");
 
     // Another one stops the first.
-    player.play("speaker-S2", audio.clone(), playback::What::Speaker { source: Source::Them, turns: vec![(21_000, 26_000)] });
+    player.play(
+        "speaker-S2",
+        audio.clone(),
+        playback::What::Speaker { source: Source::Them, turns: vec![(21_000, 26_000)] },
+    );
     assert_eq!(next(&mut events).await, PlayerEvent::Ended { key: "line-3".into() });
     assert_eq!(next(&mut events).await, PlayerEvent::Playing { key: "speaker-S2".into(), duration_ms: 5_000 });
     assert_eq!(output.played.lock().unwrap().len(), 2);

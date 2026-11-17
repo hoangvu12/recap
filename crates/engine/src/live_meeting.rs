@@ -7,8 +7,8 @@ use tokio::task::JoinHandle;
 
 use crate::echo::{ECHO_WINDOW_MS, Spoken, is_echo};
 use crate::{
-    AudioFrame, AudioSource, EngineEvent, LiveEvent, LiveOptions, LiveStatus, LiveStt, LiveTranscript,
-    MeetingResult, MeetingState, PauseMark, Recorder, Segment, SegmentId, Source,
+    AudioFrame, AudioSource, EngineEvent, LiveEvent, LiveOptions, LiveStatus, LiveStt, LiveTranscript, MeetingResult,
+    MeetingState, PauseMark, Recorder, Segment, SegmentId, Source,
 };
 
 /// How a meeting runs.
@@ -263,8 +263,7 @@ impl Engine {
         fn spoken(s: &Segment) -> Spoken<'_> {
             Spoken { start_ms: s.start_ms, end_ms: s.end_ms, text: s.text.as_str() }
         }
-        let them: Vec<Spoken<'_>> =
-            self.them.iter().chain(self.open.get(&Source::Them)).map(spoken).collect();
+        let them: Vec<Spoken<'_>> = self.them.iter().chain(self.open.get(&Source::Them)).map(spoken).collect();
         is_echo(spoken(me), &them)
     }
 
@@ -349,9 +348,9 @@ impl Engine {
     /// when `all`: the meeting ended).
     fn decide(&mut self, all: bool) {
         let (them_heard, them_audio) = (self.them_heard_ms, self.them_audio_ms);
-        let (ready, held): (Vec<Segment>, Vec<Segment>) = std::mem::take(&mut self.held).into_iter().partition(|me| {
-            all || them_heard >= me.end_ms + ECHO_WINDOW_MS || them_audio >= me.end_ms + ECHO_WAIT_MS
-        });
+        let (ready, held): (Vec<Segment>, Vec<Segment>) = std::mem::take(&mut self.held)
+            .into_iter()
+            .partition(|me| all || them_heard >= me.end_ms + ECHO_WINDOW_MS || them_audio >= me.end_ms + ECHO_WAIT_MS);
         self.held = held;
         for me in ready {
             if self.echoes(&me) {
@@ -375,7 +374,8 @@ impl Engine {
         let mut open: Vec<Segment> = self.open.drain().map(|(_, s)| s).collect();
         open.sort_by_key(|s| s.id);
         for segment in open {
-            let event = LiveEvent { text: segment.text, is_final: true, start_ms: segment.start_ms, end_ms: segment.end_ms };
+            let event =
+                LiveEvent { text: segment.text, is_final: true, start_ms: segment.start_ms, end_ms: segment.end_ms };
             self.heard(segment.source, event);
         }
         self.decide(true);

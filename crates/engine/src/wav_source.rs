@@ -106,7 +106,13 @@ pub struct LoopingWav {
 
 impl LoopingWav {
     pub fn open(path: &Path) -> io::Result<LoopingWav> {
-        Ok(LoopingWav { path: path.to_owned(), round: WavSource::open(path)?, offset_ms: 0, round_end_ms: 0, paced: None })
+        Ok(LoopingWav {
+            path: path.to_owned(),
+            round: WavSource::open(path)?,
+            offset_ms: 0,
+            round_end_ms: 0,
+            paced: None,
+        })
     }
 
     /// In real time, as live capture would be.

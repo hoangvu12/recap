@@ -15,10 +15,7 @@ pub struct Process {
 /// too: the app's root, whose tree holds its helpers.
 pub fn app_root(list: &[Process], exe: &str) -> Option<u32> {
     let is_app = |p: &Process| p.exe.eq_ignore_ascii_case(exe);
-    list.iter()
-        .filter(|p| is_app(p))
-        .find(|p| !list.iter().any(|q| q.pid == p.parent && is_app(q)))
-        .map(|p| p.pid)
+    list.iter().filter(|p| is_app(p)).find(|p| !list.iter().any(|q| q.pid == p.parent && is_app(q))).map(|p| p.pid)
 }
 
 /// The processes running now; empty if they can't be listed.

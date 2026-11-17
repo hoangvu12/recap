@@ -166,7 +166,12 @@ fn full(llm: &FakeLlm) -> Processing {
     Processing::full(Ok(Arc::new(FakeBatch) as Arc<dyn BatchStt>), Ok(Arc::new(llm.clone()) as Arc<dyn Llm>))
 }
 
-async fn process(processing: &Processing, store: &Store, id: &MeetingId, config: ProcessingConfig) -> Vec<ProcessingEvent> {
+async fn process(
+    processing: &Processing,
+    store: &Store,
+    id: &MeetingId,
+    config: ProcessingConfig,
+) -> Vec<ProcessingEvent> {
     let mut events = processing.start(store.clone(), id.clone(), config);
     let mut out = Vec::new();
     while let Some(event) = events.recv().await {
@@ -252,7 +257,10 @@ async fn after_stop_the_speakers_are_named_and_the_summary_written() {
     let md = std::fs::read_to_string(store.folder(&info.id).join("summary.md")).unwrap();
     assert_eq!(md, kept.markdown);
     assert!(md.contains("### Launch readiness\n- Design: onboarding done"), "{md}");
-    assert!(md.contains("### Next steps\n- [ ] **David**: Add caching and rerun the load test (Before Dec 1)\n"), "{md}");
+    assert!(
+        md.contains("### Next steps\n- [ ] **David**: Add caching and rerun the load test (Before Dec 1)\n"),
+        "{md}"
+    );
     assert!(md.contains("### Decisions\n- Launch on December 1, with caching in place.\n"), "{md}");
     // Home finds it by what the summary says.
     assert_eq!(store.search("fallback").unwrap(), std::slice::from_ref(&info.id));
@@ -289,7 +297,11 @@ fn a_name_is_taken_only_when_it_is_sure_said_and_nobody_elses() {
         ("sure and said", guess(Some("Tom"), "Thanks, Tom.", "high"), Some("Tom")),
         ("the quote differs in case and punctuation only", guess(Some("Tom"), "thanks tom", "high"), Some("Tom")),
         // Claude Code quotes the lines as it was shown them (seen for real).
-        ("the quote keeps the lines' time and label", guess(Some("Tom"), "[0:11] S2: Thanks, Tom.", "high"), Some("Tom")),
+        (
+            "the quote keeps the lines' time and label",
+            guess(Some("Tom"), "[0:11] S2: Thanks, Tom.", "high"),
+            Some("Tom"),
+        ),
         (
             "a quote over two lines",
             guess(Some("Priya"), "[0:38] S1: Thanks, Tom. [0:45] Speaker 2: Priya, can you finish?", "high"),
@@ -384,11 +396,16 @@ async fn a_failed_summary_says_why_and_retry_resumes_from_it() {
     let store = Store::open(dir.path()).unwrap();
     let id = recorded::stopped(&store);
     let llm = FakeLlm::fixtures();
-    *llm.fail_summary.lock().unwrap() = Some(ProviderError::new(ProviderErrorKind::Quota, "Claude usage limit reached"));
+    *llm.fail_summary.lock().unwrap() =
+        Some(ProviderError::new(ProviderErrorKind::Quota, "Claude usage limit reached"));
     let processing = full(&llm);
 
     let events = process(&processing, &store, &id, config("")).await;
-    assert!(matches!(events.last(), Some(ProcessingEvent::Stopped(e)) if e == "Claude usage limit reached"), "{:?}", events.last());
+    assert!(
+        matches!(events.last(), Some(ProcessingEvent::Stopped(e)) if e == "Claude usage limit reached"),
+        "{:?}",
+        events.last()
+    );
     let progress = last_progress(&events);
     let statuses: Vec<_> = progress.steps.iter().map(|s| s.status).collect();
     assert_eq!(statuses, [StepStatus::Done, StepStatus::Done, StepStatus::Error]);
@@ -453,7 +470,11 @@ async fn ticked_next_steps_persist_and_survive_a_regenerate() {
 
     summary::set_done(&store, &id, 2, true).unwrap();
     let kept = store.meeting(&id).unwrap().unwrap().summary.unwrap();
-    assert!(kept.markdown.contains("- [x] **Priya**: Fix dark mode colours on the payment page (Fri, Nov 20)"), "{}", kept.markdown);
+    assert!(
+        kept.markdown.contains("- [x] **Priya**: Fix dark mode colours on the payment page (Fri, Nov 20)"),
+        "{}",
+        kept.markdown
+    );
     assert_eq!(kept.data["next_steps"][2]["done"], json!(true));
     // A restart reads it back from the folder.
     drop(store);
@@ -472,7 +493,8 @@ async fn ticked_next_steps_persist_and_survive_a_regenerate() {
     processing::redo(&store.folder(&id), &[StepId::WritingSummary]).unwrap();
     process(&full(&llm), &store, &id, config("")).await;
     let data = store.meeting(&id).unwrap().unwrap().summary.unwrap().data;
-    let done: Vec<bool> = data["next_steps"].as_array().unwrap().iter().map(|s| s["done"].as_bool().unwrap_or(false)).collect();
+    let done: Vec<bool> =
+        data["next_steps"].as_array().unwrap().iter().map(|s| s["done"].as_bool().unwrap_or(false)).collect();
     assert_eq!(done, [false, false, false, false, true]);
 }
 

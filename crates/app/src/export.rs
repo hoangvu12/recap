@@ -81,10 +81,8 @@ pub fn meeting_markdown(store: &Store, id: &MeetingId, date: &str) -> Result<Str
 /// The name Export suggests: the title, without what Windows refuses in a
 /// file name.
 pub fn file_name(info: &MeetingInfo) -> String {
-    let cleaned: String = title(info)
-        .chars()
-        .map(|c| if c.is_control() || "<>:\"/\\|?*".contains(c) { ' ' } else { c })
-        .collect();
+    let cleaned: String =
+        title(info).chars().map(|c| if c.is_control() || "<>:\"/\\|?*".contains(c) { ' ' } else { c }).collect();
     let words: Vec<&str> = cleaned.split_whitespace().collect();
     let name = words.join(" ");
     let name = name.trim_matches(|c: char| c == '.' || c.is_whitespace());

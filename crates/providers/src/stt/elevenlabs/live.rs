@@ -83,7 +83,9 @@ fn parse(text: &str) -> Server {
                 .collect();
             Server::Timed(text(), words)
         }
-        "auth_error" | "unaccepted_terms" => Server::Failed(Failure::Fatal(ProviderError::new(ProviderErrorKind::Auth, error()))),
+        "auth_error" | "unaccepted_terms" => {
+            Server::Failed(Failure::Fatal(ProviderError::new(ProviderErrorKind::Auth, error())))
+        }
         "quota_exceeded" => Server::Failed(Failure::Fatal(ProviderError::new(ProviderErrorKind::Quota, error()))),
         "input_error" | "invalid_request" | "chunk_size_exceeded" => {
             Server::Failed(Failure::Fatal(ProviderError::new(ProviderErrorKind::Protocol, error())))
@@ -122,8 +124,9 @@ async fn connect(inner: &Inner, url: &str) -> Result<Ws, Failure> {
     let mut request = url
         .into_client_request()
         .map_err(|e| Failure::Fatal(ProviderError::new(ProviderErrorKind::Protocol, e.to_string())))?;
-    let key = HeaderValue::from_str(&inner.key)
-        .map_err(|_| Failure::Fatal(ProviderError::new(ProviderErrorKind::Auth, "The ElevenLabs key has odd characters")))?;
+    let key = HeaderValue::from_str(&inner.key).map_err(|_| {
+        Failure::Fatal(ProviderError::new(ProviderErrorKind::Auth, "The ElevenLabs key has odd characters"))
+    })?;
     request.headers_mut().insert("xi-api-key", key);
     match timeout(inner.config.connect_timeout, tokio_tungstenite::connect_async(request)).await {
         Err(_) => Err(network("timed out connecting")),
@@ -179,7 +182,13 @@ impl Conn {
         Self { anchors: Anchors::default(), last_send: Instant::now(), previous_text, pending: None, heard: false }
     }
 
-    async fn send_samples(&mut self, sink: &mut Sink, samples: &[i16], side: Option<(u64, u64)>, at: u64) -> Result<(), Failure> {
+    async fn send_samples(
+        &mut self,
+        sink: &mut Sink,
+        samples: &[i16],
+        side: Option<(u64, u64)>,
+        at: u64,
+    ) -> Result<(), Failure> {
         let bytes: Vec<u8> = samples.iter().flat_map(|s| s.to_le_bytes()).collect();
         let mut message = json!({
             "message_type": "input_audio_chunk",

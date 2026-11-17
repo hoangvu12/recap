@@ -7,8 +7,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use recap_engine::{
-    AudioFrame, BoxFuture, Capabilities, EngineEvent, FrameFeed, LiveEvent, LiveOptions, LiveStatus, LiveStt,
-    Meeting, MeetingConfig, MeetingState, ProviderError, ProviderErrorKind, Source,
+    AudioFrame, BoxFuture, Capabilities, EngineEvent, FrameFeed, LiveEvent, LiveOptions, LiveStatus, LiveStt, Meeting,
+    MeetingConfig, MeetingState, ProviderError, ProviderErrorKind, Source,
 };
 use tokio::sync::mpsc;
 
@@ -32,7 +32,15 @@ struct Line {
 
 impl Line {
     fn new(name: &'static str, line: &'static str) -> Self {
-        Line { name, line, my_line: "Sounds good to me, thanks.", after_ms: 1_000, fail: None, blips: false, sides: Arc::default() }
+        Line {
+            name,
+            line,
+            my_line: "Sounds good to me, thanks.",
+            after_ms: 1_000,
+            fail: None,
+            blips: false,
+            sides: Arc::default(),
+        }
     }
 }
 
@@ -82,7 +90,12 @@ impl LiveStt for Line {
                     }
                     let start = frame.start_ms;
                     let text = if source == Source::Me { me.my_line } else { me.line };
-                    let _ = events.send(LiveEvent { text: text.into(), is_final: true, start_ms: start, end_ms: start + 100 });
+                    let _ = events.send(LiveEvent {
+                        text: text.into(),
+                        is_final: true,
+                        start_ms: start,
+                        end_ms: start + 100,
+                    });
                 }
             }
             Ok(())

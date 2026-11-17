@@ -72,7 +72,10 @@ fn the_mic_hearing_part_of_a_longer_turn_is_an_echo() {
 #[test]
 fn a_turn_split_across_two_them_segments_still_matches() {
     let mic = "Yes, I can finish dark mode by Friday, so that's not a blocker.";
-    let them = [spoken(40_000, 42_000, "Yes, I can finish dark mode"), spoken(42_100, 44_000, "by Friday, so that's not a blocker.")];
+    let them = [
+        spoken(40_000, 42_000, "Yes, I can finish dark mode"),
+        spoken(42_100, 44_000, "by Friday, so that's not a blocker."),
+    ];
     assert!(is_echo(spoken(40_000, 44_000, mic), &them));
 }
 

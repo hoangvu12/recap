@@ -118,10 +118,18 @@ pub trait Output {
 /// How playback goes, by the key it was asked with.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PlayerEvent {
-    Playing { key: String, duration_ms: u64 },
+    Playing {
+        key: String,
+        duration_ms: u64,
+    },
     /// Done, stopped, or ended by another.
-    Ended { key: String },
-    Failed { key: String, error: String },
+    Ended {
+        key: String,
+    },
+    Failed {
+        key: String,
+        error: String,
+    },
 }
 
 enum Command {
@@ -140,7 +148,9 @@ impl Player {
     /// Start the thread; `output` makes its output there (on the first clip,
     /// so a machine with no sound device only fails when asked to play).
     /// A thread that can't start fails each play the same way.
-    pub fn spawn(output: impl FnOnce() -> Box<dyn Output> + Send + 'static) -> (Player, UnboundedReceiver<PlayerEvent>) {
+    pub fn spawn(
+        output: impl FnOnce() -> Box<dyn Output> + Send + 'static,
+    ) -> (Player, UnboundedReceiver<PlayerEvent>) {
         let (commands, inbox) = std_mpsc::channel();
         let (events, out) = mpsc::unbounded_channel();
         let started = std::thread::Builder::new().name("recap-playback".into()).spawn({
@@ -165,7 +175,11 @@ impl Player {
     }
 }
 
-fn run(inbox: std_mpsc::Receiver<Command>, events: UnboundedSender<PlayerEvent>, make: impl FnOnce() -> Box<dyn Output>) {
+fn run(
+    inbox: std_mpsc::Receiver<Command>,
+    events: UnboundedSender<PlayerEvent>,
+    make: impl FnOnce() -> Box<dyn Output>,
+) {
     let mut make = Some(make);
     let mut output: Option<Box<dyn Output>> = None;
     let mut current: Option<String> = None;
@@ -253,7 +267,8 @@ pub struct RodioOutput {
 impl Output for RodioOutput {
     fn play(&mut self, clip: Clip) -> Result<(), String> {
         if self.sink.is_none() {
-            let mut sink = rodio::DeviceSinkBuilder::open_default_sink().map_err(|e| format!("No sound output: {e}"))?;
+            let mut sink =
+                rodio::DeviceSinkBuilder::open_default_sink().map_err(|e| format!("No sound output: {e}"))?;
             sink.log_on_drop(false);
             self.sink = Some(sink);
         }

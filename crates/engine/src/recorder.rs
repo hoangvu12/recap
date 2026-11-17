@@ -40,7 +40,8 @@ pub struct Recorder {
 
 impl Recorder {
     pub fn create(path: &Path) -> io::Result<Recorder> {
-        let mut encoder = opus::Encoder::new(SAMPLE_RATE, Channels::Stereo, Application::Voip).map_err(io::Error::other)?;
+        let mut encoder =
+            opus::Encoder::new(SAMPLE_RATE, Channels::Stereo, Application::Voip).map_err(io::Error::other)?;
         encoder.set_bitrate(Bitrate::Bits(BITRATE)).map_err(io::Error::other)?;
         let lookahead = encoder.get_lookahead().map_err(io::Error::other)?;
         let mut writer = PacketWriter::new(BufWriter::new(File::create(path)?));

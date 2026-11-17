@@ -142,9 +142,8 @@ pub fn mic_users() -> Vec<String> {
         }
     }
     if !users.is_empty() {
-        let own = std::env::current_exe()
-            .ok()
-            .and_then(|p| Some(p.file_name()?.to_string_lossy().to_ascii_lowercase()));
+        let own =
+            std::env::current_exe().ok().and_then(|p| Some(p.file_name()?.to_string_lossy().to_ascii_lowercase()));
         for exe in consent_in_use() {
             if Some(&exe) != own.as_ref() {
                 add(exe, &mut users);

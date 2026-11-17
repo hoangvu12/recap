@@ -83,8 +83,12 @@ where
         text: format!("That reply was rejected: {error}. Reply again with only the corrected JSON."),
     });
     let reply = ask(conversation).await?;
-    check(&reply, &schema)
-        .map_err(|error| ProviderError::new(ProviderErrorKind::Protocol, format!("{name} answered JSON that doesn't fit, twice: {error}")))
+    check(&reply, &schema).map_err(|error| {
+        ProviderError::new(
+            ProviderErrorKind::Protocol,
+            format!("{name} answered JSON that doesn't fit, twice: {error}"),
+        )
+    })
 }
 
 /// The Test button's call: the smallest task that proves the provider
@@ -270,10 +274,16 @@ mod tests {
         let cases = [
             (json!({ "speakers": {}, "topics": [] }), "$.topics: has 0 items, needs at least 1"),
             (json!({ "speakers": { "S2": {} }, "topics": ["a"] }), "$.speakers.S2.name: missing"),
-            (json!({ "speakers": { "S2": { "name": 3 } }, "topics": ["a"] }), "$.speakers.S2.name: expected string or null, got integer"),
+            (
+                json!({ "speakers": { "S2": { "name": 3 } }, "topics": ["a"] }),
+                "$.speakers.S2.name: expected string or null, got integer",
+            ),
             (json!({ "speakers": {}, "topics": ["a", 2] }), "$.topics[1]: expected string, got integer"),
             (json!({ "speakers": {}, "topics": ["a"], "extra": 1 }), "$.extra: not in the schema"),
-            (json!({ "speakers": { "S1": { "name": "Tom", "confidence": "sure" } }, "topics": ["a"] }), "$.speakers.S1.confidence: \"sure\" is not one of [\"high\",\"low\"]"),
+            (
+                json!({ "speakers": { "S1": { "name": "Tom", "confidence": "sure" } }, "topics": ["a"] }),
+                "$.speakers.S1.confidence: \"sure\" is not one of [\"high\",\"low\"]",
+            ),
         ];
         for (value, error) in cases {
             assert_eq!(validate(&value, &schema), Err(error.to_string()), "{value}");

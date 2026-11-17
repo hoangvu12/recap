@@ -18,7 +18,10 @@ fn by_default_start_captures_and_uses_the_live_job() {
 fn replay_reads_a_wav_and_scripted_replaces_the_provider() {
     let wav = "testdata/meeting_tts.wav";
     assert_eq!(options(&["--replay", wav]).audio, Audio::Replay(wav.into()));
-    assert_eq!(options(&["--replay", wav, "--scripted"]), StartOptions { audio: Audio::Replay(wav.into()), scripted: true });
+    assert_eq!(
+        options(&["--replay", wav, "--scripted"]),
+        StartOptions { audio: Audio::Replay(wav.into()), scripted: true }
+    );
     // The test meeting without audio, as the app ran before capture.
     assert_eq!(options(&["--scripted"]), StartOptions { audio: Audio::Silence, scripted: true });
 }

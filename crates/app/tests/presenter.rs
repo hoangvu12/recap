@@ -211,7 +211,8 @@ fn switching_engines_goes_live_again_and_a_failed_switch_is_not_offered_twice() 
 fn my_side_failing_is_a_notice_not_the_overlays_error() {
     let mut p = Presenter::new(0).with_live_choices(choices());
     p.apply(&using("ElevenLabs"));
-    let changed = p.apply(&EngineEvent::Error { source: Source::Me, error: ProviderError::new(ProviderErrorKind::Quota, "q") });
+    let changed =
+        p.apply(&EngineEvent::Error { source: Source::Me, error: ProviderError::new(ProviderErrorKind::Quota, "q") });
     assert!(changed.meeting && !changed.live);
     assert_eq!(p.live()["status"], "live");
 }
@@ -282,8 +283,7 @@ fn a_stopped_meeting_has_nothing_open() {
 async fn the_test_meeting_replays_into_the_ui_state() {
     let source = SilenceSource::new(Duration::from_secs(120));
     let stt = Arc::new(ScriptedLiveStt::new(Script::test_meeting()));
-    let mut meeting =
-        Meeting::start(MeetingConfig::default(), Box::new(source), stt);
+    let mut meeting = Meeting::start(MeetingConfig::default(), Box::new(source), stt);
     let mut p = Presenter::new(0);
     while let Some(event) = meeting.next_event().await {
         p.apply(&event);

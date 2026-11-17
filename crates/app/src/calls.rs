@@ -43,10 +43,8 @@ impl CallToasts {
     pub fn register(script: &ScriptHost, on_click: impl Fn(CallHint) + 'static) -> Self {
         let toasts = Self(Rc::new(Inner {
             watch: RefCell::default(),
-            toast: script.shared(
-                "call_toast",
-                Value::from_json(r#"{"seq":0,"title":"","body":""}"#).unwrap_or(Value::Nil),
-            ),
+            toast: script
+                .shared("call_toast", Value::from_json(r#"{"seq":0,"title":"","body":""}"#).unwrap_or(Value::Nil)),
             seq: Cell::new(0),
             shown: RefCell::default(),
             enabled: Cell::new(true),

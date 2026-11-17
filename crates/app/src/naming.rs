@@ -156,7 +156,8 @@ pub fn accept(guesses: &BTreeMap<String, Guess>, said: &str, my_name: &str) -> B
     let mine = words(my_name);
     let mut taken: BTreeMap<String, String> = BTreeMap::new();
     for (id, guess) in guesses {
-        let Some(name) = guess.name.as_deref().map(str::trim).filter(|n| !n.is_empty() && n.chars().count() <= 40) else {
+        let Some(name) = guess.name.as_deref().map(str::trim).filter(|n| !n.is_empty() && n.chars().count() <= 40)
+        else {
             continue;
         };
         let key = words(name);
@@ -207,12 +208,8 @@ impl Step for NamingSpeakers {
 }
 
 async fn name(llm: Result<Arc<dyn Llm>, ProviderError>, job: Job) -> Result<(), String> {
-    let info = job
-        .store
-        .meeting(&job.id)
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("no meeting {}", job.id))?
-        .info;
+    let info =
+        job.store.meeting(&job.id).map_err(|e| e.to_string())?.ok_or_else(|| format!("no meeting {}", job.id))?.info;
     let segments = job.store.transcript(&job.id).map_err(|e| e.to_string())?;
     let my_name = job.config.my_name.trim().to_owned();
     let voices: Vec<&Speaker> = info.speakers.iter().filter(|s| s.id != "me").collect();
@@ -224,8 +221,8 @@ async fn name(llm: Result<Arc<dyn Llm>, ProviderError>, job: Job) -> Result<(), 
         let answer = llm.complete_json(prompt(&segments, &ids, &my_name), schema(&ids)).await.map_err(|e| e.message)?;
         let path = job.folder.join(NAMES);
         write_json(&path, &answer).map_err(|e| format!("{}: {e}", path.display()))?;
-        let guesses: BTreeMap<String, Guess> =
-            serde_json::from_value(answer).map_err(|e| format!("{} answered names that can't be read: {e}", llm.name()))?;
+        let guesses: BTreeMap<String, Guess> = serde_json::from_value(answer)
+            .map_err(|e| format!("{} answered names that can't be read: {e}", llm.name()))?;
         let said: Vec<&str> = segments.iter().map(|s| s.text.as_str()).collect();
         accepted = accept(&guesses, &said.join(" "), &my_name);
         // A name another speaker has already is not given twice.

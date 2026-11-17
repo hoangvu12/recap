@@ -83,7 +83,12 @@ fn their_words_heard_on_my_mic_are_dropped() {
     assert_eq!(
         summary(&turns),
         vec![
-            (Source::Them, Some("S2"), 0, "From the backend side, the payments API is ready. I think we need one more week."),
+            (
+                Source::Them,
+                Some("S2"),
+                0,
+                "From the backend side, the payments API is ready. I think we need one more week."
+            ),
             (Source::Me, Some("me"), 6_000, "One more week pushes us to December first."),
         ]
     );
@@ -97,7 +102,10 @@ fn a_long_silence_starts_a_new_sentence_for_the_echo_check() {
     let turns = refine::turns(&me, &them);
     assert_eq!(
         summary(&turns),
-        vec![(Source::Them, Some("S1"), 0, "so that is the plan"), (Source::Me, Some("me"), 6_000, "sounds good to me then")]
+        vec![
+            (Source::Them, Some("S1"), 0, "so that is the plan"),
+            (Source::Me, Some("me"), 6_000, "sounds good to me then")
+        ]
     );
 }
 

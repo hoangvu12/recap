@@ -4,8 +4,7 @@
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 
 use crate::{
-    Meeting, MeetingId, MeetingInfo, Result, Segment, Speaker, Status, Summary, TranscriptKind,
-    files::Folder,
+    Meeting, MeetingId, MeetingInfo, Result, Segment, Speaker, Status, Summary, TranscriptKind, files::Folder,
 };
 
 const SCHEMA_VERSION: i64 = 1;

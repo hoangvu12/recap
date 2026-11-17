@@ -46,7 +46,13 @@ fn a_meeting_without_summary_or_names_exports_its_live_transcript() {
     let dir = tempfile::tempdir().unwrap();
     let store = Store::open(dir.path()).unwrap();
     let info = store.create(NOW).unwrap();
-    let seg = |source, start_ms, text: &str| Segment { source, speaker: None, start_ms, end_ms: start_ms + 1_000, text: text.into() };
+    let seg = |source, start_ms, text: &str| Segment {
+        source,
+        speaker: None,
+        start_ms,
+        end_ms: start_ms + 1_000,
+        text: text.into(),
+    };
     store.append_live(&info.id, &[seg(Source::Me, 0, "Hi all."), seg(Source::Them, 65_000, "Hello.")]).unwrap();
     store.set_my_notes(&info.id, "Ask about Dec 1").unwrap();
 
@@ -67,7 +73,13 @@ fn unnamed_speakers_are_speaker_n() {
     store
         .set_refined(
             &info.id,
-            &[Segment { source: Source::Them, speaker: Some("S2".into()), start_ms: 3_725_000, end_ms: 3_726_000, text: "Late.".into() }],
+            &[Segment {
+                source: Source::Them,
+                speaker: Some("S2".into()),
+                start_ms: 3_725_000,
+                end_ms: 3_726_000,
+                text: "Late.".into(),
+            }],
         )
         .unwrap();
     store.update(&info.id, |m| m.speakers = vec![Speaker { id: "S2".into(), name: None }]).unwrap();
@@ -126,7 +138,16 @@ fn home_search_finds_the_test_meeting_by_dec_1_and_by_people() {
     let (_dir, store, id) = seeded();
     let other = store.create(NOW - 86_400_000).unwrap();
     store
-        .append_live(&other.id, &[Segment { source: Source::Them, speaker: None, start_ms: 0, end_ms: 1_000, text: "Budget review.".into() }])
+        .append_live(
+            &other.id,
+            &[Segment {
+                source: Source::Them,
+                speaker: None,
+                start_ms: 0,
+                end_ms: 1_000,
+                text: "Budget review.".into(),
+            }],
+        )
         .unwrap();
     assert_eq!(home::search(&store, "Dec 1"), serde_json::json!([id.as_str()]));
     assert_eq!(home::search(&store, "priya caching"), serde_json::json!([id.as_str()]));

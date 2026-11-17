@@ -193,7 +193,10 @@ async fn a_failed_step_says_why_and_retry_resumes_from_it() {
     let step = progress.step(StepId::Transcribing).unwrap();
     assert_eq!((step.status, step.error.as_str()), (StepStatus::Error, "ElevenLabs is out of credit."));
     assert_eq!(progress.failed().unwrap().id, StepId::Transcribing);
-    assert_eq!(statuses(&progress)[1..], [(StepId::NamingSpeakers, StepStatus::Pending), (StepId::WritingSummary, StepStatus::Pending)]);
+    assert_eq!(
+        statuses(&progress)[1..],
+        [(StepId::NamingSpeakers, StepStatus::Pending), (StepId::WritingSummary, StepStatus::Pending)]
+    );
     assert_eq!(Progress::read(&store.folder(&id)), progress, "kept on disk");
     assert_eq!(store.meeting(&id).unwrap().unwrap().info.status, Status::Processing, "unfinished");
     assert!(store.segments(&id, TranscriptKind::Refined).unwrap().is_empty());
@@ -297,7 +300,11 @@ async fn without_a_transcript_provider_the_step_fails_with_the_reason() {
     let bare = store.create(recorded::STARTED + 1).unwrap().id;
     let events = process(&standard(&FakeBatch::default()), &store, &bare).await;
     assert_eq!(last_progress(&events).failed().unwrap().error, "This meeting has no recording.");
-    assert_eq!(store.meeting(&bare).unwrap().unwrap().info.status, Status::Processing, "cut off while recording: now unfinished");
+    assert_eq!(
+        store.meeting(&bare).unwrap().unwrap().info.status,
+        Status::Processing,
+        "cut off while recording: now unfinished"
+    );
 }
 
 #[test]

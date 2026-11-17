@@ -64,9 +64,10 @@ fn closed(frame: Option<CloseFrame>) -> Failure {
     match classify(&reason) {
         Failure::Retry(_) => match frame.code {
             // Our message was wrong (DATA-…, BIG-…): sending it again won't help.
-            CloseCode::Policy | CloseCode::Unsupported | CloseCode::Size => {
-                Failure::Fatal(ProviderError::new(ProviderErrorKind::Protocol, format!("Deepgram closed the stream: {told}")))
-            }
+            CloseCode::Policy | CloseCode::Unsupported | CloseCode::Size => Failure::Fatal(ProviderError::new(
+                ProviderErrorKind::Protocol,
+                format!("Deepgram closed the stream: {told}"),
+            )),
             _ => network(format!("closed the stream ({told})")),
         },
         fatal => fatal,
@@ -134,8 +135,9 @@ async fn connect(inner: &Inner, url: &str) -> Result<Ws, Failure> {
     let mut request = url
         .into_client_request()
         .map_err(|e| Failure::Fatal(ProviderError::new(ProviderErrorKind::Protocol, e.to_string())))?;
-    let token = HeaderValue::from_str(&format!("Token {}", inner.key))
-        .map_err(|_| Failure::Fatal(ProviderError::new(ProviderErrorKind::Auth, "The Deepgram key has odd characters")))?;
+    let token = HeaderValue::from_str(&format!("Token {}", inner.key)).map_err(|_| {
+        Failure::Fatal(ProviderError::new(ProviderErrorKind::Auth, "The Deepgram key has odd characters"))
+    })?;
     request.headers_mut().insert("authorization", token);
     match timeout(inner.config.connect_timeout, tokio_tungstenite::connect_async(request)).await {
         Err(_) => Err(network("timed out connecting")),
@@ -436,9 +438,15 @@ mod tests {
             Server::Failed(f) => kind(f),
             _ => "other".into(),
         };
-        assert_eq!(error(json!({"type": "Error", "description": "Project does not have enough credits"})), "fatal Quota");
+        assert_eq!(
+            error(json!({"type": "Error", "description": "Project does not have enough credits"})),
+            "fatal Quota"
+        );
         assert_eq!(error(json!({"type": "Error", "description": "Invalid credentials."})), "fatal Auth");
-        assert_eq!(error(json!({"type": "Error", "description": "Internal error", "variant": "NET-0000"})), "retry Network");
+        assert_eq!(
+            error(json!({"type": "Error", "description": "Internal error", "variant": "NET-0000"})),
+            "retry Network"
+        );
         assert_eq!(error(json!({"type": "SpeechStarted"})), "other");
     }
 }

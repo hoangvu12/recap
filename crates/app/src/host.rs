@@ -61,10 +61,10 @@ use zgx_script::{ScriptHost, Shared, Value};
 
 use crate::{
     export, home,
+    live_meeting::{self, LiveMeeting, LiveMeetingConfig, LiveMeetingEvent},
     playback::{self, Player, PlayerEvent, What},
     presenter::{Changed, Presenter},
     processing::{self, ProcessingEvent, Progress, StepId},
-    live_meeting::{self, LiveMeeting, LiveMeetingConfig, LiveMeetingEvent},
     speakers, summary,
 };
 
@@ -185,7 +185,8 @@ impl Host {
             player: Rc::default(),
             playing: Rc::default(),
             summary_again: Rc::default(),
-            summary_toast: script.shared("summary_toast", value(serde_json::json!({ "seq": 0, "id": "", "title": "" }))),
+            summary_toast: script
+                .shared("summary_toast", value(serde_json::json!({ "seq": 0, "id": "", "title": "" }))),
             toast_seq: Rc::default(),
             processing_notices: Rc::default(),
             script,
@@ -247,7 +248,8 @@ impl Host {
         let ticker = host.clone();
         host.script.action("tick_next_step", move |arg| {
             let json: serde_json::Value = serde_json::from_str(&arg.to_json()).unwrap_or_default();
-            let (Some(id), Some(index)) = (json["id"].as_str().filter(|id| !id.is_empty()), json["index"].as_u64()) else {
+            let (Some(id), Some(index)) = (json["id"].as_str().filter(|id| !id.is_empty()), json["index"].as_u64())
+            else {
                 return;
             };
             ticker.tick_next_step(&MeetingId::from(id), index as usize, json["done"].as_bool().unwrap_or(false));
@@ -255,7 +257,8 @@ impl Host {
         let notes = host.clone();
         host.script.action("set_my_notes", move |arg| {
             let json: serde_json::Value = serde_json::from_str(&arg.to_json()).unwrap_or_default();
-            let (Some(id), Some(text), Some(store)) = (json["id"].as_str().filter(|id| !id.is_empty()), json["text"].as_str(), notes.store())
+            let (Some(id), Some(text), Some(store)) =
+                (json["id"].as_str().filter(|id| !id.is_empty()), json["text"].as_str(), notes.store())
             else {
                 return;
             };
@@ -280,13 +283,12 @@ impl Host {
         let renamer = host.clone();
         host.script.action("rename_speakers", move |arg| {
             let json: serde_json::Value = serde_json::from_str(&arg.to_json()).unwrap_or_default();
-            let (Some(id), Some(names)) = (json["id"].as_str().filter(|id| !id.is_empty()), json["names"].as_object()) else {
+            let (Some(id), Some(names)) = (json["id"].as_str().filter(|id| !id.is_empty()), json["names"].as_object())
+            else {
                 return;
             };
-            let names: Vec<(String, Option<String>)> = names
-                .iter()
-                .map(|(speaker, name)| (speaker.clone(), name.as_str().map(str::to_owned)))
-                .collect();
+            let names: Vec<(String, Option<String>)> =
+                names.iter().map(|(speaker, name)| (speaker.clone(), name.as_str().map(str::to_owned))).collect();
             renamer.rename_speakers(&MeetingId::from(id), &names);
         });
         let player = host.clone();
@@ -667,10 +669,12 @@ impl Host {
     /// Meeting `id`'s summary as the Summary tab's state.
     fn show_summary(&self, store: &Store, id: &MeetingId) {
         let view = match store.meeting(id) {
-            Ok(Some(meeting)) => match meeting.summary.and_then(|s| serde_json::from_value::<summary::SummaryData>(s.data).ok()) {
-                Some(data) => summary::view(id.as_str(), &data, &meeting.info.speakers),
-                None => summary::no_view(),
-            },
+            Ok(Some(meeting)) => {
+                match meeting.summary.and_then(|s| serde_json::from_value::<summary::SummaryData>(s.data).ok()) {
+                    Some(data) => summary::view(id.as_str(), &data, &meeting.info.speakers),
+                    None => summary::no_view(),
+                }
+            }
             _ => summary::no_view(),
         };
         self.summary.set(value(view));

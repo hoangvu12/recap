@@ -39,7 +39,8 @@ fn rig() -> Rig {
     });
     app.frames(2);
     let host = made.borrow_mut().take().unwrap();
-    let (started, quit, focused) = (Rc::new(Cell::new(0)), Rc::new(Cell::new(false)), Rc::<RefCell<Vec<String>>>::default());
+    let (started, quit, focused) =
+        (Rc::new(Cell::new(0)), Rc::new(Cell::new(false)), Rc::<RefCell<Vec<String>>>::default());
     let commands = Commands::new(
         host.clone(),
         {
@@ -66,7 +67,13 @@ impl Rig {
         let (feed, source) = FrameFeed::new();
         feed.push_silence(Duration::from_millis(500));
         let config = LiveMeetingConfig::default();
-        let live = live_meeting::start(None, config.clone(), Box::new(source), Arc::new(ScriptedLiveStt::new(Script::test_meeting())), None);
+        let live = live_meeting::start(
+            None,
+            config.clone(),
+            Box::new(source),
+            Arc::new(ScriptedLiveStt::new(Script::test_meeting())),
+            None,
+        );
         self.pool.spawner().spawn_local(self.host.follow_meeting(&config, live)).unwrap();
         self.feed = Some(feed);
         assert!(self.until(|r| r.host.state() == Some(MeetingState::Recording)), "recording");

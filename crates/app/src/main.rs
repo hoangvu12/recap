@@ -35,11 +35,11 @@ use recap::{
     fonts,
     host::{self, Host},
     live::{StartOptions, capture_options},
+    live_meeting::{self, LiveMeetingConfig},
     overlay::OverlayHost,
     playback::{Output, Player, RodioOutput},
     processing::{self, Processing, ProcessingConfig},
     seed,
-    live_meeting::{self, LiveMeetingConfig},
     settings::ProvidersHost,
     soak::Soak,
     user_settings::{Microphone, PickFolder, SettingsHost},
@@ -62,7 +62,8 @@ fn now_ms() -> u64 {
 /// The store in `root` (its known people in `people`), or none (Home stays
 /// empty) when it can't open.
 fn open_store(root: &Path, people: &Path, seed_it: bool) -> Option<Store> {
-    let store = Store::open_with_people(root, people).map_err(|error| eprintln!("recap: {}: {error}", root.display())).ok()?;
+    let store =
+        Store::open_with_people(root, people).map_err(|error| eprintln!("recap: {}: {error}", root.display())).ok()?;
     if seed_it {
         match seed::test_meeting(&store, now_ms()) {
             Ok(info) => eprintln!("recap: seeded {} in {}", info.id, store.folder(&info.id).display()),
@@ -80,7 +81,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // on its own data (recap::soak).
     let soak = Soak::from_args(std::env::args().skip(1));
     let soak_failed = Arc::new(AtomicBool::new(false));
-    let start_options = soak.as_ref().map_or_else(|| StartOptions::from_args(std::env::args().skip(1)), Soak::start_options);
+    let start_options =
+        soak.as_ref().map_or_else(|| StartOptions::from_args(std::env::args().skip(1)), Soak::start_options);
     let home = match soak {
         Some(_) => Some(Soak::home()),
         None => std::env::var_os("RECAP_DATA").map(PathBuf::from).or_else(Store::default_root),
@@ -194,7 +196,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             let _inside = runtime.enter();
                             let (notify, notices) = live_meeting::notices();
                             let live = options.live(&providers, notify);
-                            let started = live_meeting::start(host.store(), config.clone(), source, live, Some(notices));
+                            let started =
+                                live_meeting::start(host.store(), config.clone(), source, live, Some(notices));
                             tasks.spawn(host.follow_meeting(&config, started));
                             if let Some(note) = note {
                                 host.notice(&note);
@@ -292,8 +295,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         let saving = host.script.clone();
-        let keep =
-            RefCell::new(Some((follow, server, host, providers_host, settings_host, resident, overlay, engine)));
+        let keep = RefCell::new(Some((follow, server, host, providers_host, settings_host, resident, overlay, engine)));
         let reopen = reopen.clone();
         let soak_exit = soak.is_some().then(|| soak_failed.clone());
         cx.on_closed(move || {
@@ -333,7 +335,10 @@ fn resident(
     commands: &Commands,
     with_hotkeys: bool,
 ) -> Box<dyn std::any::Any> {
-    use recap::{hotkeys::{HotkeysHost, SystemKeys}, tray::Tray};
+    use recap::{
+        hotkeys::{HotkeysHost, SystemKeys},
+        tray::Tray,
+    };
 
     let mut keep: Vec<Box<dyn std::any::Any>> = Vec::new();
 
@@ -408,6 +413,12 @@ fn resident(
 }
 
 #[cfg(not(windows))]
-fn resident(_: &zgx_desktop::WindowContext, _: &Host, _: &SettingsHost, _: &Commands, _: bool) -> Box<dyn std::any::Any> {
+fn resident(
+    _: &zgx_desktop::WindowContext,
+    _: &Host,
+    _: &SettingsHost,
+    _: &Commands,
+    _: bool,
+) -> Box<dyn std::any::Any> {
     Box::new(())
 }

@@ -19,8 +19,7 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use wasapi::{
-    AudioCaptureClient, AudioClient, DeviceEnumerator, Direction, Handle, Role, SampleType, StreamMode,
-    WaveFormat,
+    AudioCaptureClient, AudioClient, DeviceEnumerator, Direction, Handle, Role, SampleType, StreamMode, WaveFormat,
 };
 
 use crate::{AudioFrame, AudioSource, CaptureOptions, Packet, SAMPLE_RATE, Source, Timeline};
@@ -105,23 +104,25 @@ impl LiveCapture {
 
         let mic_changed = Arc::new(AtomicBool::new(false));
         let (mic_ready, mic_first) = mpsc::channel();
-        threads.push(spawn("recap-capture-mic", {
-            let (tx, stop, changed) = (tx.clone(), stop.clone(), mic_changed.clone());
-            move || {
-                let _com = wasapi::initialize_mta();
-                // Default-device changes flag a reopen; kept alive while capturing.
-                let _events = watch_default_mic(changed.clone());
-                capture_loop(
-                    Source::Me,
-                    || WasapiStream::mic(clock, microphone.as_deref()),
-                    &tx,
-                    &stop,
-                    &changed,
-                    Some(mic_ready),
-                );
-            }
-        })
-        .map_err(CaptureError::Mic)?);
+        threads.push(
+            spawn("recap-capture-mic", {
+                let (tx, stop, changed) = (tx.clone(), stop.clone(), mic_changed.clone());
+                move || {
+                    let _com = wasapi::initialize_mta();
+                    // Default-device changes flag a reopen; kept alive while capturing.
+                    let _events = watch_default_mic(changed.clone());
+                    capture_loop(
+                        Source::Me,
+                        || WasapiStream::mic(clock, microphone.as_deref()),
+                        &tx,
+                        &stop,
+                        &changed,
+                        Some(mic_ready),
+                    );
+                }
+            })
+            .map_err(CaptureError::Mic)?,
+        );
         let (system_ready, system_first) = mpsc::channel();
         let system = spawn("recap-capture-system", {
             let (tx, stop) = (tx, stop.clone());
@@ -330,7 +331,14 @@ impl WasapiStream {
         let event = client.set_get_eventhandle().map_err(|e| e.to_string())?;
         let capture = client.get_audiocaptureclient().map_err(|e| e.to_string())?;
         client.start_stream().map_err(|e| e.to_string())?;
-        Ok(WasapiStream { client, capture, event, clock, block_align: format.get_blockalign() as usize, bytes: Vec::new() })
+        Ok(WasapiStream {
+            client,
+            capture,
+            event,
+            clock,
+            block_align: format.get_blockalign() as usize,
+            bytes: Vec::new(),
+        })
     }
 }
 
@@ -467,7 +475,8 @@ mod tests {
         let me = me(&collect(rx, 2_500));
         assert_eq!(me.len(), 2_500 * 16, "Me spans the whole meeting");
         let level = |from_ms: usize, to_ms: usize| {
-            me[from_ms * 16..to_ms * 16].iter().map(|s| s.unsigned_abs() as f64).sum::<f64>() / ((to_ms - from_ms) * 16) as f64
+            me[from_ms * 16..to_ms * 16].iter().map(|s| s.unsigned_abs() as f64).sum::<f64>()
+                / ((to_ms - from_ms) * 16) as f64
         };
         assert!(level(100, 900) > 8_000.0, "before the loss");
         assert!(level(1_050, 1_450) < 1.0, "the hole is zeros");

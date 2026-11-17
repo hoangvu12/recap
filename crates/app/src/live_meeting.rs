@@ -82,11 +82,7 @@ pub fn start(
         }
     });
     let recording = saved.as_ref().map(|(store, id)| store.folder(id).join("audio.ogg"));
-    let meeting = Meeting::start(
-        MeetingConfig { live: config.live, recording },
-        source,
-        live,
-    );
+    let meeting = Meeting::start(MeetingConfig { live: config.live, recording }, source, live);
     let (engine, control) = meeting.split();
     let id = saved.as_ref().map(|(_, id)| id.clone());
     tokio::spawn(run(engine, notices, saved, out));
@@ -135,7 +131,9 @@ async fn run(
     let (Some((store, id)), Some(result)) = (saved, result) else { return };
     if !result.pauses.is_empty() {
         let path = store.folder(&id).join(PAUSES);
-        let written = serde_json::to_vec_pretty(&result.pauses).map_err(std::io::Error::other).and_then(|json| std::fs::write(&path, json));
+        let written = serde_json::to_vec_pretty(&result.pauses)
+            .map_err(std::io::Error::other)
+            .and_then(|json| std::fs::write(&path, json));
         if let Err(error) = written {
             send(LiveMeetingEvent::Notice(format!("{}: {error}", path.display())));
         }

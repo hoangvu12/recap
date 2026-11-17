@@ -113,7 +113,9 @@ mod system {
                 }
             }));
             TrayIconEvent::set_event_handler(Some(move |event: TrayIconEvent| {
-                if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
+                if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } =
+                    event
+                {
                     let _ = tx.send(Command::OpenHome);
                 }
             }));

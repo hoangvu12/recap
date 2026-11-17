@@ -172,7 +172,10 @@ pub struct SystemKeys {
 #[cfg(windows)]
 impl SystemKeys {
     pub fn new() -> Result<Self, String> {
-        Ok(Self { manager: global_hotkey::GlobalHotKeyManager::new().map_err(|e| e.to_string())?, keys: BTreeMap::new() })
+        Ok(Self {
+            manager: global_hotkey::GlobalHotKeyManager::new().map_err(|e| e.to_string())?,
+            keys: BTreeMap::new(),
+        })
     }
 
     /// Presses, as they come: their ids. Call once.

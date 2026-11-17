@@ -76,10 +76,16 @@ pub enum EngineEvent {
     /// How one side's live captions are doing: which provider captions it
     /// (told as each side starts, and when a backup takes over), and
     /// whether it is reconnecting.
-    Live { source: Source, status: LiveStatus },
+    Live {
+        source: Source,
+        status: LiveStatus,
+    },
     /// A provider failed for one side, told as it happens; recording goes
     /// on, that side uncaptioned until `MeetingControl::replace_live`.
-    Error { source: Source, error: ProviderError },
+    Error {
+        source: Source,
+        error: ProviderError,
+    },
     /// The recording could not be written (disk full, folder gone): what is
     /// on disk so far stays; captions go on. Also when the audio can't be
     /// read at all (no thread for it): the meeting ends.

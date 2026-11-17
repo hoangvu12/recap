@@ -5,8 +5,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use recap_engine::{
-    EngineEvent, FrameFeed, Meeting, MeetingConfig, MeetingResult, MeetingState, Script,
-    ScriptedLiveStt, Segment, SilenceSource, Source,
+    EngineEvent, FrameFeed, Meeting, MeetingConfig, MeetingResult, MeetingState, Script, ScriptedLiveStt, Segment,
+    SilenceSource, Source,
 };
 
 const SCRIPT: &str = include_str!("../../../testdata/meeting_tts_script.txt");
@@ -51,11 +51,7 @@ fn states(events: &[EngineEvent]) -> Vec<MeetingState> {
 }
 
 fn start(source: impl recap_engine::AudioSource + 'static) -> Meeting {
-    Meeting::start(
-        MeetingConfig::default(),
-        Box::new(source),
-        Arc::new(ScriptedLiveStt::new(script())),
-    )
+    Meeting::start(MeetingConfig::default(), Box::new(source), Arc::new(ScriptedLiveStt::new(script())))
 }
 
 #[tokio::test]
@@ -85,8 +81,7 @@ async fn a_replayed_script_becomes_partials_then_finals_with_me_and_them() {
     // its partials are prefixes of what it becomes.
     let all = segments(&events);
     for fin in all.iter().filter(|s| s.is_final) {
-        let partials: Vec<&&Segment> =
-            all.iter().filter(|s| s.id == fin.id && !s.is_final).collect();
+        let partials: Vec<&&Segment> = all.iter().filter(|s| s.id == fin.id && !s.is_final).collect();
         assert!(!partials.is_empty(), "{:?} had partials", fin.text);
         for p in &partials {
             assert!(fin.text.starts_with(&p.text), "{:?} grows into {:?}", p.text, fin.text);

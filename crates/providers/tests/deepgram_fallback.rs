@@ -46,7 +46,8 @@ fn notices() -> (Arc<Mutex<Vec<FallbackNotice>>>, impl Fn(FallbackNotice) + Send
 #[tokio::test]
 async fn out_of_elevenlabs_quota_live_captions_go_on_with_deepgram() {
     // ElevenLabs hears 5 frames, then says its quota is gone.
-    let scribe = FakeScribe::start(vec![vec![started(), Step::AwaitChunks(5), error("quota_exceeded"), Step::Close]]).await;
+    let scribe =
+        FakeScribe::start(vec![vec![started(), Step::AwaitChunks(5), error("quota_exceeded"), Step::Close]]).await;
     // Deepgram gets the test meeting's first two turns.
     let listen = FakeListen::start(vec![fake::deepgram::recorded_session()]).await;
     let (seen, on_switch) = notices();
@@ -64,7 +65,8 @@ async fn out_of_elevenlabs_quota_live_captions_go_on_with_deepgram() {
     }
     let mut finals = Vec::new();
     while finals.len() < 11 {
-        let event = tokio::time::timeout(Duration::from_secs(10), events.recv()).await.expect("captions go on").unwrap();
+        let event =
+            tokio::time::timeout(Duration::from_secs(10), events.recv()).await.expect("captions go on").unwrap();
         if event.is_final {
             finals.push(event);
         }
@@ -79,7 +81,10 @@ async fn out_of_elevenlabs_quota_live_captions_go_on_with_deepgram() {
     // The user is told who captions now, and why (the app's notice).
     let told = seen.lock().unwrap().clone();
     assert_eq!(told.len(), 1);
-    assert_eq!((told[0].from.as_str(), told[0].to.as_str(), told[0].error.kind), ("ElevenLabs", "Deepgram", ProviderErrorKind::Quota));
+    assert_eq!(
+        (told[0].from.as_str(), told[0].to.as_str(), told[0].error.kind),
+        ("ElevenLabs", "Deepgram", ProviderErrorKind::Quota)
+    );
     assert!(told[0].error.message.contains("quota"), "{}", told[0].error.message);
 
     drop(audio);
@@ -104,6 +109,9 @@ async fn out_of_elevenlabs_quota_the_transcript_comes_from_deepgram() {
     assert_eq!(transcript.words.len(), 102);
     assert_eq!(transcript.words[0].speaker.as_deref(), Some("S1"));
     let told = seen.lock().unwrap().clone();
-    assert_eq!((told[0].from.as_str(), told[0].to.as_str(), told[0].error.kind), ("ElevenLabs", "Deepgram", ProviderErrorKind::Quota));
+    assert_eq!(
+        (told[0].from.as_str(), told[0].to.as_str(), told[0].error.kind),
+        ("ElevenLabs", "Deepgram", ProviderErrorKind::Quota)
+    );
     assert_eq!(deepgram_api.requests().len(), 1);
 }

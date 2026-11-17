@@ -84,7 +84,8 @@ impl Session {
 
 #[tokio::test]
 async fn connects_with_the_tested_parameters() {
-    let server = FakeListen::start(vec![vec![Step::AwaitAudio(2), Step::AwaitText("CloseStream"), Step::Close(1000, "")]]).await;
+    let server =
+        FakeListen::start(vec![vec![Step::AwaitAudio(2), Step::AwaitText("CloseStream"), Step::Close(1000, "")]]).await;
     let stt = client(config(&server.base));
     let mut keyterms: Vec<String> = (0..60).map(|i| format!("term{i}")).collect();
     keyterms[0] = "A very long product name indeed".into();
@@ -121,7 +122,8 @@ async fn connects_with_the_tested_parameters() {
 #[tokio::test]
 async fn a_language_option_is_passed_on() {
     let server = FakeListen::start(vec![vec![Step::AwaitText("CloseStream"), Step::Close(1000, "")]]).await;
-    let session = start(&client(config(&server.base)), LiveOptions { keyterms: vec![], language: Some("en-IN".into()) });
+    let session =
+        start(&client(config(&server.base)), LiveOptions { keyterms: vec![], language: Some("en-IN".into()) });
     session.send([frame(0, 0)]);
     let _ = session.finish().await;
     assert_eq!(server.conns()[0].query("language"), ["en-IN"]);
@@ -139,8 +141,16 @@ async fn the_test_meeting_gives_partials_then_finals_with_meeting_times() {
 
     let finals: Vec<&LiveEvent> = events.iter().filter(|e| e.is_final).collect();
     let texts: Vec<&str> = finals.iter().map(|e| e.text.as_str()).collect();
-    assert_eq!(texts[..5], ["Okay,", "let's get started.", "Thanks for joining,", "Priya and David.",
-        "Today, I want to settle the launch date for the mobile app and agree on who owns the remaining work."]);
+    assert_eq!(
+        texts[..5],
+        [
+            "Okay,",
+            "let's get started.",
+            "Thanks for joining,",
+            "Priya and David.",
+            "Today, I want to settle the launch date for the mobile app and agree on who owns the remaining work."
+        ]
+    );
     assert_eq!(texts[5..7], ["Thanks,", "Tom."]);
     assert_eq!(texts[10], "I still need to fix the dark mode colors on the payment page.");
     // Word times (seconds of the audio sent) land on the side's timeline.
@@ -181,11 +191,17 @@ async fn finals_of_one_utterance_join_until_speech_final_or_utterance_end() {
     session.send((0..16).map(|i| frame(i, 0)));
     let events = session.until_finals(1).await;
     let texts: Vec<(&str, bool)> = events.iter().map(|e| (e.text.as_str(), e.is_final)).collect();
-    assert_eq!(texts, [("We", false), ("We launch", false), ("We launch on", false), ("We launch on December 1.", true)]);
+    assert_eq!(
+        texts,
+        [("We", false), ("We launch", false), ("We launch on", false), ("We launch on December 1.", true)]
+    );
     assert_eq!((events[3].start_ms, events[3].end_ms), (200, 1_500));
     session.send((16..30).map(|i| frame(i, 0)));
     let events = session.until_finals(1).await;
-    assert_eq!(events.last().unwrap(), &LiveEvent { text: "Agreed.".into(), is_final: true, start_ms: 2_000, end_ms: 2_400 });
+    assert_eq!(
+        events.last().unwrap(),
+        &LiveEvent { text: "Agreed.".into(), is_final: true, start_ms: 2_000, end_ms: 2_400 }
+    );
     let (result, rest) = session.finish().await;
     assert_eq!(result, Ok(()));
     assert!(rest.is_empty());
@@ -212,7 +228,8 @@ async fn closing_the_audio_flushes_the_last_words() {
 
 #[tokio::test]
 async fn an_unanswered_close_turns_the_partial_final() {
-    let server = FakeListen::start(vec![vec![Step::AwaitAudio(10), interim(&[("We", 0.2, 0.4), ("launch", 0.4, 0.7)])]]).await;
+    let server =
+        FakeListen::start(vec![vec![Step::AwaitAudio(10), interim(&[("We", 0.2, 0.4), ("launch", 0.4, 0.7)])]]).await;
     let mut session = start(&client(config(&server.base)), LiveOptions::default());
     session.send((0..10).map(|i| frame(i, 0)));
     let heard = session.next().await;
@@ -332,7 +349,11 @@ async fn test_opens_a_stream() {
     assert_eq!(server.conns()[0].authorization.as_deref(), Some("Token dg_fake"));
     assert!(server.conns()[0].audio.is_empty(), "the Test sends no audio");
 
-    let server = FakeListen::start(vec![vec![Step::Reject(401, r#"{"err_code":"INVALID_AUTH","err_msg":"Invalid credentials."}"#)]]).await;
+    let server = FakeListen::start(vec![vec![Step::Reject(
+        401,
+        r#"{"err_code":"INVALID_AUTH","err_msg":"Invalid credentials."}"#,
+    )]])
+    .await;
     assert_eq!(client(config(&server.base)).test().await.unwrap_err().kind, ProviderErrorKind::Auth);
 }
 

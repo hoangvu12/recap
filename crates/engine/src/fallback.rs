@@ -15,8 +15,8 @@ use tokio::sync::mpsc;
 use crate::{
     AudioFrame, Source,
     provider::{
-        BatchRequest, BatchStt, BatchTranscript, BoxFuture, Capabilities, LiveEvent, LiveOptions, LiveStatus,
-        LiveStt, Llm, ProviderError,
+        BatchRequest, BatchStt, BatchTranscript, BoxFuture, Capabilities, LiveEvent, LiveOptions, LiveStatus, LiveStt,
+        Llm, ProviderError,
     },
 };
 

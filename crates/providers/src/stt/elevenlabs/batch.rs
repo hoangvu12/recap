@@ -36,10 +36,8 @@ pub(super) async fn transcribe(inner: &Inner, request: BatchRequest) -> Result<B
     for term in keyterms(&request.keyterms) {
         form = form.text("keyterms", term);
     }
-    let file = Part::bytes(wav(&request.samples))
-        .file_name("side.wav")
-        .mime_str("audio/wav")
-        .expect("a valid mime type");
+    let file =
+        Part::bytes(wav(&request.samples)).file_name("side.wav").mime_str("audio/wav").expect("a valid mime type");
     form = form.part("file", file);
 
     let url = format!("{}/v1/speech-to-text", inner.config.api.trim_end_matches('/'));
@@ -63,8 +61,9 @@ pub(super) async fn transcribe(inner: &Inner, request: BatchRequest) -> Result<B
     if !(200..300).contains(&status) {
         return Err(http_error(status, &body));
     }
-    let parsed: Response = serde_json::from_str(&body)
-        .map_err(|e| ProviderError::new(ProviderErrorKind::Protocol, format!("ElevenLabs answered something odd: {e}")))?;
+    let parsed: Response = serde_json::from_str(&body).map_err(|e| {
+        ProviderError::new(ProviderErrorKind::Protocol, format!("ElevenLabs answered something odd: {e}"))
+    })?;
     Ok(BatchTranscript { words: words(parsed.words, request.diarize) })
 }
 

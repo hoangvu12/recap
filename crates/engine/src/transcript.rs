@@ -99,11 +99,8 @@ impl LiveTranscript {
                 // it, and nothing of the other side said in between (rows
                 // after it that started later only arrived first: each
                 // side's provider answers on its own).
-                let turn = self
-                    .rows
-                    .iter()
-                    .rposition(|r| r.source == segment.source && r.pause.is_none())
-                    .filter(|&i| {
+                let turn =
+                    self.rows.iter().rposition(|r| r.source == segment.source && r.pause.is_none()).filter(|&i| {
                         let row = &self.rows[i];
                         !row.is_open()
                             && !row.final_text.is_empty()

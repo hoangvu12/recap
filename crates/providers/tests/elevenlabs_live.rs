@@ -7,7 +7,10 @@ use std::time::Duration;
 
 use fake::{FakeScribe, Step, committed, error, partial, started};
 use recap_engine::{AudioFrame, LiveEvent, LiveOptions, LiveStatus, LiveStt, ProviderError, ProviderErrorKind, Source};
-use recap_providers::{Provider, elevenlabs::{Config, ElevenLabs}};
+use recap_providers::{
+    Provider,
+    elevenlabs::{Config, ElevenLabs},
+};
 use tokio::sync::mpsc;
 
 /// Quick to give up and to retry, so tests stay fast.
@@ -172,7 +175,10 @@ async fn closing_the_audio_commits_and_waits_for_the_last_turn() {
     assert_eq!(session.next().await.text, "We launch on");
     let (result, rest) = session.finish().await;
     assert_eq!(result, Ok(()));
-    assert_eq!(rest, [LiveEvent { text: "We launch on December 1.".into(), is_final: true, start_ms: 200, end_ms: 1_000 }]);
+    assert_eq!(
+        rest,
+        [LiveEvent { text: "We launch on December 1.".into(), is_final: true, start_ms: 200, end_ms: 1_000 }]
+    );
     let commit = server.conns()[0].sent.last().cloned().unwrap();
     assert_eq!((commit["commit"].clone(), commit["audio_base_64"].clone()), (true.into(), "".into()));
 }
@@ -321,7 +327,8 @@ async fn auth_error_is_a_typed_auth_error() {
 
 #[tokio::test]
 async fn quota_exceeded_is_a_typed_quota_error() {
-    fails_with(vec![started(), Step::AwaitChunks(1), error("quota_exceeded"), Step::Close], ProviderErrorKind::Quota).await;
+    fails_with(vec![started(), Step::AwaitChunks(1), error("quota_exceeded"), Step::Close], ProviderErrorKind::Quota)
+        .await;
 }
 
 #[tokio::test]

@@ -90,7 +90,13 @@ pub struct Preset {
 
 impl Preset {
     /// A preset with no defaults.
-    pub const fn new(id: &'static str, name: &'static str, logo: &'static str, group: Group, kind: &'static str) -> Self {
+    pub const fn new(
+        id: &'static str,
+        name: &'static str,
+        logo: &'static str,
+        group: Group,
+        kind: &'static str,
+    ) -> Self {
         Self {
             id,
             name,

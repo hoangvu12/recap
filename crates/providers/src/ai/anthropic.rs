@@ -88,7 +88,10 @@ async fn ask(
             return Err(ProviderError::new(ProviderErrorKind::Other, format!("{name} declined to answer")));
         }
         Some("max_tokens") => {
-            return Err(ProviderError::new(ProviderErrorKind::Protocol, format!("{name}'s answer was cut off (too long)")));
+            return Err(ProviderError::new(
+                ProviderErrorKind::Protocol,
+                format!("{name}'s answer was cut off (too long)"),
+            ));
         }
         _ => {}
     }

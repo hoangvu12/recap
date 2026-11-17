@@ -277,7 +277,13 @@ impl Processing {
     }
 
     /// Process meeting `id` from where it is, telling `out`.
-    pub async fn run(&self, store: Store, id: MeetingId, config: ProcessingConfig, out: UnboundedSender<ProcessingEvent>) {
+    pub async fn run(
+        &self,
+        store: Store,
+        id: MeetingId,
+        config: ProcessingConfig,
+        out: UnboundedSender<ProcessingEvent>,
+    ) {
         let send = |event: ProcessingEvent| drop(out.send(event));
         let folder = store.folder(&id);
         // What ran or failed before goes again; what is done stays done.

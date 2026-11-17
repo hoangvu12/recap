@@ -8,7 +8,7 @@ use std::{path::Path, sync::Arc};
 
 use recap_engine::{Llm, ProviderErrorKind};
 use recap_providers::{
-    ProviderForm, Job, MemorySecrets, Provider, ProviderSettings, Providers, Registry, Secrets, Slot, TranscriptInput,
+    Job, MemorySecrets, Provider, ProviderForm, ProviderSettings, Providers, Registry, Secrets, Slot, TranscriptInput,
 };
 use serde_json::{Value, json};
 
@@ -78,7 +78,8 @@ async fn a_command_gets_the_task_on_stdin_from_an_empty_folder_without_anthropic
         std::env::set_var("ANTHROPIC_API_KEY", "sk-ant-should-not-leak");
         std::env::set_var("ANTHROPIC_AUTH_TOKEN", "should-not-leak");
     }
-    let llm = cli(format!("\"{FAKE}\" env --json-schema {{schema}} --tools \"\" -p {{prompt}}"), TranscriptInput::Stdin);
+    let llm =
+        cli(format!("\"{FAKE}\" env --json-schema {{schema}} --tools \"\" -p {{prompt}}"), TranscriptInput::Stdin);
     let schema = json!({ "type": "object" });
     let seen = llm.complete_json("Summarise: Tom will send the deck.".into(), schema.clone()).await.unwrap();
     assert_eq!(seen["anthropic_api_key"], false);
@@ -108,21 +109,24 @@ async fn claude_codes_structured_output_is_the_answer() {
         "structured_output": good(),
     });
     let dir = seq_dir(&[&envelope.to_string()]);
-    let answer = cli(seq_command(dir.path()), TranscriptInput::Stdin).complete_json("p".into(), summary_schema()).await.unwrap();
+    let answer =
+        cli(seq_command(dir.path()), TranscriptInput::Stdin).complete_json("p".into(), summary_schema()).await.unwrap();
     assert_eq!(answer, good());
 }
 
 #[tokio::test]
 async fn a_plain_text_reply_is_read_as_json_even_in_a_code_fence() {
     let dir = seq_dir(&[&format!("Here you go:\n```json\n{}\n```\n", good())]);
-    let answer = cli(seq_command(dir.path()), TranscriptInput::Stdin).complete_json("p".into(), summary_schema()).await.unwrap();
+    let answer =
+        cli(seq_command(dir.path()), TranscriptInput::Stdin).complete_json("p".into(), summary_schema()).await.unwrap();
     assert_eq!(answer, good());
 }
 
 #[tokio::test]
 async fn a_command_gets_one_retry_when_its_json_does_not_match() {
     let dir = seq_dir(&[r#"{"title": "Launch plan"}"#, &good().to_string()]);
-    let answer = cli(seq_command(dir.path()), TranscriptInput::Stdin).complete_json("p".into(), summary_schema()).await.unwrap();
+    let answer =
+        cli(seq_command(dir.path()), TranscriptInput::Stdin).complete_json("p".into(), summary_schema()).await.unwrap();
     assert_eq!(answer, good());
     assert_eq!(runs(dir.path()), 2);
 }
@@ -130,14 +134,26 @@ async fn a_command_gets_one_retry_when_its_json_does_not_match() {
 #[tokio::test]
 async fn claude_code_errors_say_whether_to_fall_back() {
     let cases = [
-        (json!({"type": "result", "is_error": true, "api_error_status": 401, "result": "Invalid API key · Please run /login"}), ProviderErrorKind::Auth),
-        (json!({"type": "result", "is_error": true, "api_error_status": 429, "result": "Claude usage limit reached"}), ProviderErrorKind::Quota),
-        (json!({"type": "result", "is_error": true, "api_error_status": 529, "result": "Overloaded"}), ProviderErrorKind::Network),
+        (
+            json!({"type": "result", "is_error": true, "api_error_status": 401, "result": "Invalid API key · Please run /login"}),
+            ProviderErrorKind::Auth,
+        ),
+        (
+            json!({"type": "result", "is_error": true, "api_error_status": 429, "result": "Claude usage limit reached"}),
+            ProviderErrorKind::Quota,
+        ),
+        (
+            json!({"type": "result", "is_error": true, "api_error_status": 529, "result": "Overloaded"}),
+            ProviderErrorKind::Network,
+        ),
     ];
     for (envelope, kind) in cases {
         let dir = seq_dir(&[&envelope.to_string()]);
         std::fs::write(dir.path().join("1.code"), "1").unwrap();
-        let error = cli(seq_command(dir.path()), TranscriptInput::Stdin).complete_json("p".into(), json!({})).await.unwrap_err();
+        let error = cli(seq_command(dir.path()), TranscriptInput::Stdin)
+            .complete_json("p".into(), json!({}))
+            .await
+            .unwrap_err();
         assert_eq!(error.kind, kind, "{envelope}: {error:?}");
         assert!(error.falls_back());
     }
@@ -148,13 +164,17 @@ async fn a_failing_command_reports_its_error_output() {
     let dir = seq_dir(&[""]);
     std::fs::write(dir.path().join("1.err"), "boom: something broke").unwrap();
     std::fs::write(dir.path().join("1.code"), "3").unwrap();
-    let error = cli(seq_command(dir.path()), TranscriptInput::Stdin).complete_json("p".into(), json!({})).await.unwrap_err();
+    let error =
+        cli(seq_command(dir.path()), TranscriptInput::Stdin).complete_json("p".into(), json!({})).await.unwrap_err();
     assert!(error.message.contains("boom: something broke"), "{error:?}");
 }
 
 #[tokio::test]
 async fn a_missing_program_falls_back() {
-    let error = cli("recap-no-such-program -p".into(), TranscriptInput::Stdin).complete_json("p".into(), json!({})).await.unwrap_err();
+    let error = cli("recap-no-such-program -p".into(), TranscriptInput::Stdin)
+        .complete_json("p".into(), json!({}))
+        .await
+        .unwrap_err();
     assert_eq!(error.kind, ProviderErrorKind::Network, "{error:?}");
     assert!(error.message.contains("recap-no-such-program"), "{error:?}");
 }
@@ -167,7 +187,10 @@ async fn claude_code_for_real() {
     unsafe { std::env::set_var("ANTHROPIC_API_KEY", "sk-ant-invalid-must-be-stripped") };
     let registry = Registry::builtin();
     let preset = registry.preset("claude_code").unwrap();
-    let llm = llm("cli", ProviderSettings { name: "Claude Code".into(), command: preset.command.into(), ..Default::default() });
+    let llm = llm(
+        "cli",
+        ProviderSettings { name: "Claude Code".into(), command: preset.command.into(), ..Default::default() },
+    );
     let schema = json!({
         "type": "object",
         "properties": { "launch_day": { "type": "string" }, "owner": { "type": "string" } },
@@ -206,7 +229,10 @@ fn openai(base_url: &str) -> Arc<dyn Llm> {
 #[tokio::test]
 async fn openai_compatible_posts_a_chat_completion_and_reads_its_json() {
     let server = fake_http::serve(vec![(200, chat(&good().to_string()))]).await;
-    let answer = openai(&format!("{}/api/v1/", server.url)).complete_json("Summarise this".into(), summary_schema()).await.unwrap();
+    let answer = openai(&format!("{}/api/v1/", server.url))
+        .complete_json("Summarise this".into(), summary_schema())
+        .await
+        .unwrap();
     assert_eq!(answer, good());
     let request = &server.requests()[0];
     assert_eq!((request.method.as_str(), request.path.as_str()), ("POST", "/api/v1/chat/completions"));
@@ -216,13 +242,24 @@ async fn openai_compatible_posts_a_chat_completion_and_reads_its_json() {
     let messages = request.body["messages"].as_array().unwrap();
     assert_eq!(messages[0]["role"], "system");
     let user = messages.last().unwrap()["content"].as_str().unwrap();
-    assert!(user.contains("Summarise this") && user.contains("\"next_steps\""), "the prompt carries the schema: {user}");
+    assert!(
+        user.contains("Summarise this") && user.contains("\"next_steps\""),
+        "the prompt carries the schema: {user}"
+    );
 }
 
 #[tokio::test]
 async fn a_local_server_needs_no_key() {
     let server = fake_http::serve(vec![(200, chat("{}"))]).await;
-    let llm = llm("openai_compatible", ProviderSettings { name: "Ollama".into(), model: "llama3.1:8b".into(), base_url: server.url.clone(), ..Default::default() });
+    let llm = llm(
+        "openai_compatible",
+        ProviderSettings {
+            name: "Ollama".into(),
+            model: "llama3.1:8b".into(),
+            base_url: server.url.clone(),
+            ..Default::default()
+        },
+    );
     llm.complete_json("p".into(), json!({ "type": "object" })).await.unwrap();
     assert_eq!(server.requests()[0].header("authorization"), None);
 }
@@ -247,7 +284,11 @@ async fn an_invalid_reply_is_retried_once_with_the_error() {
 
 #[tokio::test]
 async fn two_invalid_replies_are_a_protocol_error() {
-    let server = fake_http::serve(vec![(200, chat("Sorry, I can't help with that.")), (200, chat(r#"{"title": 7, "next_steps": []}"#))]).await;
+    let server = fake_http::serve(vec![
+        (200, chat("Sorry, I can't help with that.")),
+        (200, chat(r#"{"title": 7, "next_steps": []}"#)),
+    ])
+    .await;
     let error = openai(&server.url).complete_json("p".into(), summary_schema()).await.unwrap_err();
     assert_eq!(error.kind, ProviderErrorKind::Protocol, "{error:?}");
     assert!(error.message.contains("title"), "{error:?}");
@@ -317,7 +358,12 @@ async fn anthropic_asks_for_structured_output_held_to_the_schema() {
 async fn anthropic_errors_map_to_fallback_kinds() {
     let cases = [
         (401, "authentication_error", "invalid x-api-key", ProviderErrorKind::Auth),
-        (400, "invalid_request_error", "Your credit balance is too low to access the Anthropic API.", ProviderErrorKind::Quota),
+        (
+            400,
+            "invalid_request_error",
+            "Your credit balance is too low to access the Anthropic API.",
+            ProviderErrorKind::Quota,
+        ),
         (429, "rate_limit_error", "Too many requests", ProviderErrorKind::Quota),
         (529, "overloaded_error", "Overloaded", ProviderErrorKind::Network),
     ];
@@ -350,7 +396,11 @@ async fn the_test_button_makes_a_tiny_real_call() {
     let server = fake_http::serve(vec![(200, chat(r#"{"ok": true}"#))]).await;
     let (providers, _) = providers();
     let outcome = providers
-        .test(ProviderForm { key: Some("sk-typed".into()), base_url: Some(server.url.clone()), ..ProviderForm::new("openai") })
+        .test(ProviderForm {
+            key: Some("sk-typed".into()),
+            base_url: Some(server.url.clone()),
+            ..ProviderForm::new("openai")
+        })
         .await;
     assert!(outcome.ok, "{outcome:?}");
     let request = &server.requests()[0];
@@ -359,7 +409,11 @@ async fn the_test_button_makes_a_tiny_real_call() {
 
     let refused = fake_http::serve(vec![(401, json!({ "error": { "message": "Incorrect API key provided" } }))]).await;
     let outcome = providers
-        .test(ProviderForm { key: Some("sk-wrong".into()), base_url: Some(refused.url.clone()), ..ProviderForm::new("openai") })
+        .test(ProviderForm {
+            key: Some("sk-wrong".into()),
+            base_url: Some(refused.url.clone()),
+            ..ProviderForm::new("openai")
+        })
         .await;
     assert!(!outcome.ok);
     assert!(outcome.error.unwrap().contains("Incorrect API key provided"));
@@ -370,9 +424,17 @@ async fn the_summary_falls_back_from_a_refused_key_to_the_backup() {
     let main_server = fake_http::serve(vec![(401, json!({ "error": { "message": "bad key" } }))]).await;
     let backup_server = fake_http::serve(vec![(200, message(&good().to_string()))]).await;
     let (providers, secrets) = providers();
-    let main = providers.save(ProviderForm { base_url: Some(main_server.url.clone()), ..ProviderForm::new("openrouter") }).unwrap();
+    let main = providers
+        .save(ProviderForm { base_url: Some(main_server.url.clone()), ..ProviderForm::new("openrouter") })
+        .unwrap();
     secrets.set(&main, "sk-or-bad").unwrap();
-    let backup = providers.save(ProviderForm { base_url: Some(backup_server.url.clone()), key: Some("sk-ant-good".into()), ..ProviderForm::new("anthropic") }).unwrap();
+    let backup = providers
+        .save(ProviderForm {
+            base_url: Some(backup_server.url.clone()),
+            key: Some("sk-ant-good".into()),
+            ..ProviderForm::new("anthropic")
+        })
+        .unwrap();
     providers.set_job(Job::Summary, Slot::Main, Some(&main)).unwrap();
     providers.set_job(Job::Summary, Slot::Backup, Some(&backup)).unwrap();
     let switched = Arc::new(std::sync::Mutex::new(Vec::new()));

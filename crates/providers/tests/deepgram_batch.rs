@@ -14,7 +14,11 @@ use recap_providers::deepgram::{Config, Deepgram};
 const RESPONSE: &str = include_str!("fixtures/deepgram_batch.json");
 
 fn client(api: &str) -> Deepgram {
-    Deepgram::new("Deepgram", "dg_fake", Config { api: api.to_owned(), live: "ws://127.0.0.1:9".into(), ..Config::default() })
+    Deepgram::new(
+        "Deepgram",
+        "dg_fake",
+        Config { api: api.to_owned(), live: "ws://127.0.0.1:9".into(), ..Config::default() },
+    )
 }
 
 fn request(diarize: bool) -> BatchRequest {
@@ -31,7 +35,8 @@ async fn uploads_the_side_with_the_tested_parameters() {
     assert!(line.starts_with("POST /v1/listen?"), "{line}");
     let target = line.split(' ').nth(1).unwrap();
     let url = reqwest::Url::parse(&format!("http://x{target}")).unwrap();
-    let query = |name: &str| url.query_pairs().filter(|(k, _)| k == name).map(|(_, v)| v.into_owned()).collect::<Vec<_>>();
+    let query =
+        |name: &str| url.query_pairs().filter(|(k, _)| k == name).map(|(_, v)| v.into_owned()).collect::<Vec<_>>();
     // transcribe_file.py's settings.
     for (name, value) in
         [("model", "nova-3"), ("language", "en"), ("smart_format", "true"), ("punctuate", "true"), ("diarize", "true")]
@@ -93,8 +98,18 @@ async fn fails_with(status: u16, body: &str, kind: ProviderErrorKind) {
 
 #[tokio::test]
 async fn http_errors_are_typed() {
-    fails_with(401, r#"{"err_code":"INVALID_AUTH","err_msg":"Invalid credentials.","request_id":"x"}"#, ProviderErrorKind::Auth).await;
-    fails_with(403, r#"{"err_code":"INSUFFICIENT_PERMISSIONS","err_msg":"no","request_id":"x"}"#, ProviderErrorKind::Auth).await;
+    fails_with(
+        401,
+        r#"{"err_code":"INVALID_AUTH","err_msg":"Invalid credentials.","request_id":"x"}"#,
+        ProviderErrorKind::Auth,
+    )
+    .await;
+    fails_with(
+        403,
+        r#"{"err_code":"INSUFFICIENT_PERMISSIONS","err_msg":"no","request_id":"x"}"#,
+        ProviderErrorKind::Auth,
+    )
+    .await;
     fails_with(
         402,
         r#"{"err_code":"ASR_PAYMENT_REQUIRED","err_msg":"Project does not have enough credits for an ASR request and does not have an overage agreement.","request_id":"x"}"#,
@@ -103,7 +118,12 @@ async fn http_errors_are_typed() {
     .await;
     fails_with(429, r#"{"err_code":"TOO_MANY_REQUESTS","err_msg":"slow down"}"#, ProviderErrorKind::Quota).await;
     fails_with(503, "{}", ProviderErrorKind::Network).await;
-    fails_with(400, r#"{"err_code":"Bad Request","err_msg":"corrupt or unsupported data"}"#, ProviderErrorKind::Protocol).await;
+    fails_with(
+        400,
+        r#"{"err_code":"Bad Request","err_msg":"corrupt or unsupported data"}"#,
+        ProviderErrorKind::Protocol,
+    )
+    .await;
     fails_with(200, "not json", ProviderErrorKind::Protocol).await;
 }
 

@@ -44,7 +44,8 @@ fn env(args: &[String]) {
 
 fn seq(dir: &str) {
     let dir = std::path::Path::new(dir);
-    let count = std::fs::read_to_string(dir.join("count")).ok().and_then(|c| c.trim().parse::<u32>().ok()).unwrap_or(0) + 1;
+    let count =
+        std::fs::read_to_string(dir.join("count")).ok().and_then(|c| c.trim().parse::<u32>().ok()).unwrap_or(0) + 1;
     std::fs::write(dir.join("count"), count.to_string()).unwrap();
     if let Ok(out) = std::fs::read_to_string(dir.join(format!("{count}.out"))) {
         print!("{out}");
@@ -52,6 +53,9 @@ fn seq(dir: &str) {
     if let Ok(err) = std::fs::read_to_string(dir.join(format!("{count}.err"))) {
         eprint!("{err}");
     }
-    let code = std::fs::read_to_string(dir.join(format!("{count}.code"))).ok().and_then(|c| c.trim().parse().ok()).unwrap_or(0);
+    let code = std::fs::read_to_string(dir.join(format!("{count}.code")))
+        .ok()
+        .and_then(|c| c.trim().parse().ok())
+        .unwrap_or(0);
     std::process::exit(code);
 }

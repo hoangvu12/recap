@@ -4,9 +4,7 @@
 use std::sync::Arc;
 
 use recap_engine::{Llm, ProviderErrorKind};
-use recap_providers::{
-    ProviderForm, Group, Job, MemorySecrets, Providers, Registry, Secrets, Slot, fake, mask,
-};
+use recap_providers::{Group, Job, MemorySecrets, ProviderForm, Providers, Registry, Secrets, Slot, fake, mask};
 
 fn registry() -> Registry {
     Registry::builtin().with(fake::BATCH_ONLY, [fake::batch_only_preset()]).with(fake::AI, [fake::ai_preset()])
@@ -171,7 +169,11 @@ fn the_same_preset_twice_gets_its_own_id_and_editing_keeps_it() {
     assert_eq!(providers.save(ProviderForm::new("openrouter")).unwrap(), "openrouter");
     assert_eq!(providers.save(ProviderForm::new("openrouter")).unwrap(), "openrouter-2");
     let edited = providers
-        .save(ProviderForm { id: Some("openrouter".into()), model: Some("x/y".into()), ..ProviderForm::new("openrouter") })
+        .save(ProviderForm {
+            id: Some("openrouter".into()),
+            model: Some("x/y".into()),
+            ..ProviderForm::new("openrouter")
+        })
         .unwrap();
     assert_eq!(edited, "openrouter");
     let view = providers.view();
@@ -257,7 +259,11 @@ async fn test_without_a_key_asks_for_one() {
     assert_eq!(outcome.error.as_deref(), Some("Add an API key"));
     // A typed (unsaved) key is what is tested (against nothing: port 9).
     let outcome = providers
-        .test(ProviderForm { key: Some("sk-typed".into()), base_url: Some("http://127.0.0.1:9".into()), ..ProviderForm::new("anthropic") })
+        .test(ProviderForm {
+            key: Some("sk-typed".into()),
+            base_url: Some("http://127.0.0.1:9".into()),
+            ..ProviderForm::new("anthropic")
+        })
         .await;
     assert_ne!(outcome.error.as_deref(), Some("Add an API key"));
 }
@@ -265,7 +271,8 @@ async fn test_without_a_key_asks_for_one() {
 #[tokio::test]
 async fn adapters_not_built_yet_say_so() {
     let (providers, _) = providers();
-    let outcome = providers.test(ProviderForm { id: Some("batch_only".into()), ..ProviderForm::new("batch_only") }).await;
+    let outcome =
+        providers.test(ProviderForm { id: Some("batch_only".into()), ..ProviderForm::new("batch_only") }).await;
     assert!(!outcome.ok);
     assert!(outcome.error.unwrap().contains("not built yet"));
 }
@@ -306,7 +313,9 @@ fn elevenlabs_offers_live_captions_and_the_transcript() {
 #[tokio::test]
 async fn the_summary_job_falls_back_to_its_backup() {
     let (providers, _) = providers();
-    let main = providers.save(ProviderForm { name: Some("Main".into()), model: Some("auth".into()), ..ProviderForm::new("fake_ai") }).unwrap();
+    let main = providers
+        .save(ProviderForm { name: Some("Main".into()), model: Some("auth".into()), ..ProviderForm::new("fake_ai") })
+        .unwrap();
     let backup = providers.save(ProviderForm { name: Some("Backup".into()), ..ProviderForm::new("fake_ai") }).unwrap();
     providers.set_job(Job::Summary, Slot::Main, Some(&main)).unwrap();
     providers.set_job(Job::Summary, Slot::Backup, Some(&backup)).unwrap();

@@ -14,7 +14,7 @@
 //! A later Settings page registers its own keys and actions in a module
 //! like this one, called from main.rs.
 
-use recap_providers::{ProviderForm, Job, Providers, Slot};
+use recap_providers::{Job, ProviderForm, Providers, Slot};
 use serde::Deserialize;
 use zgx_script::{ScriptHost, Shared, Value};
 
@@ -51,9 +51,12 @@ pub struct ProvidersHost {
 impl ProvidersHost {
     pub fn register(script: &ScriptHost, providers: Providers, runtime: tokio::runtime::Handle) -> Self {
         let host = Self { view: script.shared("providers", value(providers.view())), providers };
-        let test_state = script.shared("provider_test", value(serde_json::json!({
-            "target": "", "status": "idle", "latency_ms": 0, "error": "",
-        })));
+        let test_state = script.shared(
+            "provider_test",
+            value(serde_json::json!({
+                "target": "", "status": "idle", "latency_ms": 0, "error": "",
+            })),
+        );
 
         let h = host.clone();
         script.action("set_job", move |arg| {
@@ -94,10 +97,8 @@ impl ProvidersHost {
                 test_state.set(value(serde_json::json!({
                     "target": target, "status": "running", "latency_ms": 0, "error": "",
                 })));
-                let outcome = runtime
-                    .spawn(h.providers.test(form))
-                    .await
-                    .map_err(|error| format!("test_provider: {error}"))?;
+                let outcome =
+                    runtime.spawn(h.providers.test(form)).await.map_err(|error| format!("test_provider: {error}"))?;
                 test_state.set(value(serde_json::json!({
                     "target": target,
                     "status": if outcome.ok { "ok" } else { "error" },

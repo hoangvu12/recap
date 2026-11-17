@@ -153,7 +153,13 @@ fn a_meeting_with_only_live_segments_reads_by_side() {
 }
 
 fn segment(source: recap_engine::Source, speaker: Option<&str>, start_ms: u64, text: &str) -> recap_storage::Segment {
-    recap_storage::Segment { source, speaker: speaker.map(Into::into), start_ms, end_ms: start_ms + 2_000, text: text.into() }
+    recap_storage::Segment {
+        source,
+        speaker: speaker.map(Into::into),
+        start_ms,
+        end_ms: start_ms + 2_000,
+        text: text.into(),
+    }
 }
 
 fn pause(at_ms: u64) -> recap_engine::PauseMark {
@@ -189,7 +195,11 @@ fn a_stored_meeting_shows_its_pauses_where_they_were() {
     store
         .set_refined(
             &info.id,
-            &[segment(Me, Some("me"), 0, "Let's start."), segment(Them, Some("S1"), 1_000, "Sure."), segment(Them, Some("S1"), 5_000, "Back again.")],
+            &[
+                segment(Me, Some("me"), 0, "Let's start."),
+                segment(Them, Some("S1"), 1_000, "Sure."),
+                segment(Them, Some("S1"), 5_000, "Back again."),
+            ],
         )
         .unwrap();
     let info = store
@@ -207,5 +217,8 @@ fn a_stored_meeting_shows_its_pauses_where_they_were() {
     assert!(rows[2]["pause"].is_object());
     assert_eq!(rows[3]["final"], "Back again.", "a pause splits a speaker's turn");
     assert_eq!(rows[3]["index"], 4);
-    assert_eq!(p.meeting()["speakers"], serde_json::json!([{ "label": "Me", "n": 1 }, { "label": "Speaker 1", "n": 2 }]));
+    assert_eq!(
+        p.meeting()["speakers"],
+        serde_json::json!([{ "label": "Me", "n": 1 }, { "label": "Speaker 1", "n": 2 }])
+    );
 }

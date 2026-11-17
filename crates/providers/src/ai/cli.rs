@@ -167,7 +167,9 @@ async fn run(
     let task_path = task_file.display().to_string();
     let args: Vec<String> = template
         .iter()
-        .map(|a| a.replace("{schema}", &schema_text).replace("{transcript_file}", &task_path).replace("{prompt}", &directive))
+        .map(|a| {
+            a.replace("{schema}", &schema_text).replace("{transcript_file}", &task_path).replace("{prompt}", &directive)
+        })
         .collect();
 
     let program = resolve(&args[0]);
@@ -187,7 +189,10 @@ async fn run(
     let mut child = command.spawn().map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
             // Not installed (or not on PATH): let the backup take the job.
-            ProviderError::new(ProviderErrorKind::Network, format!("Can't run {}: not found. Is it installed?", args[0]))
+            ProviderError::new(
+                ProviderErrorKind::Network,
+                format!("Can't run {}: not found. Is it installed?", args[0]),
+            )
         } else {
             other(format!("Can't run {}: {e}", args[0]))
         }

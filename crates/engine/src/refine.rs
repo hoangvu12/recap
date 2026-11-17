@@ -57,7 +57,13 @@ fn sentences(words: &[Word], source: Source) -> Vec<Turn> {
             last.text.push_str(&w.text);
             last.end_ms = last.end_ms.max(w.end_ms);
         } else {
-            out.push(Turn { source, speaker: Some(speaker), start_ms: w.start_ms, end_ms: w.end_ms, text: w.text.clone() });
+            out.push(Turn {
+                source,
+                speaker: Some(speaker),
+                start_ms: w.start_ms,
+                end_ms: w.end_ms,
+                text: w.text.clone(),
+            });
         }
         open = !ends_sentence(&w.text);
     }

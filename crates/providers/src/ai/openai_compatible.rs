@@ -50,7 +50,8 @@ impl Llm for OpenAiCompatible {
     fn complete_json(&self, prompt: String, schema: Value) -> BoxFuture<'static, Result<Value, ProviderError>> {
         let settings = self.0.clone();
         Box::pin(async move {
-            discipline::complete(&settings.name, prompt, schema, |conversation| ask(settings.clone(), conversation)).await
+            discipline::complete(&settings.name, prompt, schema, |conversation| ask(settings.clone(), conversation))
+                .await
         })
     }
 }

@@ -34,19 +34,25 @@ async fn the_test_meeting_is_named_and_summarised_for_real() {
     let store = Store::open(dir.path()).unwrap();
     let id = recorded::record(&store).await.id;
 
-    let batch: Arc<dyn BatchStt> = Arc::new(elevenlabs::ElevenLabs::new("ElevenLabs", key.trim(), elevenlabs::Config::default()));
+    let batch: Arc<dyn BatchStt> =
+        Arc::new(elevenlabs::ElevenLabs::new("ElevenLabs", key.trim(), elevenlabs::Config::default()));
     let registry = Registry::builtin();
     let preset = registry.preset("claude_code").unwrap();
-    let settings = ProviderSettings { name: "Claude Code".into(), command: preset.command.into(), ..Default::default() };
+    let settings =
+        ProviderSettings { name: "Claude Code".into(), command: preset.command.into(), ..Default::default() };
     let llm: Arc<dyn Llm> = (registry.kind("cli").unwrap().build)(&settings).llm().unwrap();
     // The user is not one of the three (the WAV's mic side is only echo).
-    let config = ProcessingConfig { keyterms: vec!["Priya".into(), "David".into(), "Tom".into()], my_name: "Vu".into() };
+    let config =
+        ProcessingConfig { keyterms: vec!["Priya".into(), "David".into(), "Tom".into()], my_name: "Vu".into() };
     let started = std::time::Instant::now();
     let mut events = Processing::full(Ok(batch), Ok(llm)).start(store.clone(), id.clone(), config);
     let mut last = None;
     while let Some(event) = events.recv().await {
         if let ProcessingEvent::Progress(p) = &event {
-            eprintln!("{:?}", p.steps.iter().map(|s| (s.id.as_str(), s.status, s.took_ms, s.error.as_str())).collect::<Vec<_>>());
+            eprintln!(
+                "{:?}",
+                p.steps.iter().map(|s| (s.id.as_str(), s.status, s.took_ms, s.error.as_str())).collect::<Vec<_>>()
+            );
         }
         last = Some(event);
     }
@@ -58,7 +64,10 @@ async fn the_test_meeting_is_named_and_summarised_for_real() {
     // engine numbers voices as they first speak: Tom, Priya, David.
     let truth = [("S1", "Tom"), ("S2", "Priya"), ("S3", "David")];
     eprintln!("speakers: {:?}", info.speakers);
-    eprintln!("names.json: {}", std::fs::read_to_string(store.folder(&id).join(recap::naming::NAMES)).unwrap_or_default());
+    eprintln!(
+        "names.json: {}",
+        std::fs::read_to_string(store.folder(&id).join(recap::naming::NAMES)).unwrap_or_default()
+    );
     for speaker in &info.speakers {
         let Some(name) = &speaker.name else { continue };
         let right = truth.iter().find(|(id, _)| *id == speaker.id).map(|(_, n)| *n);

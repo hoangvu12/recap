@@ -76,8 +76,9 @@ pub(super) async fn transcribe(inner: &Inner, request: BatchRequest) -> Result<B
     if !(200..300).contains(&status) {
         return Err(http_error(status, &body));
     }
-    let parsed: Response = serde_json::from_str(&body)
-        .map_err(|e| ProviderError::new(ProviderErrorKind::Protocol, format!("Deepgram answered something odd: {e}")))?;
+    let parsed: Response = serde_json::from_str(&body).map_err(|e| {
+        ProviderError::new(ProviderErrorKind::Protocol, format!("Deepgram answered something odd: {e}"))
+    })?;
     let raw = parsed.results.channels.into_iter().next().and_then(|c| c.alternatives.into_iter().next());
     Ok(BatchTranscript { words: words(raw.map(|a| a.words).unwrap_or_default(), request.diarize) })
 }

@@ -64,12 +64,7 @@ impl SilenceSource {
 
     /// Silence in real time, for `total` or until the meeting stops.
     pub fn paced(total: Option<Duration>) -> Self {
-        Self {
-            total_ms: total.map(|t| t.as_millis() as u64),
-            at_ms: 0,
-            next: Source::Me,
-            paced: Some(Instant::now()),
-        }
+        Self { total_ms: total.map(|t| t.as_millis() as u64), at_ms: 0, next: Source::Me, paced: Some(Instant::now()) }
     }
 }
 

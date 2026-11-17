@@ -37,7 +37,14 @@ pub const ALL: [Preset; 13] = [
         ..Preset::new("anthropic", "Anthropic", "anthropic", Group::Api, "anthropic")
     },
     api("openai", "OpenAI", "openai", "https://api.openai.com/v1", "gpt-5-mini", "sk-…"),
-    api("openrouter", "OpenRouter", "openrouter", "https://openrouter.ai/api/v1", "deepseek/deepseek-chat-v3", "sk-or-…"),
+    api(
+        "openrouter",
+        "OpenRouter",
+        "openrouter",
+        "https://openrouter.ai/api/v1",
+        "deepseek/deepseek-chat-v3",
+        "sk-or-…",
+    ),
     api("groq", "Groq", "groq", "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile", "gsk_…"),
     api("deepseek", "DeepSeek", "deepseek", "https://api.deepseek.com/v1", "deepseek-chat", "sk-…"),
     api("mistral", "Mistral", "mistral", "https://api.mistral.ai/v1", "mistral-large-latest", ""),
@@ -66,7 +73,13 @@ pub const ALL: [Preset; 13] = [
     cli("gemini_cli", "Gemini CLI", "gemini", "gemini -p {prompt} --output-format json"),
     Preset {
         fields: Fields { name: true, ..API },
-        ..Preset::new("openai_compatible", "OpenAI-compatible endpoint", "compatible", Group::Custom, "openai_compatible")
+        ..Preset::new(
+            "openai_compatible",
+            "OpenAI-compatible endpoint",
+            "compatible",
+            Group::Custom,
+            "openai_compatible",
+        )
     },
     Preset {
         fields: Fields { name: true, ..CLI },

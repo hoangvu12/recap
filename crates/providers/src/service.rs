@@ -258,7 +258,8 @@ impl Providers {
     /// A speech engine only takes a key. Its key, if typed, goes to the
     /// secret store. Answers its id.
     pub fn save(&self, form: ProviderForm) -> Result<String, ProvidersError> {
-        let preset = *self.registry.preset(&form.preset).ok_or_else(|| ProvidersError::UnknownPreset(form.preset.clone()))?;
+        let preset =
+            *self.registry.preset(&form.preset).ok_or_else(|| ProvidersError::UnknownPreset(form.preset.clone()))?;
         if preset.group == Group::Speech {
             if let Some(key) = non_empty(form.key.as_ref()) {
                 self.secrets.set(preset.id, key)?;
@@ -281,9 +282,11 @@ impl Providers {
         if let Some(name) = non_empty(form.name.as_ref()) {
             config.name = name.into();
         }
-        for (field, value) in
-            [(&mut config.model, &form.model), (&mut config.base_url, &form.base_url), (&mut config.command, &form.command)]
-        {
+        for (field, value) in [
+            (&mut config.model, &form.model),
+            (&mut config.base_url, &form.base_url),
+            (&mut config.command, &form.command),
+        ] {
             if let Some(value) = value {
                 *field = value.trim().into();
             }
@@ -368,7 +371,8 @@ impl Providers {
 
     /// Build saved provider `id`.
     pub fn build(&self, id: &str) -> Result<Arc<dyn Provider>, ProviderError> {
-        let entry = self.entry(id).ok_or_else(|| ProviderError::new(ProviderErrorKind::Other, format!("no provider {id}")))?;
+        let entry =
+            self.entry(id).ok_or_else(|| ProviderError::new(ProviderErrorKind::Other, format!("no provider {id}")))?;
         if entry.preset.fields.key && self.stored_key(id).is_none() {
             return Err(ProviderError::new(ProviderErrorKind::Auth, format!("{} has no API key", entry.config.name)));
         }
@@ -440,7 +444,8 @@ impl Providers {
         engine: impl Fn(&dyn Provider) -> Option<Arc<T>>,
     ) -> Result<(Arc<T>, Option<Arc<T>>), ProviderError> {
         let (main, backup) = self.choice(job);
-        let main = main.ok_or_else(|| ProviderError::new(ProviderErrorKind::Other, format!("{} has no provider", job.label())))?;
+        let main = main
+            .ok_or_else(|| ProviderError::new(ProviderErrorKind::Other, format!("{} has no provider", job.label())))?;
         let built = self.build(&main)?;
         let main_engine = engine(built.as_ref()).ok_or_else(|| built.not_offered(job.label()))?;
         let backup = backup.and_then(|id| self.build(&id).ok()).and_then(|b| engine(b.as_ref()));
@@ -466,7 +471,10 @@ impl Providers {
     }
 
     /// Summary and names, falling back from main to backup.
-    pub fn llm(&self, on_switch: impl Fn(FallbackNotice) + Send + Sync + 'static) -> Result<Fallback<dyn Llm>, ProviderError> {
+    pub fn llm(
+        &self,
+        on_switch: impl Fn(FallbackNotice) + Send + Sync + 'static,
+    ) -> Result<Fallback<dyn Llm>, ProviderError> {
         let (main, backup) = self.job(Job::Summary, |p| p.llm())?;
         Ok(Fallback::new(main, backup).on_switch(on_switch))
     }
@@ -492,8 +500,13 @@ impl Providers {
             .collect();
         let row = |id: &str| -> Option<serde_json::Value> {
             let Entry { config, preset, kind } = self.entry_in(config, id)?;
-            let key_mask = if preset.fields.key { self.stored_key(id).map(|k| mask(&k)).unwrap_or_default() } else { String::new() };
-            let subtitle = if kind.id == "cli" { cli::program(&config.command).to_string() } else { config.model.clone() };
+            let key_mask = if preset.fields.key {
+                self.stored_key(id).map(|k| mask(&k)).unwrap_or_default()
+            } else {
+                String::new()
+            };
+            let subtitle =
+                if kind.id == "cli" { cli::program(&config.command).to_string() } else { config.model.clone() };
             let trailing = if !key_mask.is_empty() {
                 key_mask.clone()
             } else if !preset.fields.key && !config.base_url.is_empty() {

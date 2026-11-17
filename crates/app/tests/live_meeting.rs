@@ -55,7 +55,10 @@ async fn a_replayed_meeting_is_saved_as_it_goes_and_left_for_processing() {
     let id = live.id.clone().expect("a stored meeting");
     let listed = store.list().unwrap();
     assert_eq!(listed.len(), 1);
-    assert_eq!((listed[0].id.clone(), listed[0].status, listed[0].started_ms), (id.clone(), Status::Recording, STARTED));
+    assert_eq!(
+        (listed[0].id.clone(), listed[0].status, listed[0].started_ms),
+        (id.clone(), Status::Recording, STARTED)
+    );
 
     let events = drain(&mut live.events).await;
 
@@ -119,10 +122,12 @@ async fn a_paused_meeting_stays_one_meeting_with_its_pause_saved() {
     feed.push_silence(Duration::from_secs(2));
     wait_for(&mut live.events, |e| matches!(e, LiveMeetingEvent::Engine(EngineEvent::Elapsed(2_000)))).await;
     live.control.pause();
-    wait_for(&mut live.events, |e| matches!(e, LiveMeetingEvent::Engine(EngineEvent::State(MeetingState::Paused)))).await;
+    wait_for(&mut live.events, |e| matches!(e, LiveMeetingEvent::Engine(EngineEvent::State(MeetingState::Paused))))
+        .await;
     tokio::time::sleep(Duration::from_millis(200)).await;
     live.control.resume();
-    wait_for(&mut live.events, |e| matches!(e, LiveMeetingEvent::Engine(EngineEvent::State(MeetingState::Recording)))).await;
+    wait_for(&mut live.events, |e| matches!(e, LiveMeetingEvent::Engine(EngineEvent::State(MeetingState::Recording))))
+        .await;
     feed.push_silence(Duration::from_secs(1));
     live.control.stop();
     let events = drain(&mut live.events).await;

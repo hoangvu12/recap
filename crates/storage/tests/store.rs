@@ -25,7 +25,10 @@ fn summary() -> Summary {
 fn write_meeting(store: &Store) -> recap_storage::MeetingId {
     let info = store.create(NOV_16_10AM).unwrap();
     store
-        .append_live(&info.id, &[seg(Source::Me, None, 0, "Okay, let's get started."), seg(Source::Them, None, 3_000, "Thanks, Tom.")])
+        .append_live(
+            &info.id,
+            &[seg(Source::Me, None, 0, "Okay, let's get started."), seg(Source::Them, None, 3_000, "Thanks, Tom.")],
+        )
         .unwrap();
     store.append_live(&info.id, &[seg(Source::Them, None, 6_000, "The payments API is ready.")]).unwrap();
     store.set_my_notes(&info.id, "Ask about the India fallback").unwrap();
@@ -71,10 +74,9 @@ fn the_database_runs_in_wal_mode_with_every_table() {
     let db = rusqlite::Connection::open(dir.path().join("app.db")).unwrap();
     let mode: String = db.query_row("PRAGMA journal_mode", [], |r| r.get(0)).unwrap();
     assert_eq!(mode, "wal");
-    for table in ["meetings", "segments", "speakers", "people", "notes", "keyterms", "providers", "settings", "search"] {
-        let n: i64 = db
-            .query_row("SELECT count(*) FROM sqlite_master WHERE name = ?1", [table], |r| r.get(0))
-            .unwrap();
+    for table in ["meetings", "segments", "speakers", "people", "notes", "keyterms", "providers", "settings", "search"]
+    {
+        let n: i64 = db.query_row("SELECT count(*) FROM sqlite_master WHERE name = ?1", [table], |r| r.get(0)).unwrap();
         assert_eq!(n, 1, "table {table}");
     }
 }
@@ -214,7 +216,9 @@ fn a_live_file_cut_off_mid_line_rebuilds_up_to_the_cut() {
     let id = {
         let store = Store::open(dir.path()).unwrap();
         let info = store.create(NOV_16_10AM).unwrap();
-        store.append_live(&info.id, &[seg(Source::Them, None, 0, "first"), seg(Source::Them, None, 3_000, "second")]).unwrap();
+        store
+            .append_live(&info.id, &[seg(Source::Them, None, 0, "first"), seg(Source::Them, None, 3_000, "second")])
+            .unwrap();
         let path = store.folder(&info.id).join("live.ndjson");
         let mut text = fs::read_to_string(&path).unwrap();
         text.truncate(text.len() - 10); // the app died while writing "second"
@@ -252,7 +256,10 @@ fn dec_1_finds_the_meeting_that_said_december_1st() {
     let store = Store::open(dir.path()).unwrap();
     let said = store.create(NOV_16_10AM).unwrap();
     store
-        .set_refined(&said.id, &[seg(Source::Them, Some("S1"), 0, "Then we launch on December 1st, with caching in place.")])
+        .set_refined(
+            &said.id,
+            &[seg(Source::Them, Some("S1"), 0, "Then we launch on December 1st, with caching in place.")],
+        )
         .unwrap();
     let other = store.create(NOV_16_10AM + 1).unwrap();
     store.append_live(&other.id, &[seg(Source::Them, None, 0, "We meet again on the 12th of January.")]).unwrap();

@@ -92,7 +92,11 @@ impl StartOptions {
     /// The live captions provider. When the job can't be built (no key, no
     /// provider) the meeting still records: `notify` says why, and captions
     /// stay empty.
-    pub fn live(&self, providers: &Providers, notify: impl Fn(String) + Clone + Send + Sync + 'static) -> Arc<dyn LiveStt> {
+    pub fn live(
+        &self,
+        providers: &Providers,
+        notify: impl Fn(String) + Clone + Send + Sync + 'static,
+    ) -> Arc<dyn LiveStt> {
         if self.scripted {
             let script = ScriptedLiveStt::new(Script::test_meeting());
             return Arc::new(if matches!(self.audio, Audio::Looped(_)) { script.looping() } else { script });
@@ -104,7 +108,9 @@ impl StartOptions {
         }
         let on_switch = {
             let notify = notify.clone();
-            move |n: recap_engine::FallbackNotice| notify(format!("{} failed ({}); switched to {}", n.from, n.error.message, n.to))
+            move |n: recap_engine::FallbackNotice| {
+                notify(format!("{} failed ({}); switched to {}", n.from, n.error.message, n.to))
+            }
         };
         match providers.live(on_switch) {
             Ok(job) => Arc::new(job),
@@ -156,8 +162,9 @@ impl StartOptions {
         {
             return Ok(Arc::new(elevenlabs::ElevenLabs::new("ElevenLabs", key.trim(), elevenlabs::Config::default())));
         }
-        let on_switch =
-            move |n: recap_engine::FallbackNotice| notify(format!("{} failed ({}); switched to {}", n.from, n.error.message, n.to));
+        let on_switch = move |n: recap_engine::FallbackNotice| {
+            notify(format!("{} failed ({}); switched to {}", n.from, n.error.message, n.to))
+        };
         providers.batch(on_switch).map(|job| Arc::new(job) as Arc<dyn BatchStt>)
     }
 
@@ -168,8 +175,9 @@ impl StartOptions {
         providers: &Providers,
         notify: impl Fn(String) + Send + Sync + 'static,
     ) -> Result<Arc<dyn Llm>, ProviderError> {
-        let on_switch =
-            move |n: recap_engine::FallbackNotice| notify(format!("{} failed ({}); switched to {}", n.from, n.error.message, n.to));
+        let on_switch = move |n: recap_engine::FallbackNotice| {
+            notify(format!("{} failed ({}); switched to {}", n.from, n.error.message, n.to))
+        };
         providers.llm(on_switch).map(|job| Arc::new(job) as Arc<dyn Llm>)
     }
 }

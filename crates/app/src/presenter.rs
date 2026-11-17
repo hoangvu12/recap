@@ -67,9 +67,7 @@ impl LiveCaptions {
     /// The engine an error offers to switch to.
     fn switch_to(&self) -> Option<&LiveChoice> {
         let same = |a: &str, b: &str| a.eq_ignore_ascii_case(b);
-        self.choices
-            .iter()
-            .find(|c| !same(&c.name, &self.provider) && !self.tried.iter().any(|t| same(t, &c.name)))
+        self.choices.iter().find(|c| !same(&c.name, &self.provider) && !self.tried.iter().any(|t| same(t, &c.name)))
     }
 
     fn failed(&mut self, error: &recap_engine::ProviderError) {
@@ -332,7 +330,8 @@ impl Presenter {
                         .collect()
                 };
                 let mut value = json!({ "count": transcript.len(), "open": rows(&mut transcript.open_rows()) });
-                let revised = rows(&mut self.revised.iter().copied().filter(|&i| !transcript.row(i).is_some_and(Row::is_open)));
+                let revised =
+                    rows(&mut self.revised.iter().copied().filter(|&i| !transcript.row(i).is_some_and(Row::is_open)));
                 if !revised.is_empty() {
                     value["revised"] = Value::Object(revised);
                 }

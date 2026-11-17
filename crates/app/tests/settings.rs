@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use recap::{host, settings::ProvidersHost};
-use recap_providers::{ProviderForm, Job, MemorySecrets, Providers, Registry, Secrets, fake};
+use recap_providers::{Job, MemorySecrets, ProviderForm, Providers, Registry, Secrets, fake};
 use zgx_script::{ScriptHost, testing::TestApp};
 
 struct Fixture {

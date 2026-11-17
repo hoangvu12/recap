@@ -90,8 +90,20 @@ pub fn schema() -> Value {
 }
 
 const DAYS: [&str; 7] = ["Thursday", "Friday", "Saturday", "Sunday", "Monday", "Tuesday", "Wednesday"];
-const MONTHS: [&str; 12] =
-    ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const MONTHS: [&str; 12] = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+];
 
 /// "Monday, November 16, 2026" for `ms` since the epoch (UTC).
 pub fn date_words(ms: u64) -> String {
@@ -146,7 +158,11 @@ pub fn markdown(data: &SummaryData) -> String {
     }
     let list = |items: &mut dyn Iterator<Item = String>| items.map(|i| format!("- {i}\n")).collect::<String>();
     for topic in &data.topics {
-        parts.push(format!("### {}\n{}", topic.heading.trim(), list(&mut topic.bullets.iter().map(|b| b.trim().to_owned()))));
+        parts.push(format!(
+            "### {}\n{}",
+            topic.heading.trim(),
+            list(&mut topic.bullets.iter().map(|b| b.trim().to_owned()))
+        ));
     }
     if !data.next_steps.is_empty() {
         let steps: String = data
@@ -248,7 +264,8 @@ impl Step for WritingSummary {
 }
 
 async fn write(llm: Result<Arc<dyn Llm>, ProviderError>, job: Job) -> Result<(), String> {
-    let meeting = job.store.meeting(&job.id).map_err(|e| e.to_string())?.ok_or_else(|| format!("no meeting {}", job.id))?;
+    let meeting =
+        job.store.meeting(&job.id).map_err(|e| e.to_string())?.ok_or_else(|| format!("no meeting {}", job.id))?;
     let segments = job.store.transcript(&job.id).map_err(|e| e.to_string())?;
     if segments.iter().all(|s| s.text.trim().is_empty()) {
         // Nothing was said: nothing to sum up.
@@ -267,8 +284,8 @@ async fn write(llm: Result<Arc<dyn Llm>, ProviderError>, job: Job) -> Result<(),
         .complete_json(prompt(&transcript, &meeting.my_notes, meeting.info.started_ms, &me), schema())
         .await
         .map_err(|e| e.message)?;
-    let mut data: SummaryData =
-        serde_json::from_value(answer).map_err(|e| format!("{} answered a summary that can't be read: {e}", llm.name()))?;
+    let mut data: SummaryData = serde_json::from_value(answer)
+        .map_err(|e| format!("{} answered a summary that can't be read: {e}", llm.name()))?;
     // Ticks stay on the steps written again.
     let before = meeting.summary.as_ref().and_then(|s| serde_json::from_value::<SummaryData>(s.data.clone()).ok());
     if let Some(before) = &before {

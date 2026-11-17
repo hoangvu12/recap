@@ -31,7 +31,7 @@ pub use config::TranscriptInput;
 pub use job::{Job, Slot};
 pub use provider::{NotBuilt, Provider, ProviderSettings};
 pub use registry::{Family, Fields, Group, Kind, Preset, Registry};
-/// The speech adapters, for tests that point them at local fakes.
-pub use stt::{deepgram, elevenlabs};
 pub use secrets::{Keyring, MemorySecrets, SecretError, Secrets, mask};
 pub use service::{ProviderForm, Providers, ProvidersError, TestOutcome};
+/// The speech adapters, for tests that point them at local fakes.
+pub use stt::{deepgram, elevenlabs};

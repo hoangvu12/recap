@@ -65,8 +65,11 @@ fn rig(fake: Fake) -> Rig {
         }
         let _ = tx.send(ProcessingEvent::StepDone(StepId::Transcribing));
         if fake.summary {
-            let summary =
-                Summary { overview: "Launch on December 1.".into(), markdown: "Launch on December 1.".into(), data: serde_json::json!({}) };
+            let summary = Summary {
+                overview: "Launch on December 1.".into(),
+                markdown: "Launch on December 1.".into(),
+                data: serde_json::json!({}),
+            };
             store.set_summary(&id, &summary).unwrap();
         }
         let info = store

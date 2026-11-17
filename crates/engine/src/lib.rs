@@ -37,18 +37,18 @@ mod transcript;
 mod wav_source;
 
 pub use audio::{AudioFrame, AudioSource, CaptureOptions, FeedSource, FrameFeed, SAMPLE_RATE, SilenceSource};
-#[cfg(windows)]
-pub use live_capture::{CaptureError, LiveCapture, microphones};
-pub use recorder::{Recorder, Recording};
-pub use refine::Turn;
-pub use timeline::{Packet, Timeline};
-pub use wav_source::{LoopingWav, WavSource};
 pub use event::{EngineEvent, MeetingResult, MeetingState, PauseMark, Segment, SegmentId, Source};
 pub use fake::{Script, ScriptLine, ScriptedLiveStt};
 pub use fallback::{Fallback, FallbackNotice};
+#[cfg(windows)]
+pub use live_capture::{CaptureError, LiveCapture, microphones};
 pub use live_meeting::{Meeting, MeetingConfig, MeetingControl};
 pub use provider::{
-    BatchRequest, BatchStt, BatchTranscript, BoxFuture, Capabilities, LiveEvent, LiveOptions,
-    LiveStatus, LiveStt, Llm, ProviderError, ProviderErrorKind, Word,
+    BatchRequest, BatchStt, BatchTranscript, BoxFuture, Capabilities, LiveEvent, LiveOptions, LiveStatus, LiveStt, Llm,
+    ProviderError, ProviderErrorKind, Word,
 };
+pub use recorder::{Recorder, Recording};
+pub use refine::Turn;
+pub use timeline::{Packet, Timeline};
 pub use transcript::{LiveTranscript, Row, RowChange};
+pub use wav_source::{LoopingWav, WavSource};

@@ -2,9 +2,7 @@
 
 use tokio::sync::mpsc;
 
-use crate::{
-    AudioFrame, BoxFuture, Capabilities, LiveEvent, LiveOptions, LiveStt, ProviderError, Source,
-};
+use crate::{AudioFrame, BoxFuture, Capabilities, LiveEvent, LiveOptions, LiveStt, ProviderError, Source};
 
 /// One spoken line of a meeting script.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -31,8 +29,7 @@ impl Script {
             if line.is_empty() {
                 continue;
             }
-            let (voice, said) =
-                line.split_once('|').ok_or_else(|| format!("line {}: no `Voice|text`", n + 1))?;
+            let (voice, said) = line.split_once('|').ok_or_else(|| format!("line {}: no `Voice|text`", n + 1))?;
             let source = if voice == me_voice { Source::Me } else { Source::Them };
             lines.push(ScriptLine { voice: voice.to_owned(), source, text: said.trim().to_owned() });
         }
@@ -201,7 +198,8 @@ impl LiveStt for ScriptedLiveStt {
                         base += round_ms;
                     }
                     let Some(event) = schedule.get(next).filter(|e| base + e.end_ms <= heard_ms) else { break };
-                    let event = LiveEvent { start_ms: base + event.start_ms, end_ms: base + event.end_ms, ..event.clone() };
+                    let event =
+                        LiveEvent { start_ms: base + event.start_ms, end_ms: base + event.end_ms, ..event.clone() };
                     partial = (!event.is_final).then(|| event.clone());
                     if events.send(event).is_err() {
                         return Ok(());

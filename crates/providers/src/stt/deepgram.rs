@@ -186,6 +186,9 @@ mod tests {
         assert_eq!(http_error(429, "").kind, ProviderErrorKind::Quota);
         assert_eq!(http_error(502, "").kind, ProviderErrorKind::Network);
         assert_eq!(http_error(400, "").kind, ProviderErrorKind::Protocol);
-        assert_eq!(http_error(401, r#"{"err_msg":"Invalid credentials."}"#).message, "Deepgram refused the key: Invalid credentials.");
+        assert_eq!(
+            http_error(401, r#"{"err_msg":"Invalid credentials."}"#).message,
+            "Deepgram refused the key: Invalid credentials."
+        );
     }
 }

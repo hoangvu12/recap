@@ -269,10 +269,8 @@ impl To16k {
             let input = InterleavedSlice::new(chunk, 1, need).expect("a mono chunk");
             let frames = self.buf.len();
             let mut output = InterleavedSlice::new_mut(&mut self.buf, 1, frames).expect("a mono buffer");
-            let (_, produced) = self
-                .fft
-                .process_into_buffer(&input, &mut output, None)
-                .expect("a full chunk resamples");
+            let (_, produced) =
+                self.fft.process_into_buffer(&input, &mut output, None).expect("a full chunk resamples");
             used += need;
             let trim = self.trim.min(produced);
             self.trim -= trim;
