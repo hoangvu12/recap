@@ -16,10 +16,9 @@
 //! same utterance; finals join until `speech_final` or `UtteranceEnd` (or a
 //! long monologue) and then go out as one final.
 
-use std::collections::VecDeque;
 use std::time::Duration;
 
-use futures::{SinkExt, StreamExt, stream::SplitSink};
+use futures::{SinkExt, StreamExt};
 use recap_engine::{AudioFrame, LiveEvent, LiveOptions, ProviderError, ProviderErrorKind, SAMPLE_RATE};
 use serde_json::{Value, json};
 use tokio::sync::mpsc;
@@ -32,36 +31,15 @@ use tokio_tungstenite::tungstenite::{
 };
 
 use super::super::keyterms;
+use super::super::live_common::{self, Anchors, Failure, Retries, SideAudio, Sink, Ws};
 use super::{Inner, http_error};
 
-type Ws = tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
-type Sink = SplitSink<Ws, Message>;
-
-/// At most this much audio (60 s) waits for a final, to be replayed after a
-/// reconnect.
-const UNFINAL_FRAMES: usize = 600;
-const MAX_BACKOFF: Duration = Duration::from_secs(8);
 /// A monologue goes out as a final at about this many characters, even
 /// without a pause (live_captions.py's COMMIT_CHARS).
 const COMMIT_CHARS: usize = 220;
 
-enum Failure {
-    /// Worth a reconnect: the network, a server error, a timeout.
-    Retry(ProviderError),
-    /// The session is over: the key, the credit, a request it won't take.
-    Fatal(ProviderError),
-}
-
-impl Failure {
-    fn error(self) -> ProviderError {
-        match self {
-            Failure::Retry(e) | Failure::Fatal(e) => e,
-        }
-    }
-}
-
 fn network(message: impl std::fmt::Display) -> Failure {
-    Failure::Retry(ProviderError::new(ProviderErrorKind::Network, format!("Deepgram: {message}")))
+    live_common::network("Deepgram", message)
 }
 
 /// An error told in words (an `Error` message, a close reason): no credit
@@ -197,18 +175,9 @@ pub(super) async fn check(inner: &Inner) -> Result<(), ProviderError> {
     Ok(())
 }
 
-/// Where a frame sent on this stream sits on the side's timeline.
-#[derive(Clone, Copy, Debug)]
-struct Anchor {
-    session_ms: u64,
-    side_ms: u64,
-    len: u64,
-}
-
 /// One connection's view: the audio it was sent.
 struct Conn {
-    anchors: Vec<Anchor>,
-    session_ms: u64,
+    anchors: Anchors,
     last_send: Instant,
     /// It heard speech, so its failure starts the retry count over.
     heard: bool,
@@ -216,15 +185,15 @@ struct Conn {
 
 impl Conn {
     fn new() -> Self {
-        Self { anchors: Vec::new(), session_ms: 0, last_send: Instant::now(), heard: false }
+        Self { anchors: Anchors::default(), last_send: Instant::now(), heard: false }
     }
 
     async fn send_frame(&mut self, sink: &mut Sink, frame: &AudioFrame) -> Result<(), Failure> {
         let bytes: Vec<u8> = frame.samples.iter().flat_map(|s| s.to_le_bytes()).collect();
         sink.send(Message::binary(bytes)).await.map_err(network)?;
         let len = frame.samples.len() as u64 * 1000 / SAMPLE_RATE as u64;
-        self.anchors.push(Anchor { session_ms: self.session_ms, side_ms: frame.start_ms, len });
-        self.session_ms += len;
+        // Keepalives are text: every millisecond sent is the side's audio.
+        self.anchors.sent(len, frame.start_ms, len);
         self.last_send = Instant::now();
         Ok(())
     }
@@ -233,24 +202,6 @@ impl Conn {
         sink.send(Message::text(json!({"type": "KeepAlive"}).to_string())).await.map_err(network)?;
         self.last_send = Instant::now();
         Ok(())
-    }
-
-    /// Stream seconds on the side's timeline.
-    fn side_ms(&self, seconds: f64, fallback: u64) -> u64 {
-        let at = (seconds.max(0.0) * 1000.0).round() as u64;
-        let i = self.anchors.partition_point(|a| a.session_ms <= at);
-        match i.checked_sub(1).and_then(|i| self.anchors.get(i)) {
-            Some(a) => a.side_ms + (at - a.session_ms).min(a.len),
-            None => self.anchors.first().map_or(fallback, |a| a.side_ms),
-        }
-    }
-
-    /// Forget anchors wholly before stream time `seconds`.
-    fn forget_before(&mut self, seconds: f64) {
-        let at = (seconds.max(0.0) * 1000.0) as u64;
-        let keep = self.anchors.partition_point(|a| a.session_ms + a.len <= at);
-        let keep = keep.min(self.anchors.len().saturating_sub(1));
-        self.anchors.drain(..keep);
     }
 }
 
@@ -266,28 +217,14 @@ struct Piece {
 /// One side's captions across connections.
 struct Session {
     events: mpsc::UnboundedSender<LiveEvent>,
-    /// The audio since the last final, oldest first: replayed on reconnect.
-    unfinal: VecDeque<AudioFrame>,
-    /// Where the next caption starts: the last final's end (or the first audio).
-    heard_to: Option<u64>,
-    latest_ms: u64,
+    side: SideAudio,
     /// The utterance's finals so far.
     pending: Vec<Piece>,
     /// The partial on screen, if any.
     open: Option<LiveEvent>,
-    audio_open: bool,
 }
 
 impl Session {
-    fn keep(&mut self, frame: &AudioFrame) {
-        self.heard_to.get_or_insert(frame.start_ms);
-        self.latest_ms = self.latest_ms.max(frame.start_ms + frame.duration_ms());
-        if self.unfinal.len() == UNFINAL_FRAMES {
-            self.unfinal.pop_front();
-        }
-        self.unfinal.push_back(frame.clone());
-    }
-
     fn pending_text(&self) -> String {
         self.pending.iter().map(|p| p.text.as_str()).collect::<Vec<_>>().join(" ")
     }
@@ -296,17 +233,17 @@ impl Session {
         if !text.is_empty() {
             conn.heard = true;
         }
-        let from = self.heard_to.unwrap_or(0);
+        let from = self.side.heard_to.unwrap_or(0);
         let span = match (words.first(), words.last()) {
             (Some(first), Some(last)) => {
-                let start = conn.side_ms(first.0, from);
-                Some((start, conn.side_ms(last.1, from).max(start), last.1))
+                let start = conn.anchors.side_ms(first.0, from);
+                Some((start, conn.anchors.side_ms(last.1, from).max(start), last.1))
             }
             _ => None,
         };
         if is_final {
             if !text.is_empty() {
-                let (start_ms, end_ms, stream_end) = span.unwrap_or((from, self.latest_ms.max(from), 0.0));
+                let (start_ms, end_ms, stream_end) = span.unwrap_or((from, self.side.latest_ms.max(from), 0.0));
                 self.pending.push(Piece { text, start_ms, end_ms, stream_end });
             }
             if speech_final || self.pending_text().chars().count() > COMMIT_CHARS {
@@ -322,11 +259,13 @@ impl Session {
 
     fn partial(&mut self, text: String, span: Option<(u64, u64)>) {
         // Flushing: the finals are on their way, nobody reads a partial now.
-        if !self.audio_open || text.is_empty() || self.open.as_ref().is_some_and(|open| open.text == text) {
+        if !self.side.open || text.is_empty() || self.open.as_ref().is_some_and(|open| open.text == text) {
             return;
         }
-        let start_ms = self.pending.first().map(|p| p.start_ms).or(span.map(|s| s.0)).unwrap_or(self.heard_to.unwrap_or(0));
-        let end_ms = span.map(|s| s.1).or(self.pending.last().map(|p| p.end_ms)).unwrap_or(self.latest_ms).max(start_ms);
+        let start_ms =
+            self.pending.first().map(|p| p.start_ms).or(span.map(|s| s.0)).unwrap_or(self.side.heard_to.unwrap_or(0));
+        let end_ms =
+            span.map(|s| s.1).or(self.pending.last().map(|p| p.end_ms)).unwrap_or(self.side.latest_ms).max(start_ms);
         let event = LiveEvent { text, is_final: false, start_ms, end_ms };
         self.open = Some(event.clone());
         let _ = self.events.send(event);
@@ -342,15 +281,12 @@ impl Session {
         let end_ms = self.pending.iter().map(|p| p.end_ms).max().unwrap_or(start_ms).max(start_ms);
         let stream_end = self.pending.iter().map(|p| p.stream_end).fold(0.0, f64::max);
         self.pending.clear();
-        conn.forget_before(stream_end);
+        conn.anchors.forget_before(stream_end);
         self.final_(LiveEvent { text, is_final: true, start_ms, end_ms });
     }
 
     fn final_(&mut self, event: LiveEvent) {
-        while self.unfinal.front().is_some_and(|f| f.start_ms + f.duration_ms() <= event.end_ms) {
-            self.unfinal.pop_front();
-        }
-        self.heard_to = Some(self.heard_to.map_or(event.end_ms, |h| h.max(event.end_ms)));
+        self.side.said_to(event.end_ms);
         self.open = None;
         let _ = self.events.send(event);
     }
@@ -391,13 +327,12 @@ impl Session {
         audio: &mut mpsc::UnboundedReceiver<AudioFrame>,
         conn: &mut Conn,
     ) -> Result<(), Failure> {
-        let replay: Vec<AudioFrame> = self.unfinal.iter().cloned().collect();
-        for frame in &replay {
+        for frame in &self.side.replay() {
             conn.send_frame(sink, frame).await?;
         }
         // When the flush ends, once the audio has closed.
         let mut flush: Option<Instant> = None;
-        if !self.audio_open {
+        if !self.side.open {
             sink.send(close_stream()).await.map_err(network)?;
             flush = Some(Instant::now() + inner.config.flush);
         }
@@ -422,37 +357,23 @@ impl Session {
                     Some(Err(e)) => return Err(network(e)),
                     Some(Ok(_)) => {}
                 },
-                frame = audio.recv(), if self.audio_open => match frame {
+                frame = audio.recv(), if self.side.open => match frame {
                     Some(frame) => {
-                        self.keep(&frame);
+                        self.side.keep(&frame);
                         conn.send_frame(sink, &frame).await?;
                     }
                     None => {
-                        self.audio_open = false;
+                        self.side.open = false;
                         sink.send(close_stream()).await.map_err(network)?;
                         flush = Some(Instant::now() + inner.config.flush);
                     }
                 },
-                _ = sleep_until(keepalive), if self.audio_open => conn.keepalive(sink).await?,
+                _ = sleep_until(keepalive), if self.side.open => conn.keepalive(sink).await?,
                 _ = sleep_until(flush_at), if flush.is_some() => break,
             }
         }
         self.finish(conn);
         Ok(())
-    }
-
-    /// Back off for `wait`, keeping the audio that comes meanwhile.
-    async fn back_off(&mut self, wait: Duration, audio: &mut mpsc::UnboundedReceiver<AudioFrame>) {
-        let until = Instant::now() + wait;
-        while self.audio_open {
-            tokio::select! {
-                _ = sleep_until(until) => return,
-                frame = audio.recv() => match frame {
-                    Some(frame) => self.keep(&frame),
-                    None => self.audio_open = false,
-                },
-            }
-        }
     }
 }
 
@@ -463,19 +384,11 @@ pub(super) async fn run(
     events: mpsc::UnboundedSender<LiveEvent>,
 ) -> Result<(), ProviderError> {
     let url = url(&inner, &options);
-    let mut session = Session {
-        events,
-        unfinal: VecDeque::new(),
-        heard_to: None,
-        latest_ms: 0,
-        pending: Vec::new(),
-        open: None,
-        audio_open: true,
-    };
-    let mut failures = 0u32;
+    let mut session = Session { events, side: SideAudio::new(), pending: Vec::new(), open: None };
+    let mut retries = Retries::default();
     loop {
         // Disconnected when the audio closed: no reconnect just to flush.
-        if !session.audio_open {
+        if !session.side.open {
             let mut conn = Conn::new();
             session.finish(&mut conn);
             return Ok(());
@@ -492,15 +405,8 @@ pub(super) async fn run(
         };
         // What was final before the drop stays said; the rest is replayed.
         session.commit(&mut conn);
-        if conn.heard {
-            failures = 0;
-        }
-        failures += 1;
-        if failures > inner.config.retries {
-            return Err(ProviderError::new(ProviderErrorKind::Network, error.message));
-        }
-        let wait = inner.config.backoff.saturating_mul(1 << (failures - 1).min(16)).min(MAX_BACKOFF);
-        session.back_off(wait, &mut audio).await;
+        let wait = retries.after(conn.heard, error, inner.config.retries, inner.config.backoff)?;
+        session.side.back_off(wait, &mut audio).await;
     }
 }
 

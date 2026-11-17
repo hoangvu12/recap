@@ -5,6 +5,7 @@
 
 pub mod deepgram;
 pub mod elevenlabs;
+mod live_common;
 
 use recap_engine::SAMPLE_RATE;
 
