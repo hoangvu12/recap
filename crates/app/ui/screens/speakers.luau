@@ -8,7 +8,9 @@ local host = require("@app/host")
 local actions = require("@app/actions")
 local Chip = require("@components/chip")
 local Icon = require("@components/icon")
-local Keycap = require("@components/keycap")
+local IconButton = require("@components/icon_button")
+local Button = require("@components/button")
+local Select = require("@components/select")
 local motion = require("@lib/motion")
 
 local HUES = { "purple", "green", "orange", "blue", "yellow" }
@@ -25,28 +27,22 @@ end
 -- ▶, or ■ while its clip plays.
 local function Play(i: number, s: host.DialogSpeaker, playing: () -> boolean): Node
 	local h = hue(s.n)
-	return ui.button {
+	return IconButton {
 		id = `speaker-{i}-play`,
 		label = `Play {s.label}`,
 		-- A press plays the clip, or stops it while it plays.
-		tooltip = "Listen",
-		w = 40,
-		h = 40,
-		shrink = 0,
+		tip = "Listen",
+		icon = function(): string
+			return if playing() then "stop" else "play"
+		end,
+		icon_ids = { play = `speaker-{i}-play-icon`, stop = `speaker-{i}-stop-icon` },
+		size = 40,
 		rounded = 999,
-		items = "center",
-		justify = "center",
 		bg = `$rc.{h}.soft`,
-		hover = { bg = `$rc.{h}.soft` },
+		color = `$rc.{h}`,
 		on_click = function()
 			actions.play_speaker(s.id)
 		end,
-		ui.switch(function()
-			return if playing() then "stop" else "play"
-		end, {
-			play = Icon { name = "play", size = 16, color = `$rc.{h}`, id = `speaker-{i}-play-icon` },
-			stop = Icon { name = "stop", size = 16, color = `$rc.{h}`, id = `speaker-{i}-stop-icon` },
-		}),
 	}
 end
 
@@ -112,20 +108,9 @@ local function Name(i: number, s: host.DialogSpeaker, people: { string }): Node
 		}
 	end
 	local text = field(s.id)
-	local open = ui.state(`dialog_menu.{s.id}`, false)
-	local items: { Node } = {}
+	local options: { Select.Option } = {}
 	for p, person in people do
-		table.insert(
-			items,
-			ui.menu_item {
-				id = `speaker-{i}-person-{p}`,
-				label = person,
-				on_click = function()
-					text:set(person)
-				end,
-				ui.text { person, literal = true, text_size = 13 },
-			}
-		)
+		table.insert(options, { value = person, label = person, key = tostring(p) })
 	end
 	return Box {
 		ui.input {
@@ -142,27 +127,21 @@ local function Name(i: number, s: host.DialogSpeaker, people: { string }): Node
 			bg = "$rc.transparent",
 			border = 0,
 		},
-		ui.menu {
-			open = open,
+		Select {
+			id = `speaker-{i}-people`,
+			item_prefix = `speaker-{i}-person`,
+			scope = `dialog.{s.id}`,
 			label = `People for {s.label}`,
-			anchor = ui.button {
-				id = `speaker-{i}-people`,
-				label = `People for {s.label}`,
-				tooltip = "People",
-				expanded = open,
-				w = 24,
-				h = 24,
-				p = 0,
-				items = "center",
-				justify = "center",
-				rounded = 4,
-				bg = "$rc.transparent",
-				hover = { bg = "$rc.fill.hover" },
-				on_click = ui.toggle(open),
-				Icon { name = "chevrons-up-down", size = 14, color = "$rc.text.tertiary" },
-			},
-			build = function(): Node
-				return ui.column { w = 200, items }
+			tip = "People",
+			trigger = "icon",
+			value = function()
+				return text:get()
+			end,
+			options = function()
+				return options
+			end,
+			on_change = function(person: string)
+				text:set(person)
 			end,
 		},
 	}
@@ -255,22 +234,6 @@ local function save()
 	actions.save_names(typed(host.speakers_dialog:peek()))
 end
 
-local function bare_button(id: string, label: string, color: string, on_click: () -> (), keys: { Node }): Node
-	return ui.button {
-		id = id,
-		h = 28,
-		px = 6,
-		gap = 8,
-		items = "center",
-		rounded = 6,
-		bg = "$rc.transparent",
-		hover = { bg = "$rc.fill.hover" },
-		on_click = on_click,
-		ui.text { label, text_size = 13, color = color },
-		ui.row { gap = 4, keys },
-	}
-end
-
 return function(): Node
 	local dialogs = ui.computed(function(): { host.SpeakersDialog }
 		local d = host.speakers_dialog:get()
@@ -337,9 +300,16 @@ return function(): Node
 			shrink = 0,
 			items = "center",
 			justify = "end",
-			bare_button("skip-names", "Skip", "$rc.text.secondary", actions.close_name_speakers, { Keycap("Esc") }),
+			Button {
+				id = "skip-names",
+				label = "Skip",
+				color = "$rc.text.secondary",
+				weight = 400,
+				keys = { "Esc" },
+				on_click = actions.close_name_speakers,
+			},
 			ui.div { w = 1, h = 16, mx = 4, bg = "$rc.stroke.hairline" },
-			bare_button("save-names", "Save names", "$rc.text.primary", save, { Keycap("Ctrl"), Keycap("↵") }),
+			Button { id = "save-names", label = "Save names", weight = 400, keys = { "Ctrl", "↵" }, on_click = save },
 		},
 	}, motion.ENTER)
 end

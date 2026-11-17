@@ -96,10 +96,40 @@ test("Ctrl K opens the panel on the selected meeting with its actions and keys",
 	expect(win:text("#action-show_in_folder-label")).to_be("Show recording in folder")
 	expect(win:text("#action-delete_meeting-label")).to_be("Delete meeting")
 	expect(win:has("#action-search")).to_be(true)
-	-- Esc closes it, nothing done.
+	-- Esc closes it, nothing done. (A closed popover keeps its content
+	-- mounted, undrawn: its state says it is closed.)
 	win:key("Escape")
-	expect(win:wait("#action-panel", { gone = true })).to_be(true)
+	app:frames(2)
+	expect(app:state("actions_open")).to_be("")
 	expect(#app:state("calls")).to_be(0)
+end)
+
+test("a click outside the panel closes it", function()
+	local app = mount()
+	local win = home(app)
+	win:click("#home-actions")
+	app:frames(2)
+	expect(app:state("actions_open")).to_be("home")
+	win:click("#home-search")
+	app:frames(2)
+	expect(app:state("actions_open")).to_be("")
+	expect(#app:state("calls")).to_be(0)
+end)
+
+test("the panel hangs above the footer's Actions button, at its right edge", function()
+	local app = mount()
+	local win = home(app)
+	win:click("#home-actions")
+	app:frames(3)
+	local function box(sel)
+		local first = string.split(win:tree(sel), "\n")[1]
+		local x, y, w, h = string.match(first, "(%-?[%d%.]+),(%-?[%d%.]+) ([%d%.]+)x([%d%.]+)")
+		return tonumber(x), tonumber(y), tonumber(w), tonumber(h)
+	end
+	local bx, by, bw = box("#home-actions")
+	local px, py, pw, ph = box("#action-panel")
+	expect(py + ph <= by).to_be(true)
+	expect(math.abs((px + pw) - (bx + bw)) < 2).to_be(true)
 end)
 
 -- Whether `target`'s own node has the keyboard (its focus ring shows).
@@ -235,6 +265,28 @@ test("Delete's Cancel keeps the meeting", function()
 	win:click("#confirm-delete-no")
 	expect(app:state("confirm_delete").id).to_be("")
 	expect(#app:state("calls")).to_be(0)
+end)
+
+test("Delete's dialog starts on Cancel; Space there cancels, Enter still deletes", function()
+	local app = mount()
+	local win = home(app)
+	local function focused(sel)
+		return string.find(string.split(win:tree(sel), "\n")[1], " focused", 1, true) ~= nil
+	end
+	win:key("ctrl+shift+Backspace")
+	app:frames(3)
+	expect(focused("#confirm-delete-no")).to_be(true)
+	expect(focused("#confirm-delete-yes")).to_be(false)
+	win:key("Space")
+	app:frames(2)
+	expect(app:state("confirm_delete").id).to_be("")
+	expect(#app:state("calls")).to_be(0)
+	-- Again: Enter deletes, whichever button has the keyboard.
+	win:key("ctrl+shift+Backspace")
+	app:frames(3)
+	expect(focused("#confirm-delete-no")).to_be(true)
+	win:key("Enter")
+	expect(app:state("calls")).to_equal({ { name = "delete_meeting", arg = "launch" } })
 end)
 
 test("with no meeting there is no panel", function()

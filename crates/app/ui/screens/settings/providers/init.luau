@@ -9,6 +9,7 @@ local providers = require("@lib/providers")
 local Icon = require("@components/icon")
 local Logo = require("@components/logo")
 local Keycap = require("@components/keycap")
+local Button = require("@components/button")
 local parts = require("@screens/settings/parts")
 local Picker = require("@self/picker")
 local Sheet = require("@self/sheet")
@@ -96,27 +97,15 @@ local function SpeechRow(row: State<host.ProviderRow>, first: boolean): Node
 			font = "$rc.font.mono",
 			color = "$rc.text.secondary",
 		},
-		ui.button {
+		Button {
 			id = `stt-{id}-change`,
-			h = 28,
-			px = 10,
-			shrink = 0,
-			rounded = 6,
-			bg = "$rc.transparent",
-			border = 1,
-			border_color = "$rc.stroke.field",
-			hover = { bg = "$rc.fill.hover" },
+			label = function(): string
+				return if row:get().key_mask ~= "" then "Change" else "Add key"
+			end,
+			look = "outlined",
 			on_click = function()
 				actions.edit_provider(id)
 			end,
-			ui.text {
-				function()
-					return if row:get().key_mask ~= "" then "Change" else "Add key"
-				end,
-				text_size = 13,
-				weight = 500,
-				color = "$rc.text.primary",
-			},
 		},
 	}
 end

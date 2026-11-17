@@ -8,22 +8,14 @@ local state = require("@app/state")
 local format = require("@lib/format")
 local processing = require("@lib/processing")
 local RecDot = require("@components/rec_dot")
-local Keycap = require("@components/keycap")
+local Button = require("@components/button")
+local ActionPanel = require("@components/action_panel")
 
-local function bare_button(props: { id: string, label: string, color: any, on_click: () -> (), [number]: Child }): Node
-	return ui.button {
-		id = props.id,
-		h = 28,
-		px = 6,
-		gap = 8,
-		items = "center",
-		rounded = 6,
-		bg = "$rc.transparent",
-		hover = { bg = "$rc.fill.hover" },
-		on_click = props.on_click,
-		ui.text { props.label, text_size = 13, color = props.color },
-		{ table.unpack(props) },
-	}
+-- The footer's labels are regular weight (Home's are 500).
+local WEIGHT = 400
+
+local function Divider(): Node
+	return ui.div { w = 1, h = 16, mx = 4, bg = "$rc.stroke.hairline" }
 end
 
 return function(): Node
@@ -96,24 +88,20 @@ return function(): Node
 					gap = 4,
 					ui.show(
 						paused,
-						bare_button {
-							id = "resume",
-							label = "Resume",
-							color = "$rc.text.primary",
-							on_click = actions.toggle_pause,
-							Keycap("↵"),
-						}
+						Button { id = "resume", label = "Resume", keys = { "↵" }, weight = WEIGHT, on_click = actions.toggle_pause }
 					),
-					bare_button {
+					Button {
 						id = "stop",
 						label = "Stop",
+						weight = WEIGHT,
 						color = function()
 							return if paused() then "$rc.text.secondary" else "$rc.text.primary"
 						end,
-						on_click = actions.stop,
-						ui.show(function()
+						keys = { "↵" },
+						keys_shown = function()
 							return not paused()
-						end, Keycap("↵")),
+						end,
+						on_click = actions.stop,
 					},
 					-- No divider after: Actions doesn't show while live.
 				}
@@ -130,22 +118,16 @@ return function(): Node
 					ui.switch(function()
 						return if processing.failed(host.processing:get()) then "failed" else "working"
 					end, {
-						working = bare_button {
-							id = "hide",
-							label = "Hide",
-							color = "$rc.text.primary",
-							on_click = actions.hide_notes,
-							Keycap("Esc"),
-						},
-						failed = bare_button {
+						working = Button { id = "hide", label = "Hide", keys = { "Esc" }, weight = WEIGHT, on_click = actions.hide_notes },
+						failed = Button {
 							id = "retry-footer",
 							label = "Retry",
-							color = "$rc.text.primary",
+							keys = { "↵" },
+							weight = WEIGHT,
 							on_click = actions.retry_processing,
-							Keycap("↵"),
 						},
 					}),
-					ui.div { w = 1, h = 16, mx = 4, bg = "$rc.stroke.hairline" },
+					Divider(),
 				}
 			),
 			-- A stored transcript: Play from here ↵ (the line last clicked).
@@ -154,16 +136,16 @@ return function(): Node
 				ui.row {
 					items = "center",
 					gap = 4,
-					bare_button {
+					Button {
 						id = "play-from-here",
 						label = "Play from here",
-						color = "$rc.text.primary",
+						keys = { "↵" },
+						weight = WEIGHT,
 						on_click = function()
 							actions.play_line(state.selected_row:peek())
 						end,
-						Keycap("↵"),
 					},
-					ui.div { w = 1, h = 16, mx = 4, bg = "$rc.stroke.hairline" },
+					Divider(),
 				}
 			),
 			-- Done (screens/9): Copy Markdown ↵ (↵ plays a line once one is
@@ -179,34 +161,40 @@ return function(): Node
 				ui.row {
 					items = "center",
 					gap = 4,
-					bare_button {
+					Button {
 						id = "copy-markdown",
 						label = "Copy Markdown",
-						color = "$rc.text.primary",
+						keys = { "↵" },
+						weight = WEIGHT,
 						on_click = function()
 							actions.run_action("notes", "copy_markdown")
 						end,
-						Keycap("↵"),
 					},
-					ui.div { w = 1, h = 16, mx = 4, bg = "$rc.stroke.hairline" },
+					Divider(),
 				}
 			),
 			-- The panel acts on a stored meeting: while live it has nothing
 			-- to offer, so Actions shows once the meeting is stopped (seen
-			-- in the real app: a live Actions that did nothing).
+			-- in the real app: a live Actions that did nothing). The panel
+			-- hangs above it.
 			ui.show(
 				function()
 					local m = host.meeting:get()
 					return m.state == "stopped" and (m.id or "") ~= ""
 				end,
-				bare_button {
-					id = "actions",
-					label = "Actions",
-					color = "$rc.text.secondary",
-					on_click = function()
-						actions.toggle_actions("notes")
-					end,
-					ui.row { id = "actions-keys", gap = 4, Keycap("Ctrl"), Keycap("K") },
+				ActionPanel {
+					where = "notes",
+					anchor = Button {
+						id = "actions",
+						label = "Actions",
+						color = "$rc.text.secondary",
+						keys = { "Ctrl", "K" },
+						keys_id = "actions-keys",
+						weight = WEIGHT,
+						on_click = function()
+							actions.toggle_actions("notes")
+						end,
+					},
 				}
 			),
 		},

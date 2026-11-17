@@ -6,9 +6,9 @@ local host = require("@app/host")
 local processing = require("@lib/processing")
 local actions = require("@app/actions")
 local meeting_actions = require("@lib/meeting_actions")
-local ActionPanel = require("@components/action_panel")
 local ConfirmDelete = require("@components/confirm_delete")
 local Hud = require("@components/hud")
+local Announce = require("@components/announce")
 local Header = require("@self/header")
 local Footer = require("@self/footer")
 local Transcript = require("@self/transcript")
@@ -91,7 +91,12 @@ return function(): Node
 		}),
 		Footer(),
 		Hud(),
-		ActionPanel("notes"),
+		Announce {
+			id = "notes-announce",
+			text = function()
+				return state.hud:get().text
+			end,
+		},
 		ConfirmDelete("notes"),
 	}
 end

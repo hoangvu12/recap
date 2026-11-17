@@ -8,6 +8,7 @@ local format = require("@lib/format")
 local processing = require("@lib/processing")
 local Icon = require("@components/icon")
 local IconButton = require("@components/icon_button")
+local Tabs = require("@components/tabs")
 
 local function tab(id: state.NotesTab, label: string): Node
 	local selected = function()
@@ -24,9 +25,8 @@ local function tab(id: state.NotesTab, label: string): Node
 		end
 		return processing.working(host.processing:get()) and host.summary:get().id == ""
 	end
-	return ui.button {
+	return Tabs.Tab {
 		id = `tab-{id}`,
-		role = "tab",
 		selected = selected,
 		disabled = disabled,
 		h = 34,
@@ -35,7 +35,7 @@ local function tab(id: state.NotesTab, label: string): Node
 		p = 0,
 		rounded = 0,
 		focus = { border = 0 },
-		on_click = function()
+		on_select = function()
 			actions.show_tab(id)
 		end,
 		ui.column {
@@ -117,8 +117,8 @@ return function(): Node
 					color = "$rc.text.secondary",
 				},
 			},
-			ui.row {
-				role = "tablist",
+			Tabs.List {
+				label = "Meeting",
 				mt = 14,
 				gap = 20,
 				tab("notes", "Notes"),

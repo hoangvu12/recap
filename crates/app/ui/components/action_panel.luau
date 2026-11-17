@@ -1,9 +1,11 @@
 --!strict
 -- The action panel (Ctrl K, screens/9; raycast_design "Action panel"): a
--- 350 wide popover 8 above the footer at the window's right, with the
--- meeting's title, its actions with their keys, and "Search for actions…"
--- at the bottom. Keyboard only: type to filter, ↑/↓, Enter runs, Esc or
--- Ctrl K closes; an action's keys run it at once. It opens instantly, as
+-- 350 wide popover (components/popover) 8 above the footer's "Actions"
+-- button, at its right edge, with the meeting's title, its actions with
+-- their keys, and "Search for actions…" at the bottom. The search keeps the
+-- keyboard: type to filter, ↑/↓ move the highlighted action (the search's
+-- active descendant), Enter runs it, Esc, Ctrl K or a click outside
+-- closes; an action's keys run it at once. It opens instantly, as
 -- Raycast's does: a keyboard surface opened many times a day.
 --
 -- Ids: `action-panel`, `action-panel-title`, `action-<id>` (role option),
@@ -13,9 +15,7 @@ local actions = require("@app/actions")
 local meeting_actions = require("@lib/meeting_actions")
 local Icon = require("@components/icon")
 local Keycap = require("@components/keycap")
-
--- How far the panel sits above the window's bottom: the footer (42) + 8.
-local ABOVE = 50
+local Popover = require("@components/popover")
 
 local function Item(where: state.Where, action: meeting_actions.Action): Node
 	local selected = function()
@@ -40,6 +40,8 @@ local function Item(where: state.Where, action: meeting_actions.Action): Node
 			role = "option",
 			selected = selected,
 			label = action.label,
+			-- The search keeps the keyboard; arrows move the highlight.
+			focusable = false,
 			h = 32,
 			w_full = true,
 			shrink = 0,
@@ -76,7 +78,65 @@ local function Item(where: state.Where, action: meeting_actions.Action): Node
 	)
 end
 
-return function(where: state.Where): Node
+-- The panel's content: the title, the actions, the search.
+local function Body(where: state.Where, keys: (any) -> boolean): Node
+	local items = {}
+	for _, action in meeting_actions.ALL do
+		table.insert(items, Item(where, action))
+	end
+	return ui.column {
+		id = "action-panel",
+		w_full = true,
+		on_key = keys,
+		ui.row {
+			h = 32,
+			w_full = true,
+			px = 16,
+			items = "end",
+			pb = 4,
+			ui.text {
+				function()
+					-- Read again each time the panel opens.
+					state.actions_open:get()
+					local target = actions.action_target(where)
+					return if target then target.title else ""
+				end,
+				id = "action-panel-title",
+				literal = true,
+				truncate = true,
+				text_size = 11,
+				weight = 500,
+				color = "$rc.text.secondary",
+			},
+		},
+		ui.column { w_full = true, px = 8, pb = 8, items },
+		ui.div { h = 1, w_full = true, bg = "$rc.stroke.hairline" },
+		ui.input {
+			id = "action-search",
+			label = "Search for actions",
+			value = state.actions_query,
+			on_key = keys,
+			active_descendant = function(): string?
+				local id = meeting_actions.pick(state.actions_query:get(), state.actions_selected:get())
+				return if id ~= "" then `action-{id}` else nil
+			end,
+			placeholder = "Search for actions…",
+			placeholder_color = "$rc.text.tertiary",
+			w_full = true,
+			h = 40,
+			px = 16,
+			text_size = 13,
+			bg = "$rc.transparent",
+			border = 0,
+		},
+	}
+end
+
+export type Props = { where: state.Where, anchor: Node }
+
+-- Written where its trigger is: `anchor` is the footer's Actions button.
+return function(props: Props): Node
+	local where = props.where
 	local function keys(e): boolean
 		if e.key == "Escape" or (e.ctrl and (e.key == "k" or e.key == "K")) then
 			actions.close_actions()
@@ -101,69 +161,19 @@ return function(where: state.Where): Node
 		end
 		return false
 	end
-	local items = {}
-	for _, action in meeting_actions.ALL do
-		table.insert(items, Item(where, action))
-	end
-	return ui.show(
-		function()
+	return Popover {
+		open = function()
 			return state.actions_open:get() == where
 		end,
-		ui.column {
-			id = "action-panel",
-			role = "dialog",
-			label = "Actions",
-			absolute = true,
-			right = 8,
-			bottom = ABOVE,
-			w = 350,
-			rounded = 8,
-			bg = "$rc.bg.raised",
-			border = 1,
-			border_color = "$rc.border.raised",
-			shadow = { { x = 0, y = 8, blur = 10, spread = -6, color = "#0000001A" }, { x = 0, y = 20, blur = 25, spread = -5, color = "#00000033" } },
-			overflow = "clip",
-			on_key = keys,
-			ui.row {
-				h = 32,
-				w_full = true,
-				px = 16,
-				items = "end",
-				pb = 4,
-				ui.text {
-					function()
-						-- Read again each time the panel opens.
-						state.actions_open:get()
-						local target = actions.action_target(where)
-						return if target then target.title else ""
-					end,
-					id = "action-panel-title",
-					literal = true,
-					truncate = true,
-					text_size = 11,
-					weight = 500,
-					color = "$rc.text.secondary",
-				},
-			},
-			ui.column { w_full = true, px = 8, pb = 8, items },
-			ui.div { h = 1, w_full = true, bg = "$rc.stroke.hairline" },
-			ui.input {
-				id = "action-search",
-				label = "Search for actions",
-				value = state.actions_query,
-				on_key = keys,
-				on_mount = function(el)
-					el:focus()
-				end,
-				placeholder = "Search for actions…",
-				placeholder_color = "$rc.text.tertiary",
-				w_full = true,
-				h = 40,
-				px = 16,
-				text_size = 13,
-				bg = "$rc.transparent",
-				border = 0,
-			},
-		}
-	)
+		on_close = actions.close_actions,
+		label = "Actions",
+		anchor = props.anchor,
+		side = "top",
+		align = "end",
+		offset = 8,
+		w = 350,
+		build = function(): Node
+			return Body(where, keys)
+		end,
+	}
 end

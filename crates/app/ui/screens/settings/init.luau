@@ -5,6 +5,7 @@
 local state = require("@app/state")
 local actions = require("@app/actions")
 local Icon = require("@components/icon")
+local Tabs = require("@components/tabs")
 local pages = require("@self/pages")
 
 local function TitleStrip(): Node
@@ -35,9 +36,8 @@ local function NavItem(page: pages.Page): Node
 		function()
 			return matches(page, state.settings_query:get())
 		end,
-		ui.button {
+		Tabs.Tab {
 			id = `nav-{page.id}`,
-			role = "tab",
 			selected = selected,
 			h = 32,
 			w_full = true,
@@ -46,7 +46,7 @@ local function NavItem(page: pages.Page): Node
 			rounded = 6,
 			bg = "$rc.transparent",
 			hover = { bg = "$rc.fill.hover" },
-			on_click = function()
+			on_select = function()
 				actions.show_settings_page(page.id)
 			end,
 			ui.row {
@@ -104,7 +104,7 @@ local function Sidebar(): Node
 				p = 0,
 			},
 		},
-		items,
+		Tabs.List { label = "Settings", vertical = true, w_full = true, gap = 2, items },
 	}
 end
 

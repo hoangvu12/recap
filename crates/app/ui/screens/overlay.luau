@@ -23,6 +23,7 @@ local RecDot = require("@components/rec_dot")
 local Icon = require("@components/icon")
 local Keycap = require("@components/keycap")
 local IconButton = require("@components/icon_button")
+local Announce = require("@components/announce")
 local motion = require("@lib/motion")
 
 -- The partial's colour: fg 55% on the dark glass.
@@ -219,10 +220,12 @@ local function failed(): Node
 	}
 end
 
--- A toolbar button, its tooltip under it (the toolbar sits at the overlay's
--- top); `on` (if given) makes it a toggle.
+-- A toolbar button, its name under it on hover (the toolbar sits at the
+-- overlay's top); `on` (if given) makes it a toggle. The name is drawn in
+-- the overlay itself (`inline_tip`): the overlay never becomes the active
+-- window, and zgx shows no popup tooltip then (ADR 0023).
 local function tool(id: string, icon: string, label: string, on_click: () -> (), on: (() -> boolean)?): Node
-	return IconButton { id = id, icon = icon, label = label, on_click = on_click, on = on, tip_side = "bottom" }
+	return IconButton { id = id, icon = icon, label = label, on_click = on_click, on = on, inline_tip = true }
 end
 
 local function toolbar(): Node
@@ -498,5 +501,20 @@ return function(): Node
 			return m == "reconnecting" or m == "paused"
 		end, ui.div { id = "captions-dimmed", w = 0, h = 0, aria_hidden = true }),
 		Toolbar(),
+		-- Said to screen readers, not shown: losing the connection, and
+		-- what failed (urgent).
+		Announce {
+			id = "overlay-announce",
+			text = function()
+				return if mode() == "reconnecting" then "Reconnecting" else ""
+			end,
+		},
+		Announce {
+			id = "overlay-announce-error",
+			urgent = true,
+			text = function()
+				return if mode() == "error" then host.live:get().error else ""
+			end,
+		},
 	}
 end

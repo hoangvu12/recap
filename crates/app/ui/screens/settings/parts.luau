@@ -55,21 +55,4 @@ function M.Tag(text: string, id: string?): Node
 	}
 end
 
--- An outlined button (Change, Sign in).
-function M.Button(props: { id: string?, label: string, on_click: () -> () }): Node
-	return ui.button {
-		id = props.id,
-		h = 28,
-		px = 10,
-		shrink = 0,
-		rounded = 6,
-		bg = "$rc.transparent",
-		border = 1,
-		border_color = "$rc.stroke.field",
-		hover = { bg = "$rc.fill.hover" },
-		on_click = props.on_click,
-		ui.text { props.label, text_size = 13, weight = 500, color = "$rc.text.primary" },
-	}
-end
-
 return M

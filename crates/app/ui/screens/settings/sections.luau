@@ -11,7 +11,10 @@ local parts = require("@screens/settings/parts")
 local controls = require("@screens/settings/controls")
 
 local Section, Row = parts.Section, parts.Row
-local Switch, Choice, Stepper, Field = controls.Switch, controls.Choice, controls.Stepper, controls.Field
+local Switch = require("@components/switch")
+local Choice = require("@components/select")
+local IconButton = require("@components/icon_button")
+local Stepper, Field = controls.Stepper, controls.Field
 
 local M = {}
 
@@ -241,22 +244,18 @@ local function Term(term: string, i: number): Node
 		rounded = 999,
 		bg = "$rc.fill.selected",
 		ui.text { term, id = `term-{i}`, literal = true, text_size = 13, color = "$rc.text.primary" },
-		ui.button {
+		IconButton {
 			id = `term-{i}-remove`,
+			icon = "close",
 			label = `Remove {term}`,
-			tooltip = "Remove",
-			w = 20,
-			h = 20,
-			p = 0,
-			items = "center",
-			justify = "center",
+			tip = "Remove",
+			size = 20,
+			icon_size = 12,
 			rounded = 999,
-			bg = "$rc.transparent",
-			hover = { bg = "$rc.fill.hover" },
+			color = "$rc.text.tertiary",
 			on_click = function()
 				actions.remove_term(term)
 			end,
-			Icon { name = "close", size = 12, color = "$rc.text.tertiary" },
 		},
 	}
 end

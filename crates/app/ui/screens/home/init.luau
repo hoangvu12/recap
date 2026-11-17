@@ -8,12 +8,13 @@ local state = require("@app/state")
 local actions = require("@app/actions")
 local meetings = require("@lib/meetings")
 local Icon = require("@components/icon")
-local Keycap = require("@components/keycap")
+local Button = require("@components/button")
 local IconButton = require("@components/icon_button")
 local meeting_actions = require("@lib/meeting_actions")
 local ActionPanel = require("@components/action_panel")
 local ConfirmDelete = require("@components/confirm_delete")
 local Hud = require("@components/hud")
+local Announce = require("@components/announce")
 local List = require("@self/list")
 local Detail = require("@self/detail")
 
@@ -52,21 +53,6 @@ local function Header(): Node
 				search_field = el
 			end,
 		},
-		ui.row {
-			id = "home-filter",
-			w = 197,
-			h = 34,
-			shrink = 0,
-			px = 10,
-			gap = 8,
-			items = "center",
-			rounded = 6,
-			border = 1,
-			border_color = "$rc.stroke.field",
-			Icon { name = "list" },
-			ui.text { "All meetings", grow = 1, text_size = 13, color = "$rc.text.primary" },
-			Icon { name = "chevron-down", size = 14 },
-		},
 		IconButton {
 			id = "home-settings",
 			icon = "settings",
@@ -75,22 +61,6 @@ local function Header(): Node
 			on_click = actions.open_settings,
 			tip_side = "bottom",
 		},
-	}
-end
-
-local function bare_button(props: { id: string, label: string, color: string, on_click: () -> (), [number]: Child }): Node
-	return ui.button {
-		id = props.id,
-		h = 28,
-		px = 6,
-		gap = 8,
-		items = "center",
-		rounded = 6,
-		bg = "$rc.transparent",
-		hover = { bg = "$rc.fill.hover" },
-		on_click = props.on_click,
-		ui.text { props.label, text_size = 13, weight = 500, color = props.color },
-		{ table.unpack(props) },
 	}
 end
 
@@ -118,22 +88,26 @@ local function Footer(selected: ReadOnlyState<string>): Node
 				ui.row {
 					items = "center",
 					gap = 4,
-					bare_button {
+					Button {
 						id = "open-meeting",
 						label = "Open Meeting",
-						color = "$rc.text.primary",
+						keys = { "↵" },
 						on_click = actions.open_selected,
-						Keycap("↵"),
 					},
 					ui.div { w = 1, h = 16, mx = 4, bg = "$rc.stroke.hairline" },
-					bare_button {
-						id = "home-actions",
-						label = "Actions",
-						color = "$rc.text.secondary",
-						on_click = function()
-							actions.toggle_actions("home")
-						end,
-						ui.row { gap = 4, Keycap("Ctrl"), Keycap("K") },
+					-- Ctrl K opens it from anywhere in Home; it hangs above this
+					-- button.
+					ActionPanel {
+						where = "home",
+						anchor = Button {
+							id = "home-actions",
+							label = "Actions",
+							color = "$rc.text.secondary",
+							keys = { "Ctrl", "K" },
+							on_click = function()
+								actions.toggle_actions("home")
+							end,
+						},
 					},
 				}
 			),
@@ -210,7 +184,12 @@ return function(): Node
 		},
 		Footer(selected),
 		Hud(),
-		ActionPanel("home"),
+		Announce {
+			id = "home-announce",
+			text = function()
+				return state.hud:get().text
+			end,
+		},
 		ConfirmDelete("home"),
 	}
 end

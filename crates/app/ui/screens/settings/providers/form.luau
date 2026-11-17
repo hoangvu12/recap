@@ -8,7 +8,7 @@ local actions = require("@app/actions")
 local providers = require("@lib/providers")
 local Icon = require("@components/icon")
 local Logo = require("@components/logo")
-local Keycap = require("@components/keycap")
+local Button = require("@components/button")
 
 export type Props = { back: () -> Node }
 
@@ -117,19 +117,7 @@ local function TestRow(): Node
 	return ui.row {
 		gap = 12,
 		items = "center",
-		ui.button {
-			id = "form-test",
-			h = 32,
-			px = 12,
-			gap = 6,
-			items = "center",
-			rounded = 6,
-			bg = "$rc.fill.selected",
-			hover = { bg = "$rc.fill.hover" },
-			on_click = actions.test_provider,
-			Icon { name = "play", size = 14, color = "$rc.text.primary" },
-			ui.text { "Test", text_size = 13, weight = 500, color = "$rc.text.primary" },
-		},
+		Button { id = "form-test", label = "Test", icon = "play", look = "tinted", on_click = actions.test_provider },
 		ui.show(
 			function()
 				local t = test:get()
@@ -211,40 +199,24 @@ local function Footer(): Node
 				ui.row {
 					items = "center",
 					gap = 4,
-					ui.button {
+					Button {
 						id = "form-remove",
-						h = 28,
-						px = 6,
-						rounded = 6,
-						bg = "$rc.transparent",
-						hover = { bg = "$rc.fill.hover" },
+						label = "Remove",
+						color = "$rc.red",
 						on_click = function()
 							actions.remove_provider(state.provider_sheet:peek().id)
 						end,
-						ui.text { "Remove", text_size = 13, weight = 500, color = "$rc.red" },
 					},
 					ui.div { w = 1, h = 16, mx = 4, bg = "$rc.stroke.hairline" },
 				}
 			),
-			ui.button {
-				h = 28,
-				px = 6,
-				gap = 8,
-				items = "center",
-				rounded = 6,
-				bg = "$rc.transparent",
-				hover = { bg = "$rc.fill.hover" },
+			Button {
+				label = function(): string
+					return if subject().saved then "Save" else "Add Provider"
+				end,
+				label_id = "form-save",
+				keys = { "Ctrl", "↵" },
 				on_click = actions.save_provider,
-				ui.text {
-					function()
-						return if subject().saved then "Save" else "Add Provider"
-					end,
-					id = "form-save",
-					text_size = 13,
-					weight = 500,
-					color = "$rc.text.primary",
-				},
-				ui.row { gap = 4, Keycap("Ctrl"), Keycap("↵") },
 			},
 		},
 	}

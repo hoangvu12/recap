@@ -7,6 +7,7 @@ local host = require("@app/host")
 local actions = require("@app/actions")
 local processing = require("@lib/processing")
 local Icon = require("@components/icon")
+local Button = require("@components/button")
 local motion = require("@lib/motion")
 
 -- The steps the card has, in order (Transcribing, Naming speakers, Writing summary).
@@ -143,30 +144,8 @@ local function Failure(): Node
 			ui.row {
 				gap = 8,
 				items = "center",
-				ui.button {
-					id = "retry",
-					h = 28,
-					px = 10,
-					gap = 6,
-					items = "center",
-					rounded = 6,
-					bg = "$rc.fill.selected",
-					hover = { bg = "$rc.fill.selected" },
-					on_click = actions.retry_processing,
-					Icon { name = "retry", size = 14, color = "$rc.text.primary" },
-					ui.text { "Retry", text_size = 13, weight = 500, color = "$rc.text.primary" },
-				},
-				ui.button {
-					id = "fix-provider",
-					h = 28,
-					px = 10,
-					items = "center",
-					rounded = 6,
-					bg = "$rc.transparent",
-					hover = { bg = "$rc.fill.hover" },
-					on_click = actions.fix_providers,
-					ui.text { "Use API key…", text_size = 13, weight = 500, color = "$rc.accent" },
-				},
+				Button { id = "retry", label = "Retry", icon = "retry", look = "tinted", on_click = actions.retry_processing },
+				Button { id = "fix-provider", label = "Use API key…", look = "link", on_click = actions.fix_providers },
 			},
 		}
 	)

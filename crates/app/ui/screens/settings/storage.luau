@@ -6,7 +6,8 @@ local host = require("@app/host")
 local actions = require("@app/actions")
 local Icon = require("@components/icon")
 local parts = require("@screens/settings/parts")
-local controls = require("@screens/settings/controls")
+local Select = require("@components/select")
+local Button = require("@components/button")
 
 local KEEP = {
 	{ value = "0", label = "Forever" },
@@ -48,11 +49,11 @@ return function(): Node
 						color = "$rc.text.secondary",
 					},
 				},
-				parts.Button { id = "storage-change", label = "Change", on_click = actions.choose_storage_folder },
+				Button { id = "storage-change", label = "Change", look = "outlined", on_click = actions.choose_storage_folder },
 			},
 			parts.Row {
 				ui.text { "Keep meeting audio", grow = 1, basis = 0, text_size = 13, color = "$rc.text.primary" },
-				controls.Choice {
+				Select {
 					id = "set-keep_audio_days",
 					scope = "storage",
 					label = "Keep meeting audio",

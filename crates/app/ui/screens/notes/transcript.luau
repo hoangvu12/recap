@@ -7,6 +7,7 @@ local host = require("@app/host")
 local state = require("@app/state")
 local actions = require("@app/actions")
 local Icon = require("@components/icon")
+local Button = require("@components/button")
 local TranscriptRow = require("@components/transcript_row")
 local Chip = require("@components/chip")
 local processing = require("@lib/processing")
@@ -100,16 +101,13 @@ local function Speakers(): Node
 				}),
 			},
 			-- The Name speakers dialog (screens/6).
-			ui.button {
+			Button {
 				id = "name-speakers",
-				h = 24,
-				px = 4,
-				shrink = 0,
-				rounded = 4,
-				bg = "$rc.transparent",
-				hover = { bg = "$rc.fill.hover" },
+				label = "Name speakers",
+				look = "link",
+				compact = true,
+				weight = 400,
 				on_click = actions.name_speakers,
-				ui.text { "Name speakers", text_size = 13, color = "$rc.accent" },
 			},
 		}
 	)

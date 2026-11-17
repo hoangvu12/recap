@@ -8,7 +8,8 @@ local host = require("@app/host")
 local actions = require("@app/actions")
 local processing = require("@lib/processing")
 local Chip = require("@components/chip")
-local Icon = require("@components/icon")
+local Checkbox = require("@components/checkbox")
+local Button = require("@components/button")
 local Processing = require("./processing")
 local motion = require("@lib/motion")
 
@@ -145,40 +146,12 @@ local function NextStep(step: host.NextStep): Node
 			color = "$rc.text.tertiary",
 		})
 	end
-	return ui.button {
+	return Checkbox {
 		id = `next-{i}`,
-		role = "checkbox",
 		checked = done,
-		w_full = true,
-		py = 6,
-		px = 0,
-		gap = 10,
-		items = "start",
-		justify = "start",
-		rounded = 0,
-		bg = "$rc.transparent",
-		hover = { bg = "$rc.transparent" },
-		on_click = function()
-			actions.tick_next_step(i, not done())
+		on_change = function(on: boolean)
+			actions.tick_next_step(i, on)
 		end,
-		ui.div {
-			id = `next-{i}-box`,
-			w = 16,
-			h = 16,
-			mt = 2,
-			shrink = 0,
-			rounded = 4,
-			items = "center",
-			justify = "center",
-			border = function()
-				return if done() then 0 else 1
-			end,
-			border_color = "$rc.stroke.field",
-			bg = function()
-				return if done() then "$rc.accent" else "$rc.transparent"
-			end,
-			ui.show(done, Icon { name = "check", size = 12, color = "$rc.on.accent", id = `next-{i}-checked` }),
-		},
 		ui.column {
 			grow = 1,
 			basis = 0,
@@ -261,19 +234,7 @@ local function Empty(): Node
 		justify = "center",
 		gap = 12,
 		ui.text { "No summary yet", text_size = 13, color = "$rc.text.secondary" },
-		ui.button {
-			id = "regenerate",
-			h = 28,
-			px = 10,
-			gap = 6,
-			items = "center",
-			rounded = 6,
-			bg = "$rc.fill.selected",
-			hover = { bg = "$rc.fill.selected" },
-			on_click = actions.regenerate_summary,
-			Icon { name = "retry", size = 14, color = "$rc.text.primary" },
-			ui.text { "Write summary", text_size = 13, weight = 500, color = "$rc.text.primary" },
-		},
+		Button { id = "regenerate", label = "Write summary", icon = "retry", look = "tinted", on_click = actions.regenerate_summary },
 	}
 end
 

@@ -8,7 +8,8 @@ local actions = require("@app/actions")
 local providers = require("@lib/providers")
 local Icon = require("@components/icon")
 local Logo = require("@components/logo")
-local Keycap = require("@components/keycap")
+local Button = require("@components/button")
+local Dialog = require("@components/dialog")
 local IconButton = require("@components/icon_button")
 local Form = require("./form")
 
@@ -191,38 +192,27 @@ local function List(): Node
 			items = "center",
 			Icon { name = "settings" },
 			ui.text { "Add provider", grow = 1, text_size = 13, color = "$rc.text.secondary" },
-			ui.button {
+			Button {
 				id = "continue",
-				h = 28,
-				px = 6,
-				gap = 8,
-				items = "center",
-				rounded = 6,
-				bg = "$rc.transparent",
-				hover = { bg = "$rc.fill.hover" },
+				label = "Continue",
+				keys = { "↵" },
 				on_click = function()
 					actions.pick_preset(actions.selected_preset())
 				end,
-				ui.text { "Continue", text_size = 13, weight = 500, color = "$rc.text.primary" },
-				Keycap("↵"),
 			},
 		},
 	}
 end
 
 return function(): Node
-	return ui.modal {
+	return Dialog {
 		open = function()
 			return state.provider_sheet:get().screen ~= "closed"
 		end,
 		on_close = actions.close_provider_sheet,
 		label = "Add provider",
 		w = 640,
-		p = 0,
-		gap = 0,
-		rounded = 12,
 		bg = "$rc.bg.window",
-		border = 1,
 		border_color = "$rc.stroke.hairline",
 		build = function(): Node
 			return ui.switch(function()
