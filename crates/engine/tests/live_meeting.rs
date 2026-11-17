@@ -99,10 +99,17 @@ async fn both_sides_are_always_transcribed_live() {
     // transcribes Me for the Notes transcript (story 21).
     let mut meeting = start(SilenceSource::new(Duration::from_secs(150)));
     let (_, result) = drain(&mut meeting).await;
-    let mine = script().lines.iter().filter(|l| l.voice == "Mark").count();
-    assert!(mine > 0);
-    assert_eq!(result.rows.iter().filter(|r| r.source == Source::Me).count(), mine);
-    assert_eq!(result.segments.iter().filter(|s| s.source == Source::Me).count(), mine);
+    let script = script();
+    let mine: Vec<&str> = script.lines.iter().filter(|l| l.voice == "Mark").map(|l| l.text.as_str()).collect();
+    assert!(!mine.is_empty());
+    let rows: Vec<&str> =
+        result.rows.iter().filter(|r| r.source == Source::Me).map(|r| r.final_text.as_str()).collect();
+    assert_eq!(rows, mine, "a row per line of mine");
+    // Its finals (a line may be several) are what I said.
+    let finals: Vec<&str> =
+        result.segments.iter().filter(|s| s.source == Source::Me).map(|s| s.text.as_str()).collect();
+    assert!(finals.len() >= mine.len(), "{finals:?}");
+    assert!(finals.iter().all(|f| mine.iter().any(|line| line.contains(f))), "{finals:?}");
 }
 
 #[tokio::test]

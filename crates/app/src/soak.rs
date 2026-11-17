@@ -182,6 +182,10 @@ impl Verdict {
     }
 }
 
+/// A measure the verdict judges: its name, its value in a sample, its limit
+/// an hour and its unit.
+type Measure = (&'static str, fn(&Sample) -> f64, f64, &'static str);
+
 /// Judge `samples`: a measure grew if its trend after the warm-up is over its
 /// limit an hour, both over the whole warm stretch and over its second half
 /// (sustained: start-up that runs a little past the warm-up, then levels
@@ -192,7 +196,7 @@ pub fn verdict(samples: &[Sample], limits: &Limits) -> Verdict {
         return Verdict { ok: true, lines: vec![format!("too short to judge: {} warm samples", warm.len())] };
     }
     let late = &warm[warm.len() / 2..];
-    let measures: [(&str, fn(&Sample) -> f64, f64, &str); 4] = [
+    let measures: [Measure; 4] = [
         ("private bytes", |s| s.private_bytes as f64 / MIB, limits.private_mib_per_hour, "MiB"),
         ("handles", |s| s.handles as f64, limits.handles_per_hour, ""),
         ("GDI objects", |s| s.gdi_objects as f64, limits.gui_objects_per_hour, ""),
