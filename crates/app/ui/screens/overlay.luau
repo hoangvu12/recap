@@ -297,10 +297,17 @@ local function Toolbar(): Node
 end
 
 return function(): Node
-	-- Dim after 8 s without new words; new words undim at once.
+	-- Dim after 8 s without new words; new words undim at once (the dimmed
+	-- node is built again, at full opacity: a tween can't jump).
+	local undims = ui.state("captions_undims", 0)
 	ui.effect(function()
 		host.captions:get()
-		state.captions_idle:set(false)
+		if state.captions_idle:peek() then
+			state.captions_idle:set(false)
+			undims:set(undims:peek() + 1)
+		end
+		-- Restarted by each run (a timer started in an effect belongs to
+		-- that run): exactly what "8 s without new words" means.
 		ui.after(IDLE_MS, function()
 			state.captions_idle:set(true)
 		end)
@@ -308,10 +315,18 @@ return function(): Node
 
 	-- Shift the block up: a new turn (one line), or the bottom line
 	-- wrapping (what it grew). Never for a partial revised in place.
+	-- `total` is every shift so far: the block jumps down by it at once and
+	-- eases back up by it (motion.base), which slides each shift in.
 	local function shift(px: number)
 		local s = state.caption_shift:peek()
-		state.caption_shift:set({ px = px, count = s.count + 1 })
+		state.caption_shift:set({ px = px, count = s.count + 1, total = (s.total or 0) + px })
 	end
+	local total = ui.computed(function(): number
+		return state.caption_shift:get().total or 0
+	end)
+	local back = ui.computed(function(): number
+		return -total:get()
+	end)
 	-- The captions' room under the timer (px), once laid out.
 	local room = ui.state("captions_room", 0)
 	local newest: number? = nil
@@ -324,12 +339,54 @@ return function(): Node
 		if index ~= nil and newest ~= nil and index ~= newest then
 			turned = true
 			shift(line_height())
+		end
+		newest = index
+		-- The new turn's own growth isn't a wrap. A timer started in an
+		-- effect is stopped by its next run (LEARNINGS), so each run arms
+		-- it again while it is pending.
+		if turned then
 			ui.after(100, function()
 				turned = false
 			end)
 		end
-		newest = index
 	end)
+
+	-- The lines and status, dimmed while idle: to 50% over 400 ms (reduced
+	-- motion: at once). Undimmed at once: built again at full opacity.
+	local function Dimmed(): Node
+		return ui.column {
+			id = "captions-dim",
+			w_full = true,
+			opacity = motion.tween(state.captions_idle, { from = 1, to = IDLE_OPACITY, duration = IDLE_FADE_MS }),
+			ui.show(function()
+				return mode() == "reconnecting"
+			end, reconnecting()),
+			line(2),
+			line(1),
+			line(0),
+			ui.show(function()
+				return mode() == "paused"
+			end, paused()),
+			ui.show(function()
+				return mode() == "error"
+			end, failed()),
+		}
+	end
+
+	-- Up by every shift so far, easing (150 ms) toward it: with the block
+	-- down by it at once, each shift slides in (motion_spec §2.5). Built
+	-- again as reduced motion turns on or off (no slide then, and one under
+	-- way stops).
+	local function Slide(): Node
+		return ui.column {
+			id = "captions-slide",
+			w_full = true,
+			y = motion.tween(back, { duration = motion.base, ease = motion.ease.out }),
+			motion.Rebuilt(function()
+				return undims:get()
+			end, Dimmed),
+		}
+	end
 
 	-- Hovering 150 ms shows the toolbar; leaving hides it.
 	local stop_hover: (() -> ())? = nil
@@ -420,9 +477,11 @@ return function(): Node
 				ui.column {
 					id = "captions-block",
 					w_full = true,
-					-- Idle: dims to 50% over 400 ms (reduced motion: at once).
-					opacity = motion.tween(state.captions_idle, { from = 1, to = IDLE_OPACITY, duration = IDLE_FADE_MS }),
 					shrink = 0,
+					-- Down by every shift so far, at once...
+					y = function(): number
+						return total:get()
+					end,
 					on_resize = function(size)
 						local before = height
 						height = size.h
@@ -433,18 +492,8 @@ return function(): Node
 							shift(size.h - before)
 						end
 					end,
-					ui.show(function()
-						return mode() == "reconnecting"
-					end, reconnecting()),
-					line(2),
-					line(1),
-					line(0),
-					ui.show(function()
-						return mode() == "paused"
-					end, paused()),
-					ui.show(function()
-						return mode() == "error"
-					end, failed()),
+					-- ...and up by it again over 150 ms (Slide).
+					motion.Live(Slide),
 				},
 			},
 		},

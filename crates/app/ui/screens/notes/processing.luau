@@ -87,7 +87,8 @@ local function StepRow(i: number): Node
 			text_size = 13,
 			weight = 500,
 			line_height = 16,
-			-- pending → running → done: the colour eases (150 ms).
+			-- pending → running → done: the colour eases (150 ms; at once
+			-- under reduced motion, see the Live around the card).
 			color = motion.color(function()
 				local s = status()
 				return if s == "running" or s == "error"
@@ -199,7 +200,10 @@ return function(): Node
 	end, function()
 		local rows = {}
 		for i = 1, STEPS do
-			table.insert(rows, StepRow(i))
+			-- Built again as reduced motion changes: its colour ease follows.
+			table.insert(rows, motion.Live(function(): Node
+				return StepRow(i)
+			end))
 		end
 		return ui.column {
 			w_full = true,

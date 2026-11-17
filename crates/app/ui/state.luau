@@ -25,10 +25,11 @@ M.transcript_at_end = ui.state("transcript_at_end", true)
 M.seen_count = ui.state("seen_count", 0)
 -- The overlay: its hover toolbar is showing (after a 150 ms hover); no
 -- speech for 8 s (the text dims); the last shift up of its lines, in
--- points, and how many shifts there have been (wrap or new turn).
+-- points, how many shifts there have been (wrap or new turn), and all
+-- shifts added up (the slide eases that back to 0).
 M.overlay_toolbar = ui.state("overlay_toolbar", false)
 M.captions_idle = ui.state("captions_idle", false)
-M.caption_shift = ui.state("caption_shift", { px = 0, count = 0 })
+M.caption_shift = ui.state("caption_shift", { px = 0, count = 0, total = 0 })
 -- The stored transcript's row last clicked (Play from here ↵); 0 none.
 M.selected_row = ui.state("selected_row", 0)
 -- The row whose speaker chip is being renamed inline (screens/5): its

@@ -26,10 +26,10 @@ zgx has two kinds of animation. Bindings (`ui.tween`, `ui.loop`) are played by e
 - Keyboard surfaces, such as the Ctrl K action panel, open instantly.
 
 ## Consequences
-- The overlay:
-  - The overlay's line shift no longer slides. A binding can't replay a move from a varying offset, so the block moves at once (`caption_shift` still counts shifts).
-  - The idle dim is a tween on `captions_idle`, so the undim also eases (400 ms), where the spec says it is instant.
+- The overlay (revised in fix/review):
+  - The line shift slides (150 ms). `caption_shift.total` adds up every shift; the captions block moves down by it at once (a plain `y` function) and an inner node eases up by it (`motion.tween` of `-total`), so the sum starts a shift lower and eases to 0. Two nodes do what one binding can't (replay a move from a varying offset).
+  - The idle dim eases (400 ms); the undim is instant: the dimmed node is built again (`motion.Rebuilt` on an undim counter), and a new tween starts where its source is.
 - Entrances play from the frame after mount.
-- A tween built while motion is allowed keeps its duration if the user turns animations off mid-session. Entrances, presences and loops follow the setting at once.
+- A tween's duration is fixed when it is built. `motion.Live(build)` builds a node again as reduced motion changes (a `ui.presence` with no enter/exit, so it lays out in place), and wraps the long-lived tweens: the overlay's slide and dim, Settings' switches, the processing steps' colours. A running animation there stops at once. Wrapping whole windows was tried and dropped: the window's key handlers stopped receiving keys. Short one-off tweens (an entrance, a 150 ms colour run in a row, a chip flash) are not wrapped; they finish within 600 ms.
 - Loops don't pause when a window is hidden. zgx doesn't draw a hidden window, and the spec's "pause when minimised" isn't wired separately.
 - If zgx ever ticks anime per window, the anime-based forms could come back. Until then, a test that passes headless can still hide content in the app, so check new motion in the real app.

@@ -94,15 +94,83 @@ test("reduced motion: the overlay's rec dot is solid", function()
 	expect(win:has("#rec-dot-solid")).to_be(true)
 end)
 
+-- Where `target` is drawn now (its top, px), transforms included.
+local function top(win, target): number
+	local first = string.match(win:tree(target), "^[^\n]*") or ""
+	return tonumber(string.match(first, " %-?%d+,(%-?%d+) %d+x%d+")) :: number
+end
+
+test("a new turn slides the lines up one line over 150 ms", function()
+	local app = mount()
+	local win = overlay(app)
+	app:frames(20)
+	local rest = top(win, "#caption-0")
+	app:set_state("captions", { TWO[2], { index = 6, source = "them", final = "", partial = "Agreed." } })
+	app:frames(1)
+	expect(win:text("#caption-0")).to_be("Agreed.")
+	-- It starts a line (28 px) lower, where the last line was pushed from.
+	local start = top(win, "#caption-0") - rest
+	expect(start > 14 and start <= 28).to_be(true)
+	app:frames(4)
+	local mid = top(win, "#caption-0") - rest
+	expect(mid > 0 and mid < start).to_be(true)
+	-- 150 ms: in place.
+	app:frames(10)
+	expect(top(win, "#caption-0")).to_be(rest)
+end)
+
 test("reduced motion: a new turn still moves the lines up, without the slide", function()
 	local app = mount()
 	local win = overlay(app, { reduced = true })
+	app:frames(20)
+	local rest = top(win, "#caption-0")
 	local before = app:state("caption_shift").count
 	app:set_state("captions", { TWO[2], { index = 6, source = "them", final = "", partial = "Agreed." } })
-	app:frames(1)
+	app:frames(2)
 	expect(app:state("caption_shift").count).to_be(before + 1)
+	expect(top(win, "#caption-0")).to_be(rest)
 	expect(win:text("#caption-0")).to_be("Agreed.")
 	expect(win:text("#caption-1")).to_be("If load testing still fails, we fall back to a soft")
+end)
+
+test("turning Animation effects off stills a slide already running", function()
+	local app = mount()
+	local win = overlay(app)
+	app:frames(20)
+	local rest = top(win, "#caption-0")
+	app:set_state("captions", { TWO[2], { index = 6, source = "them", final = "", partial = "Agreed." } })
+	app:frames(1)
+	expect(top(win, "#caption-0") > rest).to_be(true)
+	app:set_state("reduce_motion", true)
+	app:frames(2)
+	expect(top(win, "#caption-0")).to_be(rest)
+	-- Built again once: the next turn is one shift, not two.
+	local before = app:state("caption_shift").count
+	app:set_state("captions", { { index = 6, source = "them", final = "Agreed.", partial = "" }, { index = 7, source = "them", final = "", partial = "Good." } })
+	app:frames(2)
+	expect(app:state("caption_shift").count).to_be(before + 1)
+	expect(top(win, "#caption-0")).to_be(rest)
+end)
+
+-- The node `target` is drawn by (its number in the tree).
+local function node(win, target): string
+	return string.match(win:tree(target), "^%s*@(%d+)") :: string
+end
+
+test("idle dims with an ease; new words undim at once", function()
+	local app = mount()
+	local win = overlay(app)
+	local dim = node(win, "#captions-dim")
+	app:frames(8 * 60 + 12)
+	expect(win:has("#captions-idle")).to_be(true)
+	-- Dimming eases the same node (a 400 ms tween)...
+	expect(node(win, "#captions-dim")).to_be(dim)
+	app:set_state("captions", { TWO[1], { index = 5, source = "them", final = "If load testing still fails, we fall back", partial = "to" } })
+	app:frames(1)
+	expect(win:has("#captions-idle")).to_be(false)
+	-- ...undimming starts it afresh, at full opacity: no ease back.
+	expect(node(win, "#captions-dim") ~= dim).to_be(true)
+	expect(win:text("#caption-0")).to_be("If load testing still fails, we fall back to")
 end)
 
 test("reduced motion: idle still dims the text", function()

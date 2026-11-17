@@ -16,6 +16,9 @@
 --   motion.entrance(play, m?)         ENTER as props, inside a ui.component
 --   motion.tween / motion.color       a property easing as a state changes
 --   motion.Looping(moving, still)     a loop, or its still form
+--   motion.Rebuilt(key, build)        build() again whenever key() changes
+--   motion.Live(build)                build() again as reduced motion changes
+--                                     (each window's content is Live)
 --   motion.reduced()                  tracked: is motion reduced now?
 --
 -- Only opacity, colour and transform animate; never layout or blur.
@@ -240,8 +243,9 @@ export type TweenOptions = { duration: number?, ease: string?, from: any?, to: a
 
 -- A property that eases as `source` (a state) changes: `ui.tween` with our
 -- defaults (150 ms ease-out). Colours may be tokens (`"$rc.text.primary"`):
--- zgx mixes theme colours. Under reduced motion (as the node is built) it
--- changes at once.
+-- zgx mixes theme colours. Under reduced motion it changes at once: decided
+-- as the node is built, and every window is `Live` (windows.luau), so a
+-- change of the setting rebuilds it.
 function M.tween(source: any, opts: TweenOptions?): any
 	local o: { [string]: any } = {}
 	for k, v in (opts or {}) :: any do
@@ -256,6 +260,27 @@ end
 -- (`motion.fast` colour swaps, 150 ms by default).
 function M.color(token: () -> string, duration: number?): any
 	return M.tween(ui.computed(token), { duration = duration or M.base })
+end
+
+-- `build()`, built again whenever `key()` changes: what was animating in it
+-- is at rest at once (a tween's new node starts where its source is). Tween
+-- durations are fixed when a node is built, so this is how a change "at
+-- once" reaches them. It lays out as if `build()` stood in its place (a
+-- `ui.presence` with no enter or exit: those would need the anime engine),
+-- and what `build()` started (effects, timers) ends with it.
+function M.Rebuilt(key: () -> any, build: () -> Node): Node
+	return ui.presence(function(): string
+		return tostring(key())
+	end, function(_): Node
+		return build()
+	end)
+end
+
+-- `build()`, built again as reduced motion turns on or off (Windows'
+-- Animation effects, live): every tween in it then has the new durations,
+-- and one running stops where it is going.
+function M.Live(build: () -> Node): Node
+	return M.Rebuilt(M.reduced, build)
 end
 
 -- A loop (`moving`, built with ui.loop) while motion is allowed, `still`
