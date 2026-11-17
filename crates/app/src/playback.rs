@@ -132,23 +132,31 @@ enum Command {
 /// The playback thread. It ends when this is dropped.
 pub struct Player {
     commands: std_mpsc::Sender<Command>,
+    /// The thread didn't start: every play fails, told with this.
+    broken: Option<(String, UnboundedSender<PlayerEvent>)>,
 }
 
 impl Player {
     /// Start the thread; `output` makes its output there (on the first clip,
     /// so a machine with no sound device only fails when asked to play).
+    /// A thread that can't start fails each play the same way.
     pub fn spawn(output: impl FnOnce() -> Box<dyn Output> + Send + 'static) -> (Player, UnboundedReceiver<PlayerEvent>) {
         let (commands, inbox) = std_mpsc::channel();
         let (events, out) = mpsc::unbounded_channel();
-        std::thread::Builder::new()
-            .name("recap-playback".into())
-            .spawn(move || run(inbox, events, output))
-            .expect("the playback thread starts");
-        (Player { commands }, out)
+        let started = std::thread::Builder::new().name("recap-playback".into()).spawn({
+            let events = events.clone();
+            move || run(inbox, events, output)
+        });
+        let broken = started.err().map(|error| (format!("Playback can't start: {error}"), events));
+        (Player { commands, broken }, out)
     }
 
     /// Play `what` of the recording at `audio`, told as `key`.
     pub fn play(&self, key: &str, audio: PathBuf, what: What) {
+        if let Some((error, events)) = &self.broken {
+            let _ = events.send(PlayerEvent::Failed { key: key.to_owned(), error: error.clone() });
+            return;
+        }
         let _ = self.commands.send(Command::Play { key: key.to_owned(), audio, what });
     }
 

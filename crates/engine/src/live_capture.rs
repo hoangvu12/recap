@@ -120,9 +120,10 @@ impl LiveCapture {
                     Some(mic_ready),
                 );
             }
-        }));
+        })
+        .map_err(CaptureError::Mic)?);
         let (system_ready, system_first) = mpsc::channel();
-        threads.push(spawn("recap-capture-system", {
+        let system = spawn("recap-capture-system", {
             let (tx, stop) = (tx, stop.clone());
             move || {
                 let _com = wasapi::initialize_mta();
@@ -136,7 +137,15 @@ impl LiveCapture {
                     Some(system_ready),
                 );
             }
-        }));
+        });
+        match system {
+            Ok(thread) => threads.push(thread),
+            Err(error) => {
+                // The mic's thread ends on its own.
+                stop.store(true, Ordering::SeqCst);
+                return Err(CaptureError::MeetingAudio(error));
+            }
+        }
 
         let capture = LiveCapture { packets, timeline: Timeline::new(), queue: VecDeque::new(), clock, stop, threads };
         let first = |rx: mpsc::Receiver<Result<(), String>>| {
@@ -153,8 +162,8 @@ fn mic_exists(id: &str) -> bool {
     microphones().iter().any(|(known, _)| known == id)
 }
 
-fn spawn(name: &str, f: impl FnOnce() + Send + 'static) -> JoinHandle<()> {
-    std::thread::Builder::new().name(name.into()).spawn(f).expect("a capture thread starts")
+fn spawn(name: &str, f: impl FnOnce() + Send + 'static) -> Result<JoinHandle<()>, String> {
+    std::thread::Builder::new().name(name.into()).spawn(f).map_err(|error| format!("its thread didn't start: {error}"))
 }
 
 impl AudioSource for LiveCapture {

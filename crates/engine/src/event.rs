@@ -81,7 +81,8 @@ pub enum EngineEvent {
     /// on, that side uncaptioned until `MeetingControl::replace_live`.
     Error { source: Source, error: ProviderError },
     /// The recording could not be written (disk full, folder gone): what is
-    /// on disk so far stays; captions go on.
+    /// on disk so far stays; captions go on. Also when the audio can't be
+    /// read at all (no thread for it): the meeting ends.
     RecordingFailed(String),
     /// The last event: what the meeting produced.
     Finished(MeetingResult),

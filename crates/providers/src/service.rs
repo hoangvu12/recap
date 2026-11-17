@@ -5,7 +5,7 @@ use std::{
     collections::HashMap,
     future::Future,
     path::PathBuf,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, MutexGuard},
     time::Instant,
 };
 
@@ -82,6 +82,13 @@ struct State {
     tested: HashMap<String, TestOutcome>,
 }
 
+/// The providers' state. A panic while it was held leaves it whole (every
+/// change is one assignment or a `retain`), so a poisoned lock is used as is:
+/// a meeting must not lose its captions over an earlier panic.
+fn lock(state: &Mutex<State>) -> MutexGuard<'_, State> {
+    state.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 /// The user's providers. Cheap to clone; every clone is the same.
 #[derive(Clone)]
 pub struct Providers {
@@ -134,7 +141,7 @@ impl Providers {
             state: Arc::new(Mutex::new(State { config: Config::default(), tested: HashMap::new() })),
         };
         let config = config.unwrap_or_else(|| providers.defaults());
-        providers.state.lock().expect("providers").config = config;
+        lock(&providers.state).config = config;
         providers
     }
 
@@ -185,7 +192,7 @@ impl Providers {
     }
 
     fn entry(&self, id: &str) -> Option<Entry> {
-        self.entry_in(&self.state.lock().expect("providers").config, id)
+        self.entry_in(&lock(&self.state).config, id)
     }
 
     fn eligible_in(&self, config: &Config, job: Job) -> Vec<String> {
@@ -198,12 +205,12 @@ impl Providers {
 
     /// The providers that can do `job`, in the order they are listed.
     pub fn eligible(&self, job: Job) -> Vec<String> {
-        self.eligible_in(&self.state.lock().expect("providers").config, job)
+        self.eligible_in(&lock(&self.state).config, job)
     }
 
     /// `job`'s main and backup.
     pub fn choice(&self, job: Job) -> (Option<String>, Option<String>) {
-        let state = self.state.lock().expect("providers");
+        let state = lock(&self.state);
         let choice = state.config.jobs.get(&job).cloned().unwrap_or_default();
         (choice.main, choice.backup)
     }
@@ -218,7 +225,7 @@ impl Providers {
     /// Make `id` the main or backup of `job` (`None`: no backup). The main
     /// and backup trade places when one is chosen for the other.
     pub fn set_job(&self, job: Job, slot: Slot, id: Option<&str>) -> Result<(), ProvidersError> {
-        let mut state = self.state.lock().expect("providers");
+        let mut state = lock(&self.state);
         if let Some(id) = id
             && !self.eligible_in(&state.config, job).iter().any(|e| e == id)
         {
@@ -258,7 +265,7 @@ impl Providers {
             }
             return Ok(preset.id.into());
         }
-        let mut state = self.state.lock().expect("providers");
+        let mut state = lock(&self.state);
         let existing = form.id.as_ref().and_then(|id| state.config.ai.iter().position(|p| &p.id == id));
         let mut config = match existing {
             Some(at) => state.config.ai[at].clone(),
@@ -306,7 +313,7 @@ impl Providers {
             "" => self.secrets.delete(id)?,
             key => self.secrets.set(id, key)?,
         }
-        self.state.lock().expect("providers").tested.remove(id);
+        lock(&self.state).tested.remove(id);
         Ok(())
     }
 
@@ -316,7 +323,7 @@ impl Providers {
         if self.speech().any(|p| p.id == id) {
             return Err(ProvidersError::BuiltIn(id.into()));
         }
-        let mut state = self.state.lock().expect("providers");
+        let mut state = lock(&self.state);
         let before = state.config.ai.len();
         state.config.ai.retain(|p| p.id != id);
         if state.config.ai.len() == before {
@@ -419,7 +426,7 @@ impl Providers {
                 Err(error) => TestOutcome { ok: false, latency_ms, error: Some(error.message) },
             };
             if let Some(id) = id {
-                state.lock().expect("providers").tested.insert(id, outcome.clone());
+                lock(&state).tested.insert(id, outcome.clone());
             }
             outcome
         }
@@ -467,7 +474,7 @@ impl Providers {
     /// What the Providers page shows (`ui/host.luau` has the shape). Keys
     /// only masked.
     pub fn view(&self) -> serde_json::Value {
-        let state = self.state.lock().expect("providers");
+        let state = lock(&self.state);
         let config = &state.config;
         let jobs: Vec<_> = Job::ALL
             .iter()
@@ -519,5 +526,28 @@ impl Providers {
         let ai: Vec<_> = config.ai.iter().filter_map(|p| row(&p.id)).collect();
         let presets: Vec<_> = self.registry.presets().iter().filter(|p| p.group != Group::Speech).collect();
         json!({ "jobs": jobs, "stt": stt, "ai": ai, "presets": presets })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::MemorySecrets;
+
+    #[test]
+    fn a_panic_while_the_state_was_held_leaves_the_providers_usable() {
+        let providers = Providers::open(Registry::builtin(), None, Arc::new(MemorySecrets::default()));
+        let before = providers.choice(Job::Live);
+        let held = providers.clone();
+        let _ = std::thread::spawn(move || {
+            let _state = held.state.lock();
+            panic!("mid-change");
+        })
+        .join();
+        assert!(providers.state.is_poisoned());
+        assert_eq!(providers.choice(Job::Live), before);
+        providers.set_job(Job::Live, Slot::Backup, None).unwrap();
+        assert_eq!(providers.choice(Job::Live).1, None);
+        assert!(providers.view()["stt"].is_array());
     }
 }

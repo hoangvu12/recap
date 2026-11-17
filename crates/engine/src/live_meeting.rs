@@ -96,14 +96,18 @@ pub struct Meeting {
 impl Meeting {
     /// Start recording from `source`, captioning live with `live`. Call it
     /// inside a tokio runtime; the source is read on a thread of its own.
+    /// If that thread can't start, `RecordingFailed` says so and the meeting
+    /// ends at once, as if its audio had.
     pub fn start(config: MeetingConfig, source: Box<dyn AudioSource>, live: Arc<dyn LiveStt>) -> Meeting {
         let (event_tx, events) = mpsc::unbounded_channel();
         let (control_tx, control_rx) = mpsc::unbounded_channel();
         let (audio_tx, audio_rx) = mpsc::channel(64);
-        std::thread::Builder::new()
-            .name("recap-audio-source".into())
-            .spawn(move || read_source(source, audio_tx))
-            .expect("the audio source thread starts");
+        let reader =
+            std::thread::Builder::new().name("recap-audio-source".into()).spawn(move || read_source(source, audio_tx));
+        if let Err(error) = reader {
+            // The sender went with the closure: the audio is over.
+            let _ = event_tx.send(EngineEvent::RecordingFailed(format!("The audio can't be read: {error}")));
+        }
         tokio::spawn(run(config, live, audio_rx, control_rx, event_tx));
         Meeting { events, control: MeetingControl(control_tx) }
     }
